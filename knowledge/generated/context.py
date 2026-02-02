@@ -838,6 +838,128 @@ Z6 through Z8 are short, explosive efforts measured in seconds. Maximum power, g
 
 Here's the key insight: if prescribed Z1 feels hard, something is wrong. Either you're going too fast, you're fatigued, or you might be fighting off illness. Check in with yourself."""
 
+        # =====================================================================
+        # MOTIVATION & MENTAL (new contexts for athlete support)
+        # =====================================================================
+
+        self._contexts["motivation_v4__losing_motivation"] = """Here's something important: motivation ebbs and flows naturally, and that's completely normal. Every athlete experiences periods where training feels like a chore rather than a joy. The secret isn't finding constant motivation—it's building consistency that carries you through the low patches.
+
+Small wins compound over time in ways that aren't always visible day to day. Showing up matters more than showing up perfectly. On days when you really don't feel like training, the "just show up" principle works wonders—commit to ten minutes of easy movement. Often you'll feel better once you start, and if you don't, ten easy minutes still maintained the habit.
+
+Discipline is what carries you when motivation fades. Think of training like brushing your teeth—you don't wait until you feel motivated to do it. You just do it because it's part of who you are."""
+
+        self._contexts["motivation_v4__setbacks"] = """Setbacks are part of every athlete's journey—not a sign that something's wrong with you. One missed week doesn't erase months of work. Your fitness has momentum, and it takes more than a short break to undo what you've built.
+
+The key is reframing missed sessions without guilt. Life happens: work deadlines, family needs, illness, travel. These aren't failures—they're just life being life. What matters is how you respond. Getting back on track always starts with one easy session. Not a punishing makeup workout, just a gentle return to movement.
+
+Be kind to yourself—you're human. The athletes who thrive long-term aren't the ones who never miss sessions. They're the ones who miss sessions, forgive themselves quickly, and get back to it without drama. That's the real skill."""
+
+        # =====================================================================
+        # ILLNESS & INJURY (added to recovery domain)
+        # =====================================================================
+
+        self._contexts["recovery_v4__illness"] = """When you're sick, your immune system needs all available resources to fight the infection. Training diverts energy away from recovery and can actually prolong illness or make it worse. This isn't being weak—it's being smart.
+
+The rule is simple: no training with fever, period. Your heart is already working harder than normal just to fight the illness. Adding exercise stress on top of that is genuinely risky. Wait until you've been symptom-free for at least 48 hours before any easy movement. Then give it another 48 to 72 hours before any intensity work.
+
+I know it feels like you're losing fitness, but here's the truth: your fitness won't disappear in a week of rest. What will set you back is rushing your return and extending the illness into weeks. A few days of complete rest now prevents weeks of compromised training later. Trust this."""
+
+        self._contexts["recovery_v4__injury"] = """Sharp pain means stop immediately—not "push through," not "see if it goes away," just stop. There's a crucial difference between normal training soreness and injury warning signs. Soreness is diffuse, appears a day or two after training, and improves with gentle movement. Injury pain is often sharp, localized, happens during movement, and doesn't improve or gets worse.
+
+When in doubt, seek professional help. A sports physio or doctor can diagnose what's actually happening and give you a timeline. Guessing and hoping rarely works out well. If one area is injured, ask about cross-training options that don't stress that area—many injuries allow some form of modified training.
+
+Here's the hardest truth: patience in return is absolutely essential. Coming back too fast is exactly how small injuries become big ones. The week you "saved" by rushing back often costs you months in the long run. Respect the healing process."""
+
+        # =====================================================================
+        # BEGINNER GUIDANCE (for new athletes)
+        # =====================================================================
+
+        self._contexts["beginner_v4__getting_started"] = """Here's the most important advice for getting started: begin easier than you think you need to. Seriously. The number one mistake new athletes make is starting too hard, getting injured or burnt out, and quitting. Don't be that statistic.
+
+Consistency beats intensity every single time for beginners. Your first six weeks aren't really about building fitness—they're about building the habit. Getting your body used to regular movement. Teaching your brain that training is just part of what you do now.
+
+We unlock intensity zones progressively for good reason. Your cardiovascular system adapts quickly and will make you feel ready for more. But your tendons and bones adapt much slower—they need months to strengthen. If you push intensity before they're ready, injury follows. Trust the progression. The fittest athletes all started exactly where you are now."""
+
+        self._contexts["beginner_v4__first_weeks"] = """Let me tell you what to expect in your first few weeks, because knowing this prevents a lot of unnecessary worry. Feeling slow is normal and correct. If your easy training feels easy, you're doing it right—not wrong.
+
+During these early weeks, you should be able to talk easily during training. If you're gasping for breath, you're going too hard. I know it feels unproductive, but this easy effort is building your aerobic foundation—the base that everything else sits on.
+
+Building this foundation takes patience. You won't see dramatic changes in weeks one through four, and that's okay. The changes are happening inside—your body is adapting at the cellular level. Everyone starts somewhere, and the fittest athletes you admire? They all began with easy Zone 2 work, feeling slow, wondering if it was enough. It was. And it is for you too."""
+
+        self._contexts["beginner_v4__common_mistakes"] = """Let's talk about the mistakes I see beginners make, so you can avoid them. The biggest one by far is starting too hard too fast. The enthusiasm is great, but your body needs time to adapt. Doing too much too soon leads to injury, burnout, or both.
+
+"No pain no gain" is wrong for endurance training. That mindset belongs in short-term strength training, not in building aerobic fitness. Easy work genuinely builds your base—it's not slacking, it's smart training. The athletes who improve most are often the ones who have the discipline to go easy when easy is prescribed.
+
+Comparing yourself to others is another trap. You're not them. They have different genetics, different training history, different life circumstances. The only useful comparison is to yesterday's version of yourself. And finally: skipping rest days doesn't make you faster. It makes you tired, then injured. Rest is when adaptation happens."""
+
+        # =====================================================================
+        # LIFE BALANCE (training around real life)
+        # =====================================================================
+
+        self._contexts["balance_v4__time_constraints"] = """Quality over quantity, always. This isn't just a nice saying—it's backed by research. Three focused 30-minute sessions will make you fitter than zero "perfect" one-hour sessions that never happen because life gets in the way.
+
+There's a concept called minimum effective dose. Some training is infinitely better than none. A 20-minute run still builds fitness. A 15-minute bike commute still counts. Even a brisk 10-minute walk contributes to your aerobic base. Don't let perfect be the enemy of good.
+
+Micro training—your commute, taking stairs, walking during lunch—can supplement structured sessions. These small doses add up over a week. The research shows that even brief bursts of activity provide real health and fitness benefits. So if you're time-crunched, don't think "I can't train properly." Think "What can I fit in?" Something always beats nothing."""
+
+        self._contexts["balance_v4__busy_periods"] = """Here's something important: scaling back during busy periods is not failing—it's being smart. Life has seasons, and training should flex with them. Work deadlines, family demands, moving house, new baby—these are legitimate reasons to do less, and doing less is the right call.
+
+Maintenance mode exists for exactly these times. Two or three shorter sessions per week can maintain most of your fitness for weeks or even months. You're not going backward—you're holding steady until life calms down. That's a win.
+
+Life stress—work pressure, relationship issues, financial worry—directly affects your training capacity. Stress is stress, and your body doesn't distinguish between sources. When external stress is high, your ability to absorb training stress is lower. You have full permission to do less when life demands more. The training will be there when things calm down. It's not going anywhere."""
+
+        # =====================================================================
+        # MASTERS ATHLETES 40-65 (age-appropriate guidance)
+        # =====================================================================
+
+        self._contexts["masters_v4__training_differently"] = """The same training principles that work for younger athletes work for you—just with different timelines. This is really important to understand. You're not doing something different; you're doing the same thing with appropriate adjustments.
+
+Recovery genuinely takes longer as we age, but adaptation absolutely still happens. Studies consistently show that masters athletes continue to improve with proper training. We use shorter mesocycles—21 days instead of 28—to match your physiology. This isn't a limitation; it's optimization for how your body works now.
+
+Spacing intensity sessions further apart is smart, not weak. A 25-year-old might do two hard sessions in a week with 48 hours between them. You might need 72 to 96 hours between those same sessions. Same quality work, just different timing. The adaptation is identical—you're just giving your body the time it needs to actually adapt."""
+
+        self._contexts["masters_v4__age_advantage"] = """Let's talk about what you have that younger athletes often lack: experience and patience. These are genuine advantages, not consolation prizes. You know your body better than someone who's only been training for two years. You've learned what works for you, what warning signs to watch for, how to pace yourself.
+
+Masters athletes often train smarter than their younger counterparts. Less ego, more wisdom. Less "push through everything," more "train consistently over years." This approach actually produces better long-term results than the burn-bright-burn-out pattern common in younger athletes.
+
+Personal records are absolutely still possible with intelligent training. Many masters athletes set PRs well into their 40s and 50s by training consistently and recovering properly. Your potential hasn't disappeared—it just requires a smarter approach to unlock. And consistency? Consistency beats youthful intensity over time, every time."""
+
+        # =====================================================================
+        # SENIOR ATHLETES 70-90+ (supportive guidance for older athletes)
+        # =====================================================================
+
+        self._contexts["seniors_v4__never_too_late"] = """Here's what the research proves beyond any doubt: fitness gains are possible at any age. I mean any age. Muscle can be built in your 80s—multiple studies confirm this. Cardiovascular improvements happen even at 90 and beyond. Your body still responds to training stimulus, just as it always has.
+
+It is genuinely never too late to start. I've seen people begin structured exercise in their 70s and 80s and experience life-changing improvements in their daily function, energy, and independence. The adaptations are real and measurable.
+
+You might have heard that the best time to start was years ago. That's true. But the second best time is today. Right now. Whatever you can do, however small it seems, is infinitely better than doing nothing. Your body is waiting to respond—it just needs the signal."""
+
+        self._contexts["seniors_v4__safety_first"] = """Before starting or significantly changing your exercise routine, medical clearance is recommended. This isn't about being overly cautious—it's about being smart. A quick conversation with your doctor helps identify any considerations specific to your health situation.
+
+Begin very gently. Walking is completely valid training—don't let anyone tell you otherwise. A 10-minute walk is real exercise. A 15-minute walk is better. There's no minimum threshold you need to cross before "it counts." It all counts.
+
+Falls prevention becomes increasingly important as we age, and balance work helps significantly. Simple exercises like standing on one foot while holding a chair, or heel-to-toe walking, build the stability that keeps you safe. Listen to your body with deep respect—it has decades of wisdom. There's no rush here, and there's no competition. Just you, getting a little stronger, a little more capable, one gentle session at a time."""
+
+        self._contexts["seniors_v4__realistic_goals"] = """Let's talk about meaningful goals for this stage of life. Performance metrics like pace or watts matter less than function and independence. Can you climb stairs without getting winded? Carry groceries from the car? Get up from a low chair without help? Play with grandchildren? These are worthy, important goals.
+
+Maintaining the ability to do daily activities independently—that's what training is really for at this stage. Every session contributes to your quality of life in ways that are more valuable than any race time.
+
+Consistency matters far more than intensity. Three gentle 15-minute sessions per week, maintained over months and years, will transform your capabilities more than occasional intense efforts ever could. Show up regularly, move gently, and let the accumulated benefit work its magic. Every single movement counts and adds up over time."""
+
+        self._contexts["seniors_v4__adaptation_timeline"] = """Adaptations take longer at this stage, but they genuinely happen. I want you to understand this clearly: your body still responds to training. It still gets stronger, still builds endurance, still improves. The timeline is just extended compared to when you were younger.
+
+Patience is absolutely essential. You might not notice changes week to week, but look back over months and you'll see real progress. Keep a simple log—how far you walked, how you felt, what you could do. The improvements accumulate quietly.
+
+Celebrate every small win—they genuinely matter. Walked an extra minute today? That's progress. Felt less winded on the stairs? That's adaptation happening. Compare only to yesterday's version of yourself, never to others and never to your younger self. You're on your own journey, and every step forward deserves recognition. Recovery deserves deep respect—take the rest days, take them fully, and know that rest is when the magic happens."""
+
+        self._contexts["seniors_v4__what_to_expect"] = """Your training will be mostly Zone 1 and Zone 2 work—easy, conversational effort where you could chat with a friend. This isn't "taking it easy" in a disappointing way; this is exactly what's appropriate and effective for building fitness at this stage.
+
+Intensity work—harder efforts that leave you breathing hard—should only happen if you're medically cleared and feeling genuinely ready on that day. There's no pressure to include it. Many seniors build excellent fitness on easy work alone.
+
+Shorter sessions are perfectly fine and effective. Twenty minutes is great. Fifteen minutes is great. Even ten minutes counts and contributes to your fitness. Showing up regularly matters infinitely more than session length. If you can only manage a short walk today, that short walk is exactly right.
+
+The best exercise is simply the one you'll actually do consistently. If walking works for you, walk. If swimming feels good, swim. If gentle cycling appeals, cycle. Find what you enjoy enough to repeat, and then repeat it. That's the whole secret."""
+
     def get(self, card: str, context_id: str) -> Optional[str]:
         """Get context text."""
         key = f"{card}__{context_id}"

@@ -633,6 +633,148 @@ CONTEXT_QUESTIONS: Dict[str, List[str]] = {
         "How does the plan validation work?",
         "What checks happen before planning?",
     ],
+
+    # =========================================================================
+    # NEW CONTEXTS: Motivation & Mental
+    # =========================================================================
+    "motivation_v4__losing_motivation": [
+        "I'm losing motivation to train",
+        "How do I stay motivated?",
+        "Training feels like a chore lately",
+        "I don't feel like training anymore",
+        "What do I do when motivation is low?",
+        "How do I keep going when I don't want to?",
+    ],
+    "motivation_v4__setbacks": [
+        "I missed a week of training - now what?",
+        "How do I deal with setbacks?",
+        "I feel guilty about missed sessions",
+        "How do I get back on track after a break?",
+        "I've fallen behind on my training",
+        "How do I recover from a training setback?",
+    ],
+
+    # =========================================================================
+    # NEW CONTEXTS: Illness & Injury
+    # =========================================================================
+    "recovery_v4__illness": [
+        "Should I train when sick?",
+        "I have a cold - can I still train?",
+        "When can I train after being ill?",
+        "How do I return after illness?",
+        "I'm sick - what should I do about training?",
+        "Can I train with a fever?",
+    ],
+    "recovery_v4__injury": [
+        "I'm injured - what should I do?",
+        "How do I know if it's an injury or just soreness?",
+        "When should I see a doctor about pain?",
+        "How do I return after injury?",
+        "I have a nagging pain - should I push through?",
+        "How do I avoid making an injury worse?",
+    ],
+
+    # =========================================================================
+    # NEW CONTEXTS: Beginner Guidance
+    # =========================================================================
+    "beginner_v4__getting_started": [
+        "I'm a complete beginner - where do I start?",
+        "How do I start training from zero?",
+        "I've never trained before - what should I know?",
+        "What's the best way to begin?",
+        "I want to start running but don't know how",
+        "How do I start without getting injured?",
+    ],
+    "beginner_v4__first_weeks": [
+        "What should I expect in my first weeks?",
+        "Why does easy training feel so slow?",
+        "Am I training hard enough as a beginner?",
+        "What's normal when starting out?",
+        "Should I be doing more as a beginner?",
+    ],
+    "beginner_v4__common_mistakes": [
+        "What mistakes do beginners make?",
+        "How do I avoid beginner mistakes?",
+        "Is no pain no gain true?",
+        "Am I doing something wrong?",
+        "Why do so many beginners get injured?",
+    ],
+
+    # =========================================================================
+    # NEW CONTEXTS: Life Balance
+    # =========================================================================
+    "balance_v4__time_constraints": [
+        "I only have 30 minutes to train - is that enough?",
+        "How do I fit training into a busy schedule?",
+        "Can short workouts really work?",
+        "I'm time-crunched - what should I do?",
+        "What's the minimum training that works?",
+        "I don't have time for long sessions",
+    ],
+    "balance_v4__busy_periods": [
+        "How do I balance training with a busy life?",
+        "Work is crazy right now - should I keep training?",
+        "Is it okay to scale back during busy times?",
+        "How do I handle training during stressful periods?",
+        "Life is overwhelming - what about training?",
+        "Can I maintain fitness with minimal training?",
+    ],
+
+    # =========================================================================
+    # NEW CONTEXTS: Masters Athletes (40-65)
+    # =========================================================================
+    "masters_v4__training_differently": [
+        "How should training change as I get older?",
+        "I'm over 40 - do I need to train differently?",
+        "Why do I need more recovery than I used to?",
+        "How does age affect my training?",
+        "Should masters athletes train less intensely?",
+    ],
+    "masters_v4__age_advantage": [
+        "Can I still improve at my age?",
+        "Are PRs still possible over 40?",
+        "What advantages do older athletes have?",
+        "I'm worried I'm too old to get faster",
+        "Is it worth training seriously at 50?",
+    ],
+
+    # =========================================================================
+    # NEW CONTEXTS: Senior Athletes (70-90+)
+    # =========================================================================
+    "seniors_v4__never_too_late": [
+        "Is it too late to start exercising at 70?",
+        "Can I build fitness in my 80s?",
+        "Am I too old to start training?",
+        "Is exercise still beneficial at my age?",
+        "Can older people really improve?",
+    ],
+    "seniors_v4__safety_first": [
+        "What precautions should older adults take?",
+        "Is exercise safe at my age?",
+        "Should I see a doctor before starting?",
+        "How do I exercise safely as a senior?",
+        "What should I watch out for?",
+    ],
+    "seniors_v4__realistic_goals": [
+        "What are realistic goals for seniors?",
+        "What should I aim for at my age?",
+        "Is walking enough exercise?",
+        "What does success look like for older athletes?",
+        "How do I set appropriate goals?",
+    ],
+    "seniors_v4__adaptation_timeline": [
+        "How long will it take to see improvements?",
+        "Why does progress take longer as we age?",
+        "How do I stay patient with slow progress?",
+        "Will I actually see results at my age?",
+    ],
+    "seniors_v4__what_to_expect": [
+        "What kind of training should seniors do?",
+        "How intense should my training be?",
+        "What does senior training look like?",
+        "How long should my sessions be?",
+        "What's appropriate for my age?",
+    ],
 }
 
 
