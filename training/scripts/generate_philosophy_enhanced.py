@@ -2,8 +2,8 @@
 """
 MiValta Philosophy Enhanced Dataset Generator
 
-Generates philosophical conversation pairs for fine-tuning.
-Follows the standard chat format with messages array.
+Generates Q&A pairs from the compiled JOSI coaching contexts.
+Uses the actual rewritten coaching cards from knowledge/generated/context.py.
 
 Output format (correct):
 {"messages": [{"role": "user", "content": "..."}, {"role": "assistant", "content": "..."}]}
@@ -14,12 +14,19 @@ NOT the old format:
 
 import json
 import random
+import sys
 from pathlib import Path
 from dataclasses import dataclass
-from typing import List
+from typing import List, Dict
 
-# Paths
+# Add knowledge package to path
 SCRIPT_DIR = Path(__file__).parent
+WORKSPACE_ROOT = SCRIPT_DIR.parent.parent
+sys.path.insert(0, str(WORKSPACE_ROOT))
+
+from knowledge.generated.context import Context
+
+# Output directory
 OUTPUT_DIR = SCRIPT_DIR.parent / "data"
 
 
@@ -28,197 +35,857 @@ class PhilosophyPair:
     """Single training example for philosophy dataset."""
     user_content: str
     assistant_content: str
-    topic: str = "general"
-    source: str = "philosophy_enhanced"
+    context_key: str
 
 
 # =============================================================================
-# PHILOSOPHY CONTENT
+# SPECIFIC QUESTIONS MAPPED TO EACH CONTEXT KEY
 # =============================================================================
 
-TRAINING_PHILOSOPHY = {
-    "consistency": [
-        {
-            "user": "Why is consistency more important than intensity?",
-            "assistant": "Consistency builds the foundation that intensity can build upon. Regular training creates adaptations that compound over time - neural pathways strengthen, mitochondria multiply, and your body learns to efficiently manage stress. Sporadic intense efforts, while feeling productive, often lead to injury or burnout. Think of it like compound interest: small, regular deposits grow exponentially over time."
-        },
-        {
-            "user": "I missed a week of training. Should I make up for lost time?",
-            "assistant": "No, don't try to 'make up' missed training. Your body doesn't work that way. Cramming extra volume creates injury risk and fatigue without proportional benefit. Instead, simply resume your normal schedule. A week of rest rarely causes significant fitness loss, and your body may actually benefit from the unexpected recovery. Focus forward, not backward."
-        },
-        {
-            "user": "How do I stay consistent when motivation is low?",
-            "assistant": "Don't rely on motivation - it's unreliable. Build systems instead: set a regular schedule, prepare your gear the night before, find a training partner, or commit to just starting (the hardest part). Remember that showing up matters more than the quality of any single session. On low days, do something - even 15 minutes maintains the habit."
-        },
+# Each context gets 4-6 specific questions that naturally lead to that answer
+CONTEXT_QUESTIONS: Dict[str, List[str]] = {
+    # Cycling contexts
+    "cycling_v4__overview": [
+        "What is FTP and why does it matter?",
+        "How does power training work for cycling?",
+        "Why do cyclists use power meters?",
+        "What's the difference between cycling and running training?",
+        "Explain FTP to me",
+        "I'm new to cycling - what should I know about power?",
     ],
-    "recovery": [
-        {
-            "user": "Is recovery really part of training?",
-            "assistant": "Recovery isn't just part of training - it's when training actually works. Workouts create stress and break down tissue. Recovery is when your body rebuilds stronger. Without adequate recovery, you accumulate fatigue without adaptation. The best athletes are often the best recoverers. Sleep, nutrition, and rest days are as important as the workouts themselves."
-        },
-        {
-            "user": "Why can't I just train harder instead of resting?",
-            "assistant": "Training harder without recovery is like trying to build a wall while someone keeps taking bricks away. Your body needs time to adapt to the stress you've applied. More stress without recovery leads to overtraining, decreased performance, increased injury risk, and potential long-term health issues. Hard training earns its value through subsequent recovery."
-        },
-        {
-            "user": "What happens if I skip rest days?",
-            "assistant": "Skipping rest days occasionally isn't catastrophic, but making it a habit leads to accumulated fatigue, stagnant performance, increased injury risk, and potentially overtraining syndrome. Your nervous system needs recovery as much as your muscles. Signs you're not recovering enough: persistent fatigue, declining performance, irritability, poor sleep, and increased resting heart rate."
-        },
+    "cycling_v4__zones": [
+        "What are the cycling power zones?",
+        "How do I know what power zone I'm in?",
+        "Explain the power zones to me",
+        "What percentage of FTP is each zone?",
+        "How much time should I spend in each power zone?",
+        "I don't understand power zones - can you explain?",
     ],
-    "progression": [
-        {
-            "user": "How fast should I increase my training?",
-            "assistant": "The general guideline is no more than 10% increase in volume per week, but this varies by individual and training age. Beginners can often progress faster; experienced athletes need more patience. Watch your body's response: persistent fatigue, declining performance, or nagging pain means you're progressing too fast. Sustainable progress beats rapid burnout."
-        },
-        {
-            "user": "Why does progress seem to slow down over time?",
-            "assistant": "This is the law of diminishing returns in action. Early gains come easily because you're far from your genetic potential. As you improve, each additional gain requires more specific, harder work. This isn't a problem - it's physiology. Embrace the process, celebrate smaller improvements, and remember that maintenance itself is an achievement at higher levels."
-        },
-        {
-            "user": "I feel like I've plateaued. What should I do?",
-            "assistant": "Plateaus are normal and often signal your body needs something different. Consider: varying your training stimulus, addressing a weakness you've been ignoring, taking a recovery week, or focusing on a different aspect of fitness. Sometimes the answer is patience - adaptations don't follow linear timelines. Analyze your sleep, nutrition, and stress as well."
-        },
+    "cycling_v4__recovery": [
+        "Why do cyclists recover faster than runners?",
+        "How does cycling recovery compare to running?",
+        "Can I do more volume on the bike?",
+        "Why is there no impact in cycling?",
+        "Does cycling allow for more training?",
     ],
-    "mindset": [
-        {
-            "user": "How do I deal with comparing myself to others?",
-            "assistant": "Comparison can motivate or destroy, depending on how you use it. Others have different genetics, backgrounds, time availability, and goals. The only fair comparison is to your past self. Use others for inspiration and learning, not measurement. Your journey is unique, and progress relative to your starting point is what matters."
-        },
-        {
-            "user": "How do I stay patient with long-term goals?",
-            "assistant": "Break long-term goals into shorter milestones you can celebrate along the way. Focus on process goals (consistent training, proper nutrition) rather than outcome goals (race times). Trust that daily deposits compound. Keep a training log to see progress that's hard to notice day-to-day. Remember: the time will pass anyway - you might as well spend it building."
-        },
-        {
-            "user": "What's the right mindset for hard training days?",
-            "assistant": "Approach hard days with purpose, not dread. Know why the session matters and what adaptation you're seeking. Accept discomfort as temporary and purposeful. Stay present - focus on the current interval, not the ones to come. Afterward, recognize the accomplishment. Hard days build physical and mental resilience that easy days can't provide."
-        },
+    "cycling_v4__indoor": [
+        "Why is my indoor power lower than outdoor?",
+        "How do I train effectively indoors?",
+        "What's special about indoor cycling?",
+        "My FTP drops on the trainer - is that normal?",
+        "How do I deal with heat on the indoor trainer?",
+        "Tips for indoor cycling training?",
     ],
-    "balance": [
-        {
-            "user": "How do I balance training with life?",
-            "assistant": "Training should enhance life, not consume it. Be realistic about your time and energy. Quality often beats quantity - focused shorter sessions can be more effective than exhausted longer ones. Communicate with family and friends. Build training around your life priorities, and be willing to adjust when life demands it. Sustainable balance beats temporary extremes."
-        },
-        {
-            "user": "Is it okay to take extended time off?",
-            "assistant": "Absolutely. Life has seasons, and training should adapt to them. Extended breaks for travel, family, work demands, or mental health are not just okay - they're sometimes necessary. Fitness is remarkably resilient; you'll lose less than you fear and regain it faster than expected. A break taken intentionally often leads to renewed motivation and better long-term consistency."
-        },
-        {
-            "user": "How do I know if I'm overtraining?",
-            "assistant": "Warning signs include: persistent fatigue that doesn't improve with rest, declining performance despite training, elevated resting heart rate, disturbed sleep, mood changes, loss of motivation, frequent illness, and nagging injuries. If you suspect overtraining, the answer is always more rest, not more training. It's easier to prevent than to recover from."
-        },
+    "cycling_v4__safety": [
+        "How often should I test my FTP?",
+        "When should I retest my cycling zones?",
+        "What safety considerations for cycling training?",
+        "My power zones feel wrong - what should I do?",
+        "Can I do intervals in traffic?",
     ],
-    "adaptation": [
-        {
-            "user": "Why do different zones train different things?",
-            "assistant": "Your body has multiple energy systems and physiological capacities. Easy aerobic work builds mitochondria and capillaries. Tempo work improves lactate clearance. Threshold training enhances sustainable power. VO2max work improves oxygen delivery. Each intensity creates a specific stress that triggers specific adaptations. A complete training program addresses all systems appropriately."
-        },
-        {
-            "user": "Why is most training supposed to be easy?",
-            "assistant": "Easy training builds aerobic base without excessive fatigue. It develops fat oxidation, mitochondrial density, and capillary networks - the foundation for all other training. Hard training is limited by recovery capacity; easy training has no such limit. The polarized approach (lots of easy, some very hard, little moderate) has proven most effective for endurance athletes."
-        },
-        {
-            "user": "How long does it take to see adaptations?",
-            "assistant": "It depends on the adaptation. Neural improvements can show within days. Cardiovascular changes take 2-4 weeks. Mitochondrial adaptations take 4-8 weeks. Structural changes (tendons, bones) take months. Mental adaptations are ongoing. This is why consistency matters - you're always building multiple systems at different timescales. Trust the process."
-        },
+
+    # Recovery contexts
+    "recovery_v4__overview": [
+        "Why is recovery important?",
+        "Is rest really part of training?",
+        "How does recovery actually work?",
+        "Why can't I just train more?",
+        "What happens during recovery?",
+        "I feel lazy taking rest days - is that wrong?",
+    ],
+    "recovery_v4__two_lane": [
+        "Can I train the day after hard intervals?",
+        "What's the two-lane recovery model?",
+        "When can I do easy training after a hard session?",
+        "How soon after intervals can I run easy?",
+        "Does easy work interfere with recovery?",
+        "I did hard intervals yesterday - can I run today?",
+    ],
+    "recovery_v4__readiness": [
+        "How do I know if I'm recovered?",
+        "What does green/yellow/red readiness mean?",
+        "Should I train when my HRV is low?",
+        "How does readiness affect my training?",
+        "What if my readiness is red but I feel fine?",
+        "Can I override the readiness recommendation?",
+    ],
+    "recovery_v4__timing": [
+        "How long between hard sessions?",
+        "Does age affect recovery time?",
+        "How many hours between intensity work?",
+        "I'm 45 - how much recovery do I need?",
+        "What's the recovery timing by age?",
+    ],
+    "recovery_v4__modifiers": [
+        "What affects my personal recovery needs?",
+        "Does training experience change recovery?",
+        "Why might I need more recovery than others?",
+        "How does age affect my recovery?",
+        "Do different sports need different recovery?",
+    ],
+    "recovery_v4__week": [
+        "How often should I have a recovery week?",
+        "What happens in a recovery week?",
+        "Why do I need a deload week?",
+        "How much should I reduce during recovery week?",
+        "Can I skip the recovery week if I feel good?",
+    ],
+    "recovery_v4__cross_domain": [
+        "How does recovery connect to other training?",
+        "Does recovery zone count as training?",
+        "What's the relationship between recovery and zones?",
+    ],
+    "recovery_v4__safety": [
+        "What are the non-negotiable recovery rules?",
+        "When must I absolutely rest?",
+        "What are signs I'm not recovering enough?",
+        "How do I know if I'm overtraining?",
+        "What should I do if I'm getting sick?",
+    ],
+
+    # Running contexts
+    "running_v4__overview": [
+        "How should I structure my running training?",
+        "What percentage of running should be easy?",
+        "Why is running different from cycling?",
+        "What makes running training unique?",
+        "How much of my running should be hard?",
+    ],
+    "running_v4__models": [
+        "What's polarized training?",
+        "Which running training model should I use?",
+        "What's the difference between polarized and threshold training?",
+        "I'm time-crunched - how should I train?",
+        "What training approach works best for runners?",
+    ],
+    "running_v4__long_runs": [
+        "Why are long runs important?",
+        "How long should my long run be?",
+        "What pace should I run my long runs?",
+        "Can I skip long runs and just do intervals?",
+        "How do I build up my long run distance?",
+        "I hate long runs - are they really necessary?",
+    ],
+    "running_v4__strides": [
+        "What are strides?",
+        "How do I do strides?",
+        "Why should I add strides to easy runs?",
+        "How many strides should I do?",
+        "What's the point of strides?",
+    ],
+    "running_v4__safety": [
+        "Why do runners get injured more than cyclists?",
+        "What are the safety rules for running?",
+        "How do I prevent running injuries?",
+        "How long to prepare for a marathon?",
+        "What's a safe weekly mileage increase?",
+    ],
+    "running_v4__pace_zones": [
+        "What's my easy running pace?",
+        "How slow should easy runs be?",
+        "What are the running pace zones?",
+        "How do I calculate my running zones?",
+        "I think my easy pace is too slow - is it?",
+    ],
+
+    # NTIZ contexts
+    "ntiz_dose_v4__overview": [
+        "What is NTIZ?",
+        "How is training dose measured?",
+        "What's normalized time in zone?",
+        "How do you track training volume?",
+        "Why does time in zone matter?",
+    ],
+    "ntiz_dose_v4__beginner": [
+        "Why are my intensity zones locked?",
+        "When do I unlock harder training?",
+        "Why can't I do intervals as a beginner?",
+        "How does intensity unlock for beginners?",
+        "I want to do hard workouts but they're not available - why?",
+    ],
+    "ntiz_dose_v4__all_zones": [
+        "How much time in each zone should I do?",
+        "What are the zone limits?",
+        "Is there a maximum for easy training?",
+        "How much Z2 is too much?",
+        "What's the cap for threshold work?",
+    ],
+    "ntiz_dose_v4__safety": [
+        "Are zone caps targets or limits?",
+        "What happens if I exceed zone limits?",
+        "Why are there caps on training zones?",
+        "Should I try to hit maximum zone time?",
+    ],
+
+    # Session structure contexts
+    "session_dose_v4__clean_workouts": [
+        "What makes a good workout structure?",
+        "Why shouldn't I mix zones in one workout?",
+        "What's zone soup?",
+        "Should each workout have one focus?",
+        "Does warmup count as base training?",
+    ],
+    "session_dose_v4__meso_wallet": [
+        "How does the training budget work?",
+        "What's the meso wallet concept?",
+        "How do I spend my training budget?",
+        "Why can't I do threshold every day?",
+    ],
+    "session_dose_v4__recovery_shadow": [
+        "What's the recovery shadow?",
+        "How long after hard work before more intensity?",
+        "Can I do easy work the day after intervals?",
+        "What's hard-to-hard vs hard-to-easy timing?",
+    ],
+    "session_dose_v4__z3_definition": [
+        "What is Zone 3?",
+        "How does tempo feel?",
+        "What's the difference between Z3 and Z4?",
+        "Where does Z3 fit in training?",
+        "Is Z3 too hard or too easy?",
+    ],
+
+    # Periodization contexts
+    "periodization__overview": [
+        "What is periodization?",
+        "How do training phases work?",
+        "Why do we have different training phases?",
+        "What's the difference between base and build?",
+        "How do I know what phase I'm in?",
+    ],
+    "periodization__mesocycles": [
+        "What's a mesocycle?",
+        "How long is a training block?",
+        "What's the 28-day pattern?",
+        "Why do masters athletes use shorter mesos?",
+        "How does the weekly loading pattern work?",
+    ],
+    "periodization__taper": [
+        "What's the taper?",
+        "How long should I taper before a race?",
+        "Why reduce volume before a race?",
+        "Won't I lose fitness during taper?",
+        "How does tapering improve performance?",
+    ],
+    "periodization__safety": [
+        "Can I skip the recovery week?",
+        "What are the periodization rules?",
+        "How do I adjust if my schedule is tight?",
+    ],
+
+    # Performance contexts
+    "performance_v4__overview": [
+        "How fast can I expect to improve?",
+        "What's realistic for improvement?",
+        "Why does progress slow down over time?",
+        "How does training age affect gains?",
+    ],
+    "performance_v4__improvement_rates": [
+        "What's a realistic weekly improvement rate?",
+        "How much can I improve in a month?",
+        "Why is progress slower for experienced athletes?",
+        "How do improvement rates change over time?",
+    ],
+    "performance_v4__age_factors": [
+        "How does age affect my training?",
+        "Can I still improve at 50?",
+        "What changes as I get older?",
+        "Do older athletes need different training?",
+    ],
+    "performance_v4__goal_status": [
+        "Is my goal realistic?",
+        "How do you assess if a goal is achievable?",
+        "What does 'ambitious' goal mean?",
+        "Can any goal be achieved?",
+    ],
+    "performance_v4__frequency": [
+        "How often should I train?",
+        "Is training 4 times per week enough?",
+        "What's the optimal training frequency?",
+        "Can I improve training only 3 days per week?",
+    ],
+    "performance_v4__meso_adaptation": [
+        "Why do I feel tired during training but good after rest?",
+        "How does adaptation happen in waves?",
+        "What should I expect each mesocycle?",
+    ],
+    "performance_v4__taper_magic": [
+        "Why do I run PRs after reducing training?",
+        "How does taper actually work?",
+        "What's happening physiologically during taper?",
+    ],
+    "performance_v4__backward_planning": [
+        "How do you build my training plan?",
+        "Why do you plan backwards from race day?",
+        "How is my peak timed for race day?",
+    ],
+
+    # Zone anchoring contexts
+    "zone_anchoring_v4__overview": [
+        "How are my zones calculated?",
+        "What determines my training zones?",
+        "What's LT1 and LT2?",
+        "Where do my zones come from?",
+    ],
+    "zone_anchoring_v4__hr_zones": [
+        "How do heart rate zones work?",
+        "How are my HR zones calculated?",
+        "What if I only know my max heart rate?",
+        "How often should I retest heart rate zones?",
+    ],
+    "zone_anchoring_v4__power_zones": [
+        "How are power zones set?",
+        "What's the best way to find my FTP?",
+        "How accurate are ramp tests?",
+        "When should I retest my FTP?",
+    ],
+    "zone_anchoring_v4__talk_test": [
+        "What's the talk test?",
+        "Can I find my zones without a heart rate monitor?",
+        "How do I know what zone I'm in by feel?",
+        "Is there a simple way to check my zone?",
+    ],
+    "zone_anchoring_v4__safety": [
+        "Why might age-based HR formulas be wrong?",
+        "What if my zones feel off?",
+        "How often should I retest my zones?",
+    ],
+
+    # Energy zones contexts
+    "energy_zones_v4__overview": [
+        "What are the training zones?",
+        "How do the 9 zones work?",
+        "What's the difference between Z1 and Z5?",
+        "Why are there so many zones?",
+        "Explain the zone system to me",
+    ],
+    "energy_zones_v4__talk_test": [
+        "How do I know what zone I'm in?",
+        "Can I tell my zone without gadgets?",
+        "What should each zone feel like?",
+        "How do I use the talk test?",
+    ],
+    "energy_zones_v4__day_types": [
+        "What are the different types of training days?",
+        "What's the difference between recovery and off days?",
+        "What happens on a load day?",
+        "How many rest days do I need?",
+    ],
+    "energy_zones_v4__cross_domain": [
+        "How do zones connect to recovery?",
+        "What's the relationship between zones and readiness?",
+        "How do phases affect zone distribution?",
+    ],
+    "energy_zones_v4__safety": [
+        "What are the safety rules for intensity?",
+        "When should I stop a workout?",
+        "What are warning signs during training?",
+        "How many hard sessions per week is safe?",
+    ],
+    "energy_zones_v4__interval_rest": [
+        "How much rest between intervals?",
+        "What's the right work-to-rest ratio?",
+        "Why does rest matter so much in intervals?",
+        "How long should I rest between VO2max efforts?",
+    ],
+    "energy_zones_v4__phase_structure": [
+        "Why does workout structure change by phase?",
+        "What's different about base vs peak workouts?",
+        "Why more intervals in peak phase?",
+    ],
+    "energy_zones_v4__warmup_cooldown": [
+        "How long should I warm up?",
+        "Do I need a cooldown?",
+        "Why warm up longer for hard sessions?",
+        "Does warmup length change with age?",
+    ],
+    "energy_zones_v4__zone_feel": [
+        "What does Z2 feel like?",
+        "How should threshold feel?",
+        "What's the difference between Z4 and Z5 by feel?",
+        "How do I know if I'm going too hard?",
+    ],
+
+    # Session structure variants
+    "session_structure_variants_v4__overview": [
+        "Why do different people get different interval structures?",
+        "How is workout structure chosen?",
+        "What determines my interval length?",
+    ],
+    "session_structure_variants_v4__science_of_structure": [
+        "Why do 30/30 intervals work?",
+        "What's the science behind interval structure?",
+        "How do elite coaches progress workouts?",
+    ],
+    "session_structure_variants_v4__continuous_zones": [
+        "When should workouts be continuous vs intervals?",
+        "Why are easy sessions continuous?",
+        "Do I need intervals for Z1 and Z2?",
+    ],
+    "session_structure_variants_v4__tempo_zone": [
+        "What are the tempo workout structures?",
+        "How long should tempo intervals be?",
+        "What's a cruise interval?",
+    ],
+    "session_structure_variants_v4__threshold_zone": [
+        "What are good threshold workouts?",
+        "How long should threshold intervals be?",
+        "What's the Norwegian threshold method?",
+        "What are over-unders?",
+    ],
+    "session_structure_variants_v4__vo2max_zone": [
+        "What are good VO2max workouts?",
+        "How do 30/30 intervals work?",
+        "What's the Rønnestad protocol?",
+        "How long should VO2max intervals be?",
+    ],
+    "session_structure_variants_v4__anaerobic_zones": [
+        "How do anaerobic intervals work?",
+        "Why so much rest for sprint intervals?",
+        "What's a descending ladder workout?",
+    ],
+    "session_structure_variants_v4__sprint_zone": [
+        "How do I train sprints?",
+        "What's a flying sprint?",
+        "How many sprints should I do?",
+    ],
+    "session_structure_variants_v4__phase_guidance": [
+        "How do workouts change through phases?",
+        "What structures are used in base vs peak?",
+        "Why do I get different workouts in build phase?",
+    ],
+    "session_structure_variants_v4__cross_domain": [
+        "How does structure selection work?",
+        "What determines my workout structure?",
+    ],
+    "session_structure_variants_v4__safety": [
+        "What if I can't complete the prescribed intervals?",
+        "Are micro-intervals easier than they seem?",
+        "When should I drop to an easier structure?",
+    ],
+
+    # Session templates
+    "session_templates_v4__warmup_scaling": [
+        "How is warmup time determined?",
+        "Why shorter warmup for easy sessions?",
+        "How does warmup scale with session length?",
+    ],
+
+    # Goal modifiers
+    "goal_modifiers_v4__overview": [
+        "How does my goal affect training?",
+        "Why do 5K and marathon training differ?",
+        "How does goal distance change zone distribution?",
+    ],
+    "goal_modifiers_v4__weight_loss": [
+        "What's the best training for weight loss?",
+        "Should I do endless cardio to lose weight?",
+        "Does HIIT help with weight loss?",
+        "Why not train in the 'fat burning zone'?",
+    ],
+    "goal_modifiers_v4__choosing": [
+        "How do I choose my training goal?",
+        "What goal should I pick?",
+        "I'm not sure what goal to set - help?",
+    ],
+    "goal_modifiers_v4__safety": [
+        "Why can't beginners do marathon training?",
+        "What goals require experience?",
+        "Are there restrictions on goal types?",
+    ],
+
+    # Micro training
+    "micro_training_commute_v4__overview": [
+        "Can short workouts really be effective?",
+        "Do micro-workouts actually work?",
+        "Is my 15-minute commute useful training?",
+        "Does science support short training sessions?",
+    ],
+    "micro_training_commute_v4__commute_modes": [
+        "How can I use my commute for training?",
+        "What types of commute workouts can I do?",
+        "Can I do intervals on my commute?",
+    ],
+    "micro_training_commute_v4__exercise_snacks": [
+        "What are exercise snacks?",
+        "Can I train in small chunks through the day?",
+        "Do stair sprints at work count?",
+    ],
+    "micro_training_commute_v4__micro_hiit": [
+        "What is micro-HIIT?",
+        "Can I do Tabata on my commute?",
+        "How do 10-minute HIIT sessions work?",
+    ],
+    "micro_training_commute_v4__caps": [
+        "How much can commute training count?",
+        "Is there a limit on commute training?",
+        "Can my whole plan be commute workouts?",
+    ],
+    "micro_training_commute_v4__safety": [
+        "Is it safe to do intervals while commuting?",
+        "What are the safety rules for commute training?",
+        "Should I skip intensity in traffic?",
+    ],
+
+    # Threshold estimation
+    "threshold_estimation_v4__overview": [
+        "How do I find my threshold?",
+        "What is threshold and how do I measure it?",
+        "Do I need to test my threshold?",
+    ],
+    "threshold_estimation_v4__why_test": [
+        "Why should I test instead of using estimates?",
+        "How accurate are estimated zones?",
+        "What's wrong with age-based formulas?",
+    ],
+    "threshold_estimation_v4__test_protocols": [
+        "How do I test my threshold?",
+        "What's a 20-minute threshold test?",
+        "How do I do an FTP test?",
+    ],
+    "threshold_estimation_v4__estimates": [
+        "What if I can't test my threshold?",
+        "How are threshold estimates calculated?",
+        "What's a typical threshold for my age?",
+    ],
+    "threshold_estimation_v4__safety": [
+        "Are there safety concerns with threshold testing?",
+        "Should I test if I'm on beta blockers?",
+        "When should I avoid high intensity?",
+    ],
+
+    # NTIZ master
+    "ntiz_master_v4__overview": [
+        "What's the difference between session time and time in zone?",
+        "Why does NTIZ matter?",
+        "How do you measure my actual training stimulus?",
+    ],
+    "ntiz_master_v4__levels": [
+        "What are the training levels?",
+        "Why are some zones locked for beginners?",
+        "How do I advance to the next training level?",
+    ],
+    "ntiz_master_v4__all_zones": [
+        "What percentage goes to each zone?",
+        "How much easy vs hard training should I do?",
+        "What's the right zone distribution?",
+    ],
+    "ntiz_master_v4__safety": [
+        "What are the NTIZ safety rules?",
+        "How fast can I increase training?",
+        "What are the ramp limits?",
+    ],
+
+    # Josi personas
+    "josi_personas_v1__personas": [
+        "What coaching personalities are available?",
+        "Can I change how Josi talks to me?",
+        "What's the difference between the coach styles?",
+    ],
+    "josi_personas_v1__style_mapping": [
+        "How do the different styles communicate?",
+        "What makes each coaching style unique?",
+    ],
+    "josi_personas_v1__balanced": [
+        "What's the balanced coaching style?",
+        "How does the default coach communicate?",
+    ],
+    "josi_personas_v1__drill_sergeant": [
+        "What's the drill sergeant style like?",
+        "Can I get a more direct coach?",
+    ],
+    "josi_personas_v1__science_nerd": [
+        "What's the science coach style?",
+        "Can I get more technical explanations?",
+    ],
+    "josi_personas_v1__cheerleader": [
+        "What's the motivator style like?",
+        "Can I get more encouragement?",
+    ],
+    "josi_personas_v1__zen_master": [
+        "What's the mindful coaching style?",
+        "Can I get a calmer coach?",
+    ],
+    "josi_personas_v1__dutch_directness": [
+        "What's the Dutch coach style?",
+        "Can I get honest, direct feedback?",
+    ],
+    "josi_personas_v1__frame_templates_direct": [
+        "How does the direct coach frame sessions?",
+    ],
+    "josi_personas_v1__frame_templates_technical": [
+        "How does the science coach explain sessions?",
+    ],
+    "josi_personas_v1__frame_templates_encouraging": [
+        "How does the motivator present sessions?",
+    ],
+    "josi_personas_v1__frame_templates_balanced": [
+        "How does the balanced coach present sessions?",
+    ],
+    "josi_personas_v1__i6_contract": [
+        "What can Josi do and not do?",
+        "Can Josi change my workout?",
+        "Why can't Josi prescribe training?",
+    ],
+
+    # Planner policy
+    "planner_policy_v4__validation_explanation": [
+        "How does the plan validation work?",
+        "What checks happen before planning?",
+    ],
+
+    # =========================================================================
+    # NEW CONTEXTS: Motivation & Mental
+    # =========================================================================
+    "motivation_v4__losing_motivation": [
+        "I'm losing motivation to train",
+        "How do I stay motivated?",
+        "Training feels like a chore lately",
+        "I don't feel like training anymore",
+        "What do I do when motivation is low?",
+        "How do I keep going when I don't want to?",
+    ],
+    "motivation_v4__setbacks": [
+        "I missed a week of training - now what?",
+        "How do I deal with setbacks?",
+        "I feel guilty about missed sessions",
+        "How do I get back on track after a break?",
+        "I've fallen behind on my training",
+        "How do I recover from a training setback?",
+    ],
+
+    # =========================================================================
+    # NEW CONTEXTS: Illness & Injury
+    # =========================================================================
+    "recovery_v4__illness": [
+        "Should I train when sick?",
+        "I have a cold - can I still train?",
+        "When can I train after being ill?",
+        "How do I return after illness?",
+        "I'm sick - what should I do about training?",
+        "Can I train with a fever?",
+    ],
+    "recovery_v4__injury": [
+        "I'm injured - what should I do?",
+        "How do I know if it's an injury or just soreness?",
+        "When should I see a doctor about pain?",
+        "How do I return after injury?",
+        "I have a nagging pain - should I push through?",
+        "How do I avoid making an injury worse?",
+    ],
+
+    # =========================================================================
+    # NEW CONTEXTS: Beginner Guidance
+    # =========================================================================
+    "beginner_v4__getting_started": [
+        "I'm a complete beginner - where do I start?",
+        "How do I start training from zero?",
+        "I've never trained before - what should I know?",
+        "What's the best way to begin?",
+        "I want to start running but don't know how",
+        "How do I start without getting injured?",
+    ],
+    "beginner_v4__first_weeks": [
+        "What should I expect in my first weeks?",
+        "Why does easy training feel so slow?",
+        "Am I training hard enough as a beginner?",
+        "What's normal when starting out?",
+        "Should I be doing more as a beginner?",
+    ],
+    "beginner_v4__common_mistakes": [
+        "What mistakes do beginners make?",
+        "How do I avoid beginner mistakes?",
+        "Is no pain no gain true?",
+        "Am I doing something wrong?",
+        "Why do so many beginners get injured?",
+    ],
+
+    # =========================================================================
+    # NEW CONTEXTS: Life Balance
+    # =========================================================================
+    "balance_v4__time_constraints": [
+        "I only have 30 minutes to train - is that enough?",
+        "How do I fit training into a busy schedule?",
+        "Can short workouts really work?",
+        "I'm time-crunched - what should I do?",
+        "What's the minimum training that works?",
+        "I don't have time for long sessions",
+    ],
+    "balance_v4__busy_periods": [
+        "How do I balance training with a busy life?",
+        "Work is crazy right now - should I keep training?",
+        "Is it okay to scale back during busy times?",
+        "How do I handle training during stressful periods?",
+        "Life is overwhelming - what about training?",
+        "Can I maintain fitness with minimal training?",
+    ],
+
+    # =========================================================================
+    # NEW CONTEXTS: Masters Athletes (40-65)
+    # =========================================================================
+    "masters_v4__training_differently": [
+        "How should training change as I get older?",
+        "I'm over 40 - do I need to train differently?",
+        "Why do I need more recovery than I used to?",
+        "How does age affect my training?",
+        "Should masters athletes train less intensely?",
+    ],
+    "masters_v4__age_advantage": [
+        "Can I still improve at my age?",
+        "Are PRs still possible over 40?",
+        "What advantages do older athletes have?",
+        "I'm worried I'm too old to get faster",
+        "Is it worth training seriously at 50?",
+    ],
+
+    # =========================================================================
+    # NEW CONTEXTS: Senior Athletes (70-90+)
+    # =========================================================================
+    "seniors_v4__never_too_late": [
+        "Is it too late to start exercising at 70?",
+        "Can I build fitness in my 80s?",
+        "Am I too old to start training?",
+        "Is exercise still beneficial at my age?",
+        "Can older people really improve?",
+    ],
+    "seniors_v4__safety_first": [
+        "What precautions should older adults take?",
+        "Is exercise safe at my age?",
+        "Should I see a doctor before starting?",
+        "How do I exercise safely as a senior?",
+        "What should I watch out for?",
+    ],
+    "seniors_v4__realistic_goals": [
+        "What are realistic goals for seniors?",
+        "What should I aim for at my age?",
+        "Is walking enough exercise?",
+        "What does success look like for older athletes?",
+        "How do I set appropriate goals?",
+    ],
+    "seniors_v4__adaptation_timeline": [
+        "How long will it take to see improvements?",
+        "Why does progress take longer as we age?",
+        "How do I stay patient with slow progress?",
+        "Will I actually see results at my age?",
+    ],
+    "seniors_v4__what_to_expect": [
+        "What kind of training should seniors do?",
+        "How intense should my training be?",
+        "What does senior training look like?",
+        "How long should my sessions be?",
+        "What's appropriate for my age?",
     ],
 }
 
-GENERAL_PHILOSOPHY = [
-    {
-        "user": "What's the most important thing in training?",
-        "assistant": "Consistency over everything. No single workout matters as much as the habit of showing up. A mediocre plan executed consistently beats a perfect plan executed sporadically. Focus on making training sustainable and enjoyable enough that you'll do it for years, not weeks."
-    },
-    {
-        "user": "How do I know if I'm doing enough?",
-        "assistant": "You're doing enough if you're recovering well, gradually progressing, staying healthy, and still enjoying the process. More isn't always better. Watch for signs of under-recovery rather than trying to maximize volume. Sustainable training you can maintain is more valuable than unsustainable training that leads to burnout."
-    },
-    {
-        "user": "What makes a good training plan?",
-        "assistant": "A good plan fits your life, matches your goals, includes progressive overload, balances stress and recovery, and is sustainable long-term. It should be specific enough to drive adaptation but flexible enough to accommodate life. The best plan is one you'll actually follow consistently."
-    },
-    {
-        "user": "Should I train when I feel tired?",
-        "assistant": "It depends. Normal tiredness often improves once you start moving - trust the warmup. But persistent fatigue, illness, or unusual exhaustion deserve respect. Listen to your body: sometimes pushing through builds mental toughness; other times it digs a deeper recovery hole. When in doubt, start easy and see how you feel."
-    },
-    {
-        "user": "How important is data and metrics?",
-        "assistant": "Data is a tool, not a master. Metrics like heart rate, pace, and power provide objective feedback that can guide training. But don't become enslaved to numbers. Perceived effort, enjoyment, and life context matter too. Use data to inform decisions, not to override how your body feels."
-    },
-    {
-        "user": "What's the role of suffering in training?",
-        "assistant": "Purposeful discomfort is part of adaptation. Pushing limits occasionally teaches your body and mind to handle more. But suffering for its own sake has no value. Know why you're pushing hard and what adaptation you're seeking. Recovery from hard efforts is as important as the efforts themselves."
-    },
-    {
-        "user": "How do I stay motivated long-term?",
-        "assistant": "Connect training to deeper values - health, capability, community, or personal growth. Set goals but don't depend on them for motivation. Find training partners or groups. Vary your routine to prevent staleness. Celebrate progress, however small. Remember that motivation follows action - start moving and it often appears."
-    },
-    {
-        "user": "Is there a perfect training approach?",
-        "assistant": "No. What works varies by individual genetics, lifestyle, goals, preferences, and training history. Principles matter more than specifics. Progressive overload, specificity, recovery, and consistency work regardless of the exact method. Find what you can sustain and enjoy, then trust the process."
-    },
-]
+
+def get_questions_for_key(context_key: str) -> List[str]:
+    """Get specific questions for a context key."""
+    # Direct lookup first
+    if context_key in CONTEXT_QUESTIONS:
+        return CONTEXT_QUESTIONS[context_key].copy()
+
+    # Fallback: find partial matches
+    for key, questions in CONTEXT_QUESTIONS.items():
+        if key in context_key or context_key in key:
+            return questions.copy()
+
+    # Last resort: generate from key
+    return generate_fallback_questions(context_key)
+
+
+def generate_fallback_questions(context_key: str) -> List[str]:
+    """Generate questions from context key when no mapping exists."""
+    parts = context_key.replace("__", " ").replace("_v4", "").replace("_v1", "")
+    parts = parts.replace("_", " ").title()
+
+    return [
+        f"Tell me about {parts}",
+        f"What should I know about {parts}?",
+        f"Explain {parts} to me",
+        f"How does {parts} work?",
+    ]
+
+
+def generate_pairs_from_context(
+    context_key: str,
+    content: str,
+) -> List[PhilosophyPair]:
+    """Generate Q&A pairs from a single context using specific questions."""
+
+    pairs = []
+    questions = get_questions_for_key(context_key)
+
+    # Use all available questions for this context (typically 4-6)
+    for question in questions:
+        pairs.append(PhilosophyPair(
+            user_content=question,
+            assistant_content=content.strip(),
+            context_key=context_key,
+        ))
+
+    return pairs
 
 
 def generate_philosophy_dataset() -> List[PhilosophyPair]:
-    """Generate philosophy training dataset."""
+    """Generate philosophy training dataset from JOSI contexts."""
 
     pairs = []
 
-    print("Generating philosophy enhanced dataset...")
+    print("Loading JOSI contexts from knowledge/generated/context.py...")
+    ctx = Context.load()
+    context_keys = ctx.list_contexts()
 
-    # Add topic-specific conversations
-    for topic, conversations in TRAINING_PHILOSOPHY.items():
-        for conv in conversations:
-            # Add multiple variations for training
-            for _ in range(5):  # Repeat for emphasis
-                pairs.append(PhilosophyPair(
-                    user_content=conv["user"],
-                    assistant_content=conv["assistant"],
-                    topic=topic,
-                ))
+    print(f"Found {len(context_keys)} JOSI contexts")
 
-    # Add general philosophy
-    for conv in GENERAL_PHILOSOPHY:
-        for _ in range(5):  # Repeat for emphasis
-            pairs.append(PhilosophyPair(
-                user_content=conv["user"],
-                assistant_content=conv["assistant"],
-                topic="general",
-            ))
+    # Generate Q&A pairs from each context
+    contexts_used = 0
+    for context_key in context_keys:
+        content = ctx._contexts.get(context_key, "")
 
-    print(f"  Generated {len(pairs)} philosophy examples")
+        if not content or len(content) < 50:
+            continue
+
+        context_pairs = generate_pairs_from_context(context_key, content)
+        pairs.extend(context_pairs)
+        contexts_used += 1
+
+    print(f"Generated {len(pairs)} Q&A pairs from {contexts_used} contexts")
     return pairs
 
 
 def save_chat_format(pairs: List[PhilosophyPair], output_path: Path):
-    """
-    Save in correct chat format for fine-tuning.
-
-    CORRECT FORMAT:
-    {"messages": [{"role": "user", "content": "..."}, {"role": "assistant", "content": "..."}]}
-
-    NOT the old wrong format:
-    {"source": "...", "user": "...", "assistant": "..."}
-    """
+    """Save in correct chat format for fine-tuning."""
 
     with open(output_path, 'w') as f:
         for pair in pairs:
-            # Correct chat format with messages array
             example = {
                 "messages": [
-                    {
-                        "role": "user",
-                        "content": pair.user_content
-                    },
-                    {
-                        "role": "assistant",
-                        "content": pair.assistant_content
-                    }
+                    {"role": "user", "content": pair.user_content},
+                    {"role": "assistant", "content": pair.assistant_content}
                 ]
             }
             f.write(json.dumps(example) + '\n')
 
     print(f"Saved {len(pairs)} examples to {output_path}")
+
+
+def show_samples(pairs: List[PhilosophyPair], n: int = 10):
+    """Show sample Q&A pairs for review."""
+    print("\n" + "=" * 70)
+    print(f"SAMPLE Q&A PAIRS ({n} examples)")
+    print("=" * 70)
+
+    # Get diverse samples from different topics
+    samples = random.sample(pairs, min(n, len(pairs)))
+
+    for i, pair in enumerate(samples, 1):
+        print(f"\n--- Example {i} [{pair.context_key}] ---")
+        print(f"Q: {pair.user_content}")
+        # Show truncated answer
+        answer = pair.assistant_content
+        if len(answer) > 300:
+            answer = answer[:300] + "..."
+        print(f"A: {answer}")
 
 
 def main():
@@ -232,6 +899,12 @@ def main():
     print(f"Output directory: {OUTPUT_DIR}")
 
     pairs = generate_philosophy_dataset()
+
+    if len(pairs) < 400:
+        print(f"WARNING: Only {len(pairs)} pairs generated, target is 400+")
+
+    # Show samples BEFORE shuffling (for review)
+    show_samples(pairs, n=10)
 
     # Shuffle for training
     random.shuffle(pairs)
@@ -252,25 +925,22 @@ def main():
     print(f"  Training: {len(train_pairs)}")
     print(f"  Validation: {len(val_pairs)}")
 
-    # Topic breakdown
-    topic_counts = {}
-    for p in pairs:
-        topic_counts[p.topic] = topic_counts.get(p.topic, 0) + 1
-    print(f"\n  Topic breakdown:")
-    for topic, count in sorted(topic_counts.items(), key=lambda x: -x[1]):
-        print(f"    {topic}: {count}")
+    # Unique questions count
+    unique_questions = set(p.user_content for p in pairs)
+    print(f"  Unique questions: {len(unique_questions)}")
 
-    # Show sample output format
+    # Show format sample
     print("\n" + "=" * 60)
-    print("Sample output format (correct):")
+    print("Output format (correct):")
     print("=" * 60)
-    sample = {
-        "messages": [
-            {"role": "user", "content": pairs[0].user_content},
-            {"role": "assistant", "content": pairs[0].assistant_content}
-        ]
-    }
-    print(json.dumps(sample, indent=2))
+    if pairs:
+        sample = {
+            "messages": [
+                {"role": "user", "content": pairs[0].user_content},
+                {"role": "assistant", "content": pairs[0].assistant_content[:150] + "..."}
+            ]
+        }
+        print(json.dumps(sample, indent=2))
 
 
 if __name__ == "__main__":
