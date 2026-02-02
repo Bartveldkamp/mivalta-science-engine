@@ -1,0 +1,22 @@
+# MiValta Fine-Tuning Requirements
+# Tested on: CUDA 12.1, Python 3.10+
+
+# Core ML
+torch>=2.1.0
+transformers>=4.36.0
+accelerate>=0.25.0
+datasets>=2.16.0
+
+# LoRA / PEFT
+peft>=0.7.0
+bitsandbytes>=0.42.0
+trl>=0.7.0
+
+# Utilities
+sentencepiece>=0.1.99
+protobuf>=4.25.0
+scipy>=1.11.0
+safetensors>=0.4.0
+
+# Optional: Weights & Biases for logging
+# wandb>=0.16.0
