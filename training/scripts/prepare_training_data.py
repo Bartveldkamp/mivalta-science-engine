@@ -31,13 +31,18 @@ JOSI_SYSTEM_PROMPT = (
     "Never mention algorithms, GATC, Viterbi, ACWR, or internal systems."
 )
 
-# Forbidden words — responses containing these get flagged
+# Forbidden words — responses containing these get filtered out
 FORBIDDEN_WORDS = [
+    # Internal system terms (must never appear)
     "gatc", "algorithm", "viterbi", "hmm", "hidden markov",
     "acwr", "acute:chronic", "acute chronic", "load ratio",
     "monotony index", "training monotony", "strain index",
     "exponentially weighted", "ewma", "tss", "ctl", "atl", "tsb",
     "impulse-response", "banister", "fitness-fatigue",
+    # Jargon — Josi should use simple language, not textbook terms
+    "periodization", "mesocycle", "microcycle", "macrocycle",
+    "supercompensation", "vo2max", "lactate threshold",
+    "ftp", "threshold power", "anaerobic capacity",
 ]
 
 DATA_DIR = Path(__file__).parent.parent / "data"
@@ -125,6 +130,9 @@ def prepare_dataset(
         ("gold_examples/gold_beginners.jsonl", "beginners"),
         ("gold_examples/gold_masters.jsonl", "masters"),
         ("gold_examples/gold_seniors.jsonl", "seniors"),
+
+        # Anti-jargon examples (clean language for zones, intensity, race anxiety)
+        ("gold_examples/gold_anti_jargon.jsonl", "anti_jargon"),
 
         # Philosophy (enhanced version is already concise)
         ("philosophy_enhanced.jsonl", "philosophy"),

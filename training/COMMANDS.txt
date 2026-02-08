@@ -1,32 +1,49 @@
 
-# Step 1: Get the code on Hetzner
+# ============================================================
+# RETRAIN: Jargon-clean SmolLM2-1.7B (Round 2)
+# ============================================================
+# Fixes: removed jargon from training data, added anti-jargon examples
+# Previous eval: 96% pass, 2 failures (ctl leak, anaerobic capacity jargon)
+
+# Step 1: Pull latest code on Hetzner
 ssh hetzner
 su - cockpit2
 cd ~/mivalta-science-engine
-git fetch origin claude/evaluate-smollm2-mivalta-iCPP6
-git checkout claude/evaluate-smollm2-mivalta-iCPP6
+git stash
+git pull origin claude/evaluate-smollm2-mivalta-iCPP6
 
-# Step 2: Install dependencies
+# Step 2: Retrain (training data already regenerated)
 cd training
-pip install -r requirements.txt
-
-# Step 3: Fine-tune SmolLM2-1.7B (takes 30-60 min)
 python scripts/finetune_smollm2.py train --model 1.7b --train_data data/smollm2_train.jsonl
 
-# Step 4: Check what folder was created
+# Step 3: Check what folder was created
 ls models/
 
-# Step 5: Merge LoRA weights (replace FOLDERNAME with actual name from step 4)
-python scripts/finetune_smollm2.py merge --model 1.7b --lora_path ./models/FOLDERNAME/lora_weights --output_path ./models/josi-smollm2-merged
+# Step 4: Merge LoRA weights (replace FOLDERNAME with actual name from step 3)
+python scripts/finetune_smollm2.py merge --model 1.7b --lora_path ./models/FOLDERNAME/lora_weights --output_path ./models/josi-smollm2-merged-v2
 
-# Step 6: Export to GGUF for mobile (~1.0 GB)
-python scripts/export_gguf.py --model_path ./models/josi-smollm2-merged --quant q4_k_m
+# Step 5: Export to GGUF for mobile (~1.0 GB)
+cd ~/mivalta-science-engine/training
+~/llama.cpp/build/bin/llama-gguf-hash --help > /dev/null 2>&1 && echo "llama.cpp OK"
+python -c "
+from pathlib import Path
+import subprocess, os
+model = './models/josi-smollm2-merged-v2'
+out = './models/gguf'
+os.makedirs(out, exist_ok=True)
+fp16 = f'{out}/josi-smollm2-merged-v2-f16.gguf'
+q4 = f'{out}/josi-smollm2-merged-v2-q4_k_m.gguf'
+subprocess.run(['python', str(Path.home()/'llama.cpp/convert_hf_to_gguf.py'), model, '--outfile', fp16, '--outtype', 'f16'], check=True)
+subprocess.run([str(Path.home()/'llama.cpp/build/bin/llama-quantize'), fp16, q4, 'q4_k_m'], check=True)
+os.remove(fp16)
+print(f'Done: {q4} ({os.path.getsize(q4)/1024**2:.0f} MiB)')
+"
 
-# Step 7: Evaluate
-python scripts/evaluate_smollm2.py --model ./models/gguf/josi-smollm2-merged-q4_k_m.gguf --verbose
+# Step 6: Evaluate
+python scripts/evaluate_smollm2.py --hf-model ./models/josi-smollm2-merged-v2 --verbose
 
-# Step 8: Share with developer
+# Step 7: Share with developer
 cd ~/mivalta-science-engine/training/models/gguf
 nohup python3 -m http.server 8888 > /dev/null 2>&1 &
-# Send developer: http://136.243.73.100:8888/josi-smollm2-merged-q4_k_m.gguf
+# Send developer: http://136.243.73.100:8888/josi-smollm2-merged-v2-q4_k_m.gguf
 # Kill when done: kill $(lsof -t -i:8888)
