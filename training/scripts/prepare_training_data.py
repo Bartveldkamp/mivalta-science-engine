@@ -134,6 +134,9 @@ def prepare_dataset(
         # Anti-jargon examples (clean language for zones, intensity, race anxiety)
         ("gold_examples/gold_anti_jargon.jsonl", "anti_jargon"),
 
+        # Feedback loop fixes (from evaluation failures, if they exist)
+        ("gold_examples/gold_feedback_fixes.jsonl", "feedback_fixes"),
+
         # Philosophy (enhanced version is already concise)
         ("philosophy_enhanced.jsonl", "philosophy"),
     ]

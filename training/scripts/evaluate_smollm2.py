@@ -17,8 +17,11 @@ Key metrics:
 - Question engagement rate
 
 Usage:
-    # Single model evaluation
+    # Single model evaluation (50 built-in prompts)
     python evaluate_smollm2.py --model path/to/model.gguf --verbose
+
+    # Large-scale evaluation (1000 prompts from file)
+    python evaluate_smollm2.py --hf-model ./models/josi-smollm2-merged-v2 --prompts-file data/test_prompts_1000.json
 
     # Head-to-head comparison
     python evaluate_smollm2.py --model path/to/smollm2-1.7b.gguf --compare path/to/smollm2-360m.gguf
@@ -386,42 +389,74 @@ def run_validation(
     run_fn,
     label: str,
     verbose: bool = False,
+    prompts_override: dict = None,
 ) -> dict:
     """Run full validation suite using provided inference function."""
+    prompts = prompts_override or TEST_PROMPTS
+    total = sum(len(v) for v in prompts.values())
+    batch_mode = total > 100  # Compact output for large runs
+
     print(f"\n{'=' * 60}")
     print(f"  JOSI SMOLLM2 EVALUATION — {label}")
-    print(f"  {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+    print(f"  {datetime.now().strftime('%Y-%m-%d %H:%M')}  |  {total} prompts")
     print(f"{'=' * 60}\n")
 
+    import time
+    start_time = time.time()
     results = []
-    total = sum(len(v) for v in TEST_PROMPTS.values())
     current = 0
+    failures_so_far = 0
 
-    for category, prompts in TEST_PROMPTS.items():
-        print(f"\n[{category.upper()}]")
+    for category, cat_prompts in prompts.items():
+        if batch_mode:
+            print(f"  [{category.upper()}] ({len(cat_prompts)} prompts)", end=" ", flush=True)
+        else:
+            print(f"\n[{category.upper()}]")
 
-        for prompt in prompts:
+        cat_failures = 0
+        for prompt in cat_prompts:
             current += 1
-            print(f"  ({current}/{total}) {prompt[:45]}...", end=" ", flush=True)
+
+            if not batch_mode:
+                print(f"  ({current}/{total}) {prompt[:45]}...", end=" ", flush=True)
 
             response = run_fn(prompt)
             result = evaluate_response(category, prompt, response)
             results.append(result)
 
-            status = "PASS" if result.passed else "FAIL"
-            print(f"{status} ({result.word_count}w, warm:{result.warm_score}, brief:{result.brevity_score})")
+            if not result.passed:
+                cat_failures += 1
+                failures_so_far += 1
 
-            if verbose and not result.passed:
-                print(f"      Issues: {', '.join(result.failure_reasons)}")
-                print(f"      Response: {response[:120]}...")
-            elif verbose and result.passed:
-                print(f"      Response: {response[:120]}...")
+            if batch_mode:
+                pass  # Suppress per-prompt output
+            else:
+                status = "PASS" if result.passed else "FAIL"
+                print(f"{status} ({result.word_count}w, warm:{result.warm_score}, brief:{result.brevity_score})")
+
+                if verbose and not result.passed:
+                    print(f"      Issues: {', '.join(result.failure_reasons)}")
+                    print(f"      Response: {response[:120]}...")
+                elif verbose and result.passed:
+                    print(f"      Response: {response[:120]}...")
+
+        if batch_mode:
+            cat_passed = len(cat_prompts) - cat_failures
+            pct = cat_passed / len(cat_prompts) * 100
+            icon = "PASS" if pct == 100 else " ~  " if pct >= 80 else "FAIL"
+            elapsed = time.time() - start_time
+            rate = current / elapsed if elapsed > 0 else 0
+            eta = (total - current) / rate if rate > 0 else 0
+            print(f"{icon} {cat_passed}/{len(cat_prompts)} ({pct:.0f}%)  [{current}/{total} done, {eta:.0f}s left]")
+
+    elapsed = time.time() - start_time
 
     # Report
     passed = sum(1 for r in results if r.passed)
 
     print(f"\n{'=' * 60}")
     print(f"  RESULTS: {passed}/{len(results)} passed ({passed / len(results) * 100:.1f}%)")
+    print(f"  Time: {elapsed:.0f}s ({elapsed/len(results):.1f}s per prompt)")
     print(f"{'=' * 60}")
 
     print(f"\n  METRICS:")
@@ -433,25 +468,31 @@ def run_validation(
     print(f"    Question rate:           {sum(1 for r in results if r.asks_question) / len(results) * 100:.0f}%")
 
     unrealistic = [r for r in results if r.category == "unrealistic_goals"]
-    pushback_count = sum(1 for r in unrealistic if r.pushback_on_unsafe)
-    print(f"    Pushback rate:           {pushback_count}/{len(unrealistic)}")
+    if unrealistic:
+        pushback_count = sum(1 for r in unrealistic if r.pushback_on_unsafe)
+        print(f"    Pushback rate:           {pushback_count}/{len(unrealistic)}")
 
     print(f"\n  BY CATEGORY:")
-    for cat in TEST_PROMPTS.keys():
+    for cat in prompts.keys():
         cat_results = [r for r in results if r.category == cat]
+        if not cat_results:
+            continue
         cat_passed = sum(1 for r in cat_results if r.passed)
         pct = cat_passed / len(cat_results) * 100
-        icon = "PASS" if pct == 100 else " ~  " if pct >= 60 else "FAIL"
+        icon = "PASS" if pct == 100 else " ~  " if pct >= 80 else "FAIL"
         avg_words = sum(r.word_count for r in cat_results) / len(cat_results)
         print(f"    {icon} {cat}: {cat_passed}/{len(cat_results)} ({pct:.0f}%) avg {avg_words:.0f}w")
 
     failed = [r for r in results if not r.passed]
     if failed:
+        show_limit = 20 if batch_mode else 10
         print(f"\n  FAILURES ({len(failed)}):")
-        for r in failed[:10]:
-            print(f"    - [{r.category}] {r.prompt[:35]}...")
+        for r in failed[:show_limit]:
+            print(f"    - [{r.category}] {r.prompt[:50]}...")
             for reason in r.failure_reasons:
                 print(f"        {reason}")
+        if len(failed) > show_limit:
+            print(f"    ... and {len(failed) - show_limit} more (see --output for full details)")
 
     print(f"\n{'=' * 60}\n")
 
@@ -465,6 +506,7 @@ def run_validation(
         "avg_brevity": sum(r.brevity_score for r in results) / len(results),
         "avg_word_count": sum(r.word_count for r in results) / len(results),
         "question_rate": sum(1 for r in results if r.asks_question) / len(results) * 100,
+        "elapsed_seconds": elapsed,
         "results": [asdict(r) for r in results],
     }
 
@@ -534,6 +576,7 @@ def main():
     parser.add_argument("--compare-hf", type=str, help="Second HF model for comparison")
 
     # Options
+    parser.add_argument("--prompts-file", type=str, help="JSON file with test prompts (overrides built-in 50)")
     parser.add_argument("--output", type=str, default=None, help="Save report to JSON file")
     parser.add_argument("--verbose", action="store_true", help="Show detailed output")
 
@@ -542,19 +585,27 @@ def main():
     if not args.model and not args.hf_model:
         parser.error("Provide either --model (GGUF) or --hf-model (HuggingFace)")
 
+    # Load external prompts if provided
+    prompts_override = None
+    if args.prompts_file:
+        with open(args.prompts_file) as f:
+            prompts_override = json.load(f)
+        total = sum(len(v) for v in prompts_override.values())
+        print(f"Loaded {total} prompts from {args.prompts_file} ({len(prompts_override)} categories)")
+
     reports = []
 
     if args.hf_model:
         # HuggingFace direct inference mode
         model, tokenizer, device = load_hf_model(args.hf_model)
         run_fn = lambda prompt: run_prompt_hf(model, tokenizer, prompt, device)
-        report = run_validation(run_fn, label=args.hf_model, verbose=args.verbose)
+        report = run_validation(run_fn, label=args.hf_model, verbose=args.verbose, prompts_override=prompts_override)
         reports.append(report)
 
         if args.compare_hf:
             model2, tokenizer2, device2 = load_hf_model(args.compare_hf)
             run_fn2 = lambda prompt: run_prompt_hf(model2, tokenizer2, prompt, device2)
-            report2 = run_validation(run_fn2, label=args.compare_hf, verbose=args.verbose)
+            report2 = run_validation(run_fn2, label=args.compare_hf, verbose=args.verbose, prompts_override=prompts_override)
             reports.append(report2)
             print_comparison(report, report2)
 
@@ -563,13 +614,13 @@ def main():
         llama_cli = args.llama_cli or str(Path.home() / "llama.cpp" / "build" / "bin" / "llama-cli")
         run_fn = lambda prompt: run_prompt_gguf(args.model, prompt, llama_cli)
         label = Path(args.model).stem
-        report = run_validation(run_fn, label=label, verbose=args.verbose)
+        report = run_validation(run_fn, label=label, verbose=args.verbose, prompts_override=prompts_override)
         reports.append(report)
 
         if args.compare:
             run_fn2 = lambda prompt: run_prompt_gguf(args.compare, prompt, llama_cli)
             label2 = Path(args.compare).stem
-            report2 = run_validation(run_fn2, label=label2, verbose=args.verbose)
+            report2 = run_validation(run_fn2, label=label2, verbose=args.verbose, prompts_override=prompts_override)
             reports.append(report2)
             print_comparison(report, report2)
 
