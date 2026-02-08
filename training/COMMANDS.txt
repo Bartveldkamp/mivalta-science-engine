@@ -1,0 +1,32 @@
+
+# Step 1: Get the code on Hetzner
+ssh hetzner
+su - cockpit2
+cd ~/mivalta-science-engine
+git fetch origin claude/evaluate-smollm2-mivalta-iCPP6
+git checkout claude/evaluate-smollm2-mivalta-iCPP6
+
+# Step 2: Install dependencies
+cd training
+pip install -r requirements.txt
+
+# Step 3: Fine-tune SmolLM2-1.7B (takes 30-60 min)
+python scripts/finetune_smollm2.py train --model 1.7b --train_data data/smollm2_train.jsonl
+
+# Step 4: Check what folder was created
+ls models/
+
+# Step 5: Merge LoRA weights (replace FOLDERNAME with actual name from step 4)
+python scripts/finetune_smollm2.py merge --model 1.7b --lora_path ./models/FOLDERNAME/lora_weights --output_path ./models/josi-smollm2-merged
+
+# Step 6: Export to GGUF for mobile (~1.0 GB)
+python scripts/export_gguf.py --model_path ./models/josi-smollm2-merged --quant q4_k_m
+
+# Step 7: Evaluate
+python scripts/evaluate_smollm2.py --model ./models/gguf/josi-smollm2-merged-q4_k_m.gguf --verbose
+
+# Step 8: Share with developer
+cd ~/mivalta-science-engine/training/models/gguf
+nohup python3 -m http.server 8888 > /dev/null 2>&1 &
+# Send developer: http://136.243.73.100:8888/josi-smollm2-merged-q4_k_m.gguf
+# Kill when done: kill $(lsof -t -i:8888)
