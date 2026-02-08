@@ -236,9 +236,20 @@ def train(
         optim="paged_adamw_8bit" if config["use_4bit"] else "adamw_torch",
         gradient_checkpointing=config["use_4bit"],
         max_grad_norm=0.3,
-        max_seq_length=config["max_seq_length"],
         report_to="none",
     )
+
+    # Truncate training data to max_seq_length
+    max_len = config["max_seq_length"]
+
+    def truncate_text(example):
+        tokens = tokenizer(example["text"], truncation=True, max_length=max_len)
+        example["text"] = tokenizer.decode(tokens["input_ids"], skip_special_tokens=False)
+        return example
+
+    train_dataset = train_dataset.map(truncate_text)
+    if val_dataset:
+        val_dataset = val_dataset.map(truncate_text)
 
     # Trainer
     trainer = SFTTrainer(
