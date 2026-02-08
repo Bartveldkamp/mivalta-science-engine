@@ -26,19 +26,23 @@ import shutil
 
 
 # Quantization options for mobile
+# Size estimates per model family:
+#   size_7b  = Mistral 7B / Ministral 8B
+#   size_1.7b = SmolLM2-1.7B
+#   size_360m = SmolLM2-360M
 QUANT_LEVELS = {
     # Best quality (largest)
-    "f16": {"bits": 16, "size_7b": "14GB", "quality": "highest", "mobile": False},
-    "q8_0": {"bits": 8, "size_7b": "7GB", "quality": "excellent", "mobile": False},
+    "f16": {"bits": 16, "size_7b": "14GB", "size_1.7b": "3.4GB", "size_360m": "724MB", "quality": "highest", "mobile": False},
+    "q8_0": {"bits": 8, "size_7b": "7GB", "size_1.7b": "1.7GB", "size_360m": "360MB", "quality": "excellent", "mobile": False},
 
     # Balanced (recommended for mobile)
-    "q5_k_m": {"bits": 5, "size_7b": "4.5GB", "quality": "very good", "mobile": True},
-    "q4_k_m": {"bits": 4, "size_7b": "4GB", "quality": "good", "mobile": True},  # RECOMMENDED
+    "q5_k_m": {"bits": 5, "size_7b": "4.5GB", "size_1.7b": "1.2GB", "size_360m": "250MB", "quality": "very good", "mobile": True},
+    "q4_k_m": {"bits": 4, "size_7b": "4GB", "size_1.7b": "1.0GB", "size_360m": "210MB", "quality": "good", "mobile": True},  # RECOMMENDED
 
     # Smallest (lower quality)
-    "q4_0": {"bits": 4, "size_7b": "3.8GB", "quality": "acceptable", "mobile": True},
-    "q3_k_m": {"bits": 3, "size_7b": "3GB", "quality": "lower", "mobile": True},
-    "q2_k": {"bits": 2, "size_7b": "2.5GB", "quality": "lowest", "mobile": True},
+    "q4_0": {"bits": 4, "size_7b": "3.8GB", "size_1.7b": "950MB", "size_360m": "200MB", "quality": "acceptable", "mobile": True},
+    "q3_k_m": {"bits": 3, "size_7b": "3GB", "size_1.7b": "800MB", "size_360m": "170MB", "quality": "lower", "mobile": True},
+    "q2_k": {"bits": 2, "size_7b": "2.5GB", "size_1.7b": "650MB", "size_360m": "140MB", "quality": "lowest", "mobile": True},
 }
 
 # Default llama.cpp path
@@ -201,14 +205,16 @@ def full_pipeline(
 def print_quant_options():
     """Print available quantization options."""
     print("\nAvailable quantization options:")
-    print("-" * 70)
-    print(f"{'Type':<10} {'Bits':<6} {'~Size (7B)':<12} {'Quality':<15} {'Mobile'}")
-    print("-" * 70)
+    print("-" * 90)
+    print(f"{'Type':<10} {'Bits':<6} {'Mistral 7B':<12} {'SmolLM2 1.7B':<14} {'SmolLM2 360M':<14} {'Quality':<12} {'Mobile'}")
+    print("-" * 90)
     for name, info in QUANT_LEVELS.items():
         mobile = "Yes" if info["mobile"] else "No"
-        print(f"{name:<10} {info['bits']:<6} {info['size_7b']:<12} {info['quality']:<15} {mobile}")
-    print("-" * 70)
-    print("\nRecommended for MiValta mobile: q4_k_m (best quality/size balance)")
+        print(f"{name:<10} {info['bits']:<6} {info['size_7b']:<12} {info['size_1.7b']:<14} {info['size_360m']:<14} {info['quality']:<12} {mobile}")
+    print("-" * 90)
+    print("\nRecommended for MiValta mobile:")
+    print("  SmolLM2-1.7B q4_k_m (~1.0 GB) — best quality/size balance for coaching")
+    print("  SmolLM2-360M q4_k_m (~210 MB) — ultra-lightweight for intent/templated responses")
 
 
 def main():
