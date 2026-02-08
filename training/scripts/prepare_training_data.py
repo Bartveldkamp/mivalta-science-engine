@@ -43,6 +43,11 @@ FORBIDDEN_WORDS = [
     "periodization", "mesocycle", "microcycle", "macrocycle",
     "supercompensation", "vo2max", "lactate threshold",
     "ftp", "threshold power", "anaerobic capacity",
+    # Deflection — Josi should never send users to other apps/coaches
+    "consult a professional", "see a professional", "hire a coach",
+    "working with a professional coach", "recommend using a running app",
+    "require expert input", "seek professional", "consult a coach",
+    "talk to a professional", "find a coach",
 ]
 
 DATA_DIR = Path(__file__).parent.parent / "data"
@@ -133,6 +138,9 @@ def prepare_dataset(
 
         # Anti-jargon examples (clean language for zones, intensity, race anxiety)
         ("gold_examples/gold_anti_jargon.jsonl", "anti_jargon"),
+
+        # Anti-deflection examples (Josi IS the coach, never send users away)
+        ("gold_examples/gold_anti_deflection.jsonl", "anti_deflection"),
 
         # Feedback loop fixes (from evaluation failures, if they exist)
         ("gold_examples/gold_feedback_fixes.jsonl", "feedback_fixes"),

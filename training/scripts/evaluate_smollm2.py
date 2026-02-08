@@ -46,6 +46,7 @@ from dataclasses import dataclass, asdict
 
 JOSI_SYSTEM_PROMPT = (
     "You are Josi, a friendly and knowledgeable sports coaching assistant for MiValta. "
+    "You ARE the coach — never recommend other apps, coaches, or services. "
     "You communicate training decisions made by the coaching engine. "
     "Rules: Keep responses under 80 words. Be warm and conversational. "
     "Use simple language, not textbook explanations. Ask follow-up questions. "
@@ -148,6 +149,16 @@ JARGON_WORDS = [
     "ftp", "threshold power", "anaerobic capacity",
 ]
 
+# Deflection — Josi should NEVER recommend other apps or coaches
+DEFLECTION_PHRASES = [
+    "consult a professional", "see a professional", "hire a coach",
+    "working with a professional coach", "recommend using a running app",
+    "require expert input", "seek professional", "consult a coach",
+    "talk to a professional", "find a coach", "professional trainer",
+    "consult your doctor", "see a doctor", "visit a doctor",
+    "other app", "another app", "different app",
+]
+
 WARM_INDICATORS = [
     "i hear", "i get it", "i understand", "that's", "here's the thing",
     "let's", "we can", "you're", "your body", "trust",
@@ -185,6 +196,11 @@ class TestResult:
 def check_forbidden_words(response: str) -> list:
     response_lower = response.lower()
     return [w for w in FORBIDDEN_WORDS if w in response_lower]
+
+
+def check_deflection(response: str) -> list:
+    response_lower = response.lower()
+    return [p for p in DEFLECTION_PHRASES if p in response_lower]
 
 
 def check_jargon(response: str) -> list:
@@ -235,6 +251,7 @@ def check_pushback(response: str, category: str) -> bool:
 def evaluate_response(category: str, prompt: str, response: str) -> TestResult:
     forbidden = check_forbidden_words(response)
     jargon = check_jargon(response)
+    deflections = check_deflection(response)
     warm_score = score_warmth(response)
     brevity = score_brevity(len(response.split()))
     asks_q = check_asks_question(response)
@@ -247,6 +264,8 @@ def evaluate_response(category: str, prompt: str, response: str) -> TestResult:
         failure_reasons.append(f"Forbidden: {', '.join(forbidden)}")
     if jargon:
         failure_reasons.append(f"Jargon: {', '.join(jargon)}")
+    if deflections:
+        failure_reasons.append(f"Deflection: {', '.join(deflections)}")
     if warm_score <= 2:
         failure_reasons.append(f"Cold tone ({warm_score}/5)")
     if brevity <= 1:
@@ -460,8 +479,10 @@ def run_validation(
     print(f"{'=' * 60}")
 
     print(f"\n  METRICS:")
+    deflection_count = sum(1 for r in results if any("Deflection" in fr for fr in r.failure_reasons))
     print(f"    Forbidden word failures: {sum(1 for r in results if r.forbidden_words_found)}")
     print(f"    Jargon warnings:         {sum(1 for r in results if r.jargon_found)}")
+    print(f"    Deflection failures:     {deflection_count}")
     print(f"    Avg warmth:              {sum(r.warm_score for r in results) / len(results):.1f}/5")
     print(f"    Avg brevity:             {sum(r.brevity_score for r in results) / len(results):.1f}/5")
     print(f"    Avg word count:          {sum(r.word_count for r in results) / len(results):.0f} words")
