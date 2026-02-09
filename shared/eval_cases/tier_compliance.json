@@ -1,0 +1,124 @@
+{
+  "category": "tier_compliance",
+  "description": "Verify correct tier gating: monitor has no chat, advisor blocks replans/plans, coach allows all",
+  "cases": [
+    {
+      "id": "TC-001",
+      "tier": "monitor",
+      "mode": "monitor",
+      "message": "What's my readiness?",
+      "expected_intent": "question",
+      "expected_response_type": "ReadinessSummary",
+      "must_not_contain": ["today's session", "planned workout", "your plan"],
+      "notes": "Monitor can answer readiness questions but must not reference plans"
+    },
+    {
+      "id": "TC-002",
+      "tier": "monitor",
+      "mode": "monitor",
+      "message": "Can I skip today?",
+      "expected_intent": "replan",
+      "expected_response_type": "Decline",
+      "must_contain_concept": "tier upgrade",
+      "notes": "Replan not available in monitor"
+    },
+    {
+      "id": "TC-003",
+      "tier": "advisor",
+      "mode": "advisor",
+      "message": "Create me a 12 week training plan",
+      "expected_intent": "blocked",
+      "expected_response_type": "Decline",
+      "must_contain_concept": "tier upgrade or cannot create plans",
+      "notes": "Plan creation is coach-only"
+    },
+    {
+      "id": "TC-004",
+      "tier": "advisor",
+      "mode": "advisor",
+      "message": "Can I swap tomorrow's session with today?",
+      "expected_intent": "replan",
+      "expected_response_type": "Decline",
+      "replan_request_must_be": null,
+      "notes": "Advisor cannot replan"
+    },
+    {
+      "id": "TC-005",
+      "tier": "coach",
+      "mode": "coach",
+      "message": "Can I skip today?",
+      "expected_intent": "replan",
+      "replan_request_must_be": "not null",
+      "replan_type": "skip_today",
+      "notes": "Coach can replan — must produce replan_request"
+    },
+    {
+      "id": "TC-006",
+      "tier": "coach",
+      "mode": "coach",
+      "message": "I'm going on vacation next week, can we adjust?",
+      "expected_intent": "replan",
+      "replan_request_must_be": "not null",
+      "replan_type": "travel",
+      "notes": "Coach travel replan"
+    },
+    {
+      "id": "TC-007",
+      "tier": "advisor",
+      "mode": "advisor",
+      "message": "I have 45 minutes for a ride, what should I do?",
+      "expected_intent": "question",
+      "expected_response_type": "QuestionAnswer",
+      "must_not_contain": ["you should", "I recommend", "try this"],
+      "notes": "Advisor must not prescribe"
+    },
+    {
+      "id": "TC-008",
+      "tier": "coach",
+      "mode": "coach",
+      "message": "What's my plan for this week?",
+      "expected_intent": "question",
+      "has_session_context": true,
+      "expected_response_type": "ExplainWorkout",
+      "notes": "Coach can reference plans"
+    },
+    {
+      "id": "TC-009",
+      "tier": "monitor",
+      "mode": "monitor",
+      "message": "How's my recovery looking?",
+      "expected_intent": "question",
+      "expected_response_type": "ReadinessSummary",
+      "must_not_contain": ["session", "workout", "plan", "training plan"],
+      "notes": "Monitor: only readiness/biometric observations"
+    },
+    {
+      "id": "TC-010",
+      "tier": "advisor",
+      "mode": "advisor",
+      "message": "Can you build me a plan for my marathon in October?",
+      "expected_intent": "blocked",
+      "expected_response_type": "Decline",
+      "notes": "Advisor cannot create plans"
+    },
+    {
+      "id": "TC-011",
+      "tier": "coach",
+      "mode": "coach",
+      "message": "I feel sick, can we pause the plan for a few days?",
+      "expected_intent": "replan",
+      "replan_request_must_be": "not null",
+      "replan_type": "illness",
+      "notes": "Coach illness replan"
+    },
+    {
+      "id": "TC-012",
+      "tier": "advisor",
+      "mode": "advisor",
+      "message": "Tell me about zone 4",
+      "expected_intent": "question",
+      "expected_response_type": "ExplainZone",
+      "notes": "Education Q&A allowed in advisor"
+    }
+  ]
+}

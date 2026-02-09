@@ -1,0 +1,158 @@
+{
+  "version": "1.0",
+  "description": "Maps LLMIntent -> engine calls. Defines per-tier tool availability and fallback behavior.",
+  "principles": [
+    "Advisor is deterministic for workout creation: parse_request -> suggest -> format_options",
+    "LLMIntent tool_call is optional; engine may ignore tool_call when deterministic routing exists",
+    "Coach planning and replans must go through PlanEngine/ReplanExecutor; Josi never constructs plans",
+    "All tool calls are JSON-in/JSON-out via the FFI layer"
+  ],
+  "tier_tool_allowlist": {
+    "monitor": [
+      "get_user_status",
+      "log_workout",
+      "get_recent_workouts"
+    ],
+    "advisor": [
+      "get_user_status",
+      "explain_workout",
+      "create_today_workout",
+      "log_workout",
+      "get_recent_workouts"
+    ],
+    "coach": [
+      "get_user_status",
+      "explain_workout",
+      "create_today_workout",
+      "create_plan",
+      "replan",
+      "log_workout",
+      "get_recent_workouts"
+    ]
+  },
+  "tool_definitions": {
+    "get_user_status": {
+      "engine": "ViterbiEngine",
+      "method": "process_observation_json",
+      "tiers": ["monitor", "advisor", "coach"],
+      "description": "Get current readiness state from latest biometric observation"
+    },
+    "explain_workout": {
+      "engine": "ChatEngine",
+      "method": "chat",
+      "tiers": ["advisor", "coach"],
+      "requires": "has_session_context=true, planned_session in ChatContext",
+      "description": "Explain a planned session (zones, structure, rationale)"
+    },
+    "create_today_workout": {
+      "engine": "AdvisorEngine",
+      "method": "parse_request -> suggest -> format_options",
+      "tiers": ["advisor", "coach"],
+      "description": "3-step deterministic flow: parse NL request, generate A/B/C options, format for display",
+      "note": "This is a pipeline of 3 calls, not a single tool call"
+    },
+    "create_plan": {
+      "engine": "PlanEngine",
+      "method": "create_plan",
+      "tiers": ["coach"],
+      "description": "Generate full periodized training plan"
+    },
+    "replan": {
+      "engine": "ReplanExecutor",
+      "method": "from_josi",
+      "tiers": ["coach"],
+      "description": "Execute plan modification. Validates against feasibility first.",
+      "note": "Non-coach tiers receive Decline with tier upgrade message"
+    },
+    "log_workout": {
+      "engine": "VaultManager",
+      "method": "insert into activities",
+      "tiers": ["monitor", "advisor", "coach"],
+      "description": "Store completed workout in Vault"
+    },
+    "get_recent_workouts": {
+      "engine": "VaultManager",
+      "method": "query activities",
+      "tiers": ["monitor", "advisor", "coach"],
+      "description": "Retrieve recent workout history",
+      "note": "Monitor/Advisor: limited history. Coach: full_history capability."
+    }
+  },
+  "dispatch_rules": [
+    {
+      "when": {"intent": "question", "response_type": "ExplainWorkout"},
+      "tool": "explain_workout",
+      "requires": "has_session_context=true",
+      "fallback_if_no_context": "Use QuestionAnswer with general explanation"
+    },
+    {
+      "when": {"intent": "question", "response_type": "ExplainZone"},
+      "tool": null,
+      "note": "Pure explanation from source_cards, no tool call needed"
+    },
+    {
+      "when": {"intent": "question", "response_type": "ReadinessSummary"},
+      "tool": "get_user_status",
+      "note": "Inject latest Viterbi snapshot into response"
+    },
+    {
+      "when": {"intent": "replan", "tier": "coach"},
+      "tool": "replan",
+      "note": "Extract replan_request from LLMIntent, pass to ReplanExecutor::from_josi()"
+    },
+    {
+      "when": {"intent": "replan", "tier": "advisor"},
+      "tool": null,
+      "force_response_type": "Decline",
+      "note": "Return tier upgrade message"
+    },
+    {
+      "when": {"intent": "feedback"},
+      "tool": "log_workout",
+      "note": "If user reports completed workout, log to Vault"
+    },
+    {
+      "when": {"intent": "general"},
+      "tool": null,
+      "note": "Pure explanation path, must include source_cards"
+    },
+    {
+      "when": {"intent": "blocked"},
+      "tool": null,
+      "force_response_type": "Decline",
+      "note": "I6 violation — return safe decline"
+    },
+    {
+      "when": {"intent": "medical_red_flag"},
+      "tool": null,
+      "force_response_type": "SafetyWarning",
+      "note": "Always decline with 'contact your doctor' message"
+    }
+  ],
+  "fallbacks": {
+    "on_schema_violation": {
+      "response_type": "Decline",
+      "message": "I couldn't process that response. Let me try a different approach.",
+      "source_cards": ["josi_explanations"],
+      "note": "LLM output failed schema validation, use deterministic fallback"
+    },
+    "on_i6_violation": {
+      "response_type": "Decline",
+      "message": "I can explain what the engine produced, but I can't prescribe or modify training directly.",
+      "source_cards": ["josi_explanations"],
+      "note": "Output contained prescription/banned tokens/zone mismatch"
+    },
+    "on_tier_error": {
+      "response_type": "Decline",
+      "message_template": "Action '{action}' not available in {current_tier} tier. Requires {required_tier}.",
+      "source_cards": ["josi_explanations"],
+      "note": "Tool call blocked by tier guard"
+    },
+    "on_tool_call_failure": {
+      "response_type": "QuestionAnswer",
+      "message": "I had trouble getting that information. Let me help you another way.",
+      "source_cards": ["josi_explanations"],
+      "note": "Engine tool returned error, provide graceful degradation"
+    }
+  }
+}

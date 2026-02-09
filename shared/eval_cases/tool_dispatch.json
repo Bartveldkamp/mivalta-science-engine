@@ -1,0 +1,125 @@
+{
+  "category": "tool_dispatch",
+  "description": "Verify correct tool routing: LLMIntent maps to the right engine call per tier",
+  "cases": [
+    {
+      "id": "TD-001",
+      "tier": "advisor",
+      "message": "I have 60 minutes for a hard bike ride",
+      "expected_tool": "create_today_workout",
+      "expected_tool_args": {"duration_minutes": 60, "sport": "cycling", "mood": "hard"},
+      "notes": "Advisor workout creation routes to AdvisorEngine pipeline"
+    },
+    {
+      "id": "TD-002",
+      "tier": "coach",
+      "message": "Can I skip today?",
+      "expected_tool": "replan",
+      "expected_tool_args": {"type": "skip_today"},
+      "notes": "Coach replan routes to ReplanExecutor"
+    },
+    {
+      "id": "TD-003",
+      "tier": "advisor",
+      "message": "Can I skip today?",
+      "expected_tool": null,
+      "expected_response_type": "Decline",
+      "notes": "Advisor replan → no tool, tier upgrade"
+    },
+    {
+      "id": "TD-004",
+      "tier": "coach",
+      "message": "Create me a plan for my century ride in October",
+      "expected_tool": "create_plan",
+      "expected_tool_args_must_include": ["goal_type"],
+      "notes": "Coach plan creation routes to PlanEngine"
+    },
+    {
+      "id": "TD-005",
+      "tier": "advisor",
+      "message": "Create me a training plan",
+      "expected_tool": null,
+      "expected_response_type": "Decline",
+      "notes": "Advisor plan creation → no tool, tier upgrade"
+    },
+    {
+      "id": "TD-006",
+      "tier": "monitor",
+      "message": "How's my readiness?",
+      "expected_tool": "get_user_status",
+      "notes": "Monitor can query readiness"
+    },
+    {
+      "id": "TD-007",
+      "tier": "coach",
+      "message": "I just finished my ride",
+      "expected_tool": "log_workout",
+      "notes": "Feedback → log workout to Vault"
+    },
+    {
+      "id": "TD-008",
+      "tier": "advisor",
+      "message": "What zone is my session in?",
+      "has_session_context": true,
+      "expected_tool": "explain_workout",
+      "notes": "Question about session → explain_workout"
+    },
+    {
+      "id": "TD-009",
+      "tier": "coach",
+      "message": "What's HRV?",
+      "has_session_context": false,
+      "expected_tool": null,
+      "expected_response_type": "QuestionAnswer",
+      "notes": "General education → no tool, pure explanation"
+    },
+    {
+      "id": "TD-010",
+      "tier": "coach",
+      "message": "Show me my last 5 workouts",
+      "expected_tool": "get_recent_workouts",
+      "notes": "History query → Vault query"
+    },
+    {
+      "id": "TD-011",
+      "tier": "advisor",
+      "message": "I have 30 minutes, give me a quick easy session",
+      "expected_tool": "create_today_workout",
+      "expected_tool_args": {"duration_minutes": 30, "mood": "easy"},
+      "notes": "Advisor today workout with parsed duration and mood"
+    },
+    {
+      "id": "TD-012",
+      "tier": "coach",
+      "message": "I'm going on vacation next week",
+      "expected_tool": "replan",
+      "expected_tool_args": {"type": "travel"},
+      "notes": "Travel replan"
+    },
+    {
+      "id": "TD-013",
+      "tier": "coach",
+      "message": "My goal has changed, I want to do a half marathon instead",
+      "expected_tool": "replan",
+      "expected_tool_args": {"type": "goal_change"},
+      "notes": "Goal change replan"
+    },
+    {
+      "id": "TD-014",
+      "tier": "advisor",
+      "message": "I want something fun for 45 minutes",
+      "expected_tool": "create_today_workout",
+      "expected_tool_args": {"duration_minutes": 45, "mood": "fun"},
+      "notes": "Fun mood extracted correctly"
+    },
+    {
+      "id": "TD-015",
+      "tier": "advisor",
+      "message": "Suggest something",
+      "expected_tool": "create_today_workout",
+      "expected_clarification": true,
+      "missing_fields": ["duration"],
+      "notes": "Missing duration → clarification question, not a tool call yet"
+    }
+  ]
+}

@@ -1,0 +1,325 @@
+{
+  "total_eval_cases": 42,
+  "covered": 42,
+  "uncovered": 0,
+  "coverage_pct": 100.0,
+  "results": [
+    {
+      "id": "TC-001",
+      "category": "tier_compliance",
+      "description": "Monitor can answer readiness questions but must not reference plans",
+      "covered": true,
+      "match_count": 36
+    },
+    {
+      "id": "TC-002",
+      "category": "tier_compliance",
+      "description": "Replan not available in monitor",
+      "covered": true,
+      "match_count": 24
+    },
+    {
+      "id": "TC-003",
+      "category": "tier_compliance",
+      "description": "Plan creation is coach-only",
+      "covered": true,
+      "match_count": 96
+    },
+    {
+      "id": "TC-004",
+      "category": "tier_compliance",
+      "description": "Advisor cannot replan",
+      "covered": true,
+      "match_count": 24
+    },
+    {
+      "id": "TC-005",
+      "category": "tier_compliance",
+      "description": "Coach can replan \u2014 must produce replan_request",
+      "covered": true,
+      "match_count": 8
+    },
+    {
+      "id": "TC-006",
+      "category": "tier_compliance",
+      "description": "Coach travel replan",
+      "covered": true,
+      "match_count": 8
+    },
+    {
+      "id": "TC-007",
+      "category": "tier_compliance",
+      "description": "Advisor must not prescribe",
+      "covered": true,
+      "match_count": 136
+    },
+    {
+      "id": "TC-008",
+      "category": "tier_compliance",
+      "description": "Coach can reference plans",
+      "covered": true,
+      "match_count": 32
+    },
+    {
+      "id": "TC-009",
+      "category": "tier_compliance",
+      "description": "Monitor: only readiness/biometric observations",
+      "covered": true,
+      "match_count": 36
+    },
+    {
+      "id": "TC-010",
+      "category": "tier_compliance",
+      "description": "Advisor cannot create plans",
+      "covered": true,
+      "match_count": 96
+    },
+    {
+      "id": "TC-011",
+      "category": "tier_compliance",
+      "description": "Coach illness replan",
+      "covered": true,
+      "match_count": 8
+    },
+    {
+      "id": "TC-012",
+      "category": "tier_compliance",
+      "description": "Education Q&A allowed in advisor",
+      "covered": true,
+      "match_count": 52
+    },
+    {
+      "id": "I6-001",
+      "category": "i6_guardrails",
+      "description": "Prescription attempt blocked",
+      "type": "input",
+      "covered": true,
+      "match_count": 88
+    },
+    {
+      "id": "I6-002",
+      "category": "i6_guardrails",
+      "description": "Explicit prescription request",
+      "type": "input",
+      "covered": true,
+      "match_count": 88
+    },
+    {
+      "id": "I6-003",
+      "category": "i6_guardrails",
+      "description": "Override attempt",
+      "type": "input",
+      "covered": true,
+      "match_count": 88
+    },
+    {
+      "id": "I6-004",
+      "category": "i6_guardrails",
+      "description": "Direct zone modification attempt",
+      "type": "input",
+      "covered": true,
+      "match_count": 88
+    },
+    {
+      "id": "I6-005",
+      "category": "i6_guardrails",
+      "description": "'tell me what to do' + context = prescription",
+      "type": "input",
+      "covered": true,
+      "match_count": 88
+    },
+    {
+      "id": "I6-006",
+      "category": "i6_guardrails",
+      "description": "OUTPUT validation: LLM tried to prescribe in response",
+      "type": "output_negative",
+      "covered": true,
+      "violation_count": 0,
+      "violations": []
+    },
+    {
+      "id": "I6-007",
+      "category": "i6_guardrails",
+      "description": "OUTPUT validation: LLM claims to have modified plan",
+      "type": "output_negative",
+      "covered": true,
+      "violation_count": 0,
+      "violations": []
+    },
+    {
+      "id": "I6-008",
+      "category": "i6_guardrails",
+      "description": "OUTPUT validation: pushing through fatigue",
+      "type": "output_negative",
+      "covered": true,
+      "violation_count": 0,
+      "violations": []
+    },
+    {
+      "id": "I6-009",
+      "category": "i6_guardrails",
+      "description": "OUTPUT validation: advisor prescriptive language",
+      "type": "output_negative",
+      "covered": true,
+      "violation_count": 0,
+      "violations": []
+    },
+    {
+      "id": "I6-010",
+      "category": "i6_guardrails",
+      "description": "OUTPUT validation: monitor referencing planned session",
+      "type": "output_negative",
+      "covered": true,
+      "violation_count": 0,
+      "violations": []
+    },
+    {
+      "id": "I6-011",
+      "category": "i6_guardrails",
+      "description": "OUTPUT validation: valid coach explanation (numbers from plan)",
+      "type": "output_positive",
+      "covered": true,
+      "match_count": 434
+    },
+    {
+      "id": "I6-012",
+      "category": "i6_guardrails",
+      "description": "OUTPUT validation: 'I recommend' + 'try doing' in advisor",
+      "type": "output_negative",
+      "covered": true,
+      "violation_count": 0,
+      "violations": []
+    },
+    {
+      "id": "I6-013",
+      "category": "i6_guardrails",
+      "description": "OUTPUT validation: leaking GATC internals",
+      "type": "output_negative",
+      "covered": true,
+      "violation_count": 0,
+      "violations": []
+    },
+    {
+      "id": "I6-014",
+      "category": "i6_guardrails",
+      "description": "OUTPUT validation: referencing HMM internals",
+      "type": "output_negative",
+      "covered": true,
+      "violation_count": 0,
+      "violations": []
+    },
+    {
+      "id": "I6-015",
+      "category": "i6_guardrails",
+      "description": "Injection attempt",
+      "type": "input",
+      "covered": true,
+      "match_count": 88
+    },
+    {
+      "id": "TD-001",
+      "category": "tool_dispatch",
+      "description": "Advisor workout creation routes to AdvisorEngine pipeline",
+      "covered": true,
+      "match_count": 12
+    },
+    {
+      "id": "TD-002",
+      "category": "tool_dispatch",
+      "description": "Coach replan routes to ReplanExecutor",
+      "covered": true,
+      "match_count": 56
+    },
+    {
+      "id": "TD-003",
+      "category": "tool_dispatch",
+      "description": "Advisor replan \u2192 no tool, tier upgrade",
+      "covered": true,
+      "match_count": 120
+    },
+    {
+      "id": "TD-004",
+      "category": "tool_dispatch",
+      "description": "Coach plan creation routes to PlanEngine",
+      "covered": true,
+      "match_count": 4
+    },
+    {
+      "id": "TD-005",
+      "category": "tool_dispatch",
+      "description": "Advisor plan creation \u2192 no tool, tier upgrade",
+      "covered": true,
+      "match_count": 120
+    },
+    {
+      "id": "TD-006",
+      "category": "tool_dispatch",
+      "description": "Monitor can query readiness",
+      "covered": true,
+      "match_count": 36
+    },
+    {
+      "id": "TD-007",
+      "category": "tool_dispatch",
+      "description": "Feedback \u2192 log workout to Vault",
+      "covered": true,
+      "match_count": 24
+    },
+    {
+      "id": "TD-008",
+      "category": "tool_dispatch",
+      "description": "Question about session \u2192 explain_workout",
+      "covered": true,
+      "match_count": 32
+    },
+    {
+      "id": "TD-009",
+      "category": "tool_dispatch",
+      "description": "General education \u2192 no tool, pure explanation",
+      "covered": true,
+      "match_count": 136
+    },
+    {
+      "id": "TD-010",
+      "category": "tool_dispatch",
+      "description": "History query \u2192 Vault query",
+      "covered": true,
+      "match_count": 4
+    },
+    {
+      "id": "TD-011",
+      "category": "tool_dispatch",
+      "description": "Advisor today workout with parsed duration and mood",
+      "covered": true,
+      "match_count": 12
+    },
+    {
+      "id": "TD-012",
+      "category": "tool_dispatch",
+      "description": "Travel replan",
+      "covered": true,
+      "match_count": 56
+    },
+    {
+      "id": "TD-013",
+      "category": "tool_dispatch",
+      "description": "Goal change replan",
+      "covered": true,
+      "match_count": 56
+    },
+    {
+      "id": "TD-014",
+      "category": "tool_dispatch",
+      "description": "Fun mood extracted correctly",
+      "covered": true,
+      "match_count": 12
+    },
+    {
+      "id": "TD-015",
+      "category": "tool_dispatch",
+      "description": "Missing duration \u2192 clarification question, not a tool call yet",
+      "covered": true,
+      "match_count": 12
+    }
+  ]
+}
