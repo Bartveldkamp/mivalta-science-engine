@@ -147,7 +147,7 @@ def load_model_and_tokenizer(model_name: str, lora_r: int, lora_alpha: int):
     print(f"Loading model: {model_name}")
     model = AutoModelForCausalLM.from_pretrained(
         model_name,
-        torch_dtype=torch.bfloat16,
+        dtype=torch.bfloat16,
         device_map="auto",
         low_cpu_mem_usage=True,
     )
@@ -226,14 +226,14 @@ def train(
     if use_wandb:
         try:
             import wandb
-            report_to = "wandb"
             wandb.init(
                 project="mivalta-josi-v3",
                 name=f"josi-v3-{model_size}-{datetime.now().strftime('%m%d_%H%M')}",
                 config=run_config,
             )
+            report_to = "wandb"
             print("W&B tracking enabled")
-        except (ImportError, wandb.errors.CommError):
+        except Exception:
             print("W&B not available, logging to console only")
             report_to = "none"
 
@@ -363,7 +363,7 @@ def merge(
     print(f"Loading base model: {base_name}")
     base_model = AutoModelForCausalLM.from_pretrained(
         base_name,
-        torch_dtype=torch.bfloat16,
+        dtype=torch.bfloat16,
         device_map="auto",
         low_cpu_mem_usage=True,
     )
@@ -435,7 +435,7 @@ def sanity_check(model_path: str, max_new_tokens: int = 256):
     tokenizer = AutoTokenizer.from_pretrained(model_path)
     model = AutoModelForCausalLM.from_pretrained(
         model_path,
-        torch_dtype=torch.bfloat16,
+        dtype=torch.bfloat16,
         device_map="auto",
     )
     model.eval()
