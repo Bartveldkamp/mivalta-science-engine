@@ -176,8 +176,16 @@ I6_BLOCK = (
     "acwr, transition matrix, ewma, tss, ctl, atl, tsb)\n"
     "- Prescription/override requests: intent=blocked, guardrail_triggered=true\n"
     "- Medical concerns: intent=medical_red_flag, response_type=SafetyWarning\n\n"
-    "OUTPUT: Valid LLMIntent JSON with fields: intent, response_type, message, "
-    "source_cards, guardrail_triggered, guardrail_reason, replan_request, tool_call."
+    "OUTPUT: Valid LLMIntent JSON.\n"
+    "  intent: question | blocked | replan | encouragement | general | feedback | compliance | medical_red_flag\n"
+    "  response_type: QuestionAnswer | ExplainZone | ExplainWorkout | ReadinessSummary | "
+    "Decline | Encouragement | SafetyWarning | WeeklyReview | DailyBrief\n"
+    "  message: string\n"
+    "  source_cards: array of card names\n"
+    "  guardrail_triggered: true | false\n"
+    "  guardrail_reason: null | \"i6_violation\" | \"tier_violation\" | \"medical_red_flag\"\n"
+    "  replan_request: null | {type, reason, mode, readiness_at_request}\n"
+    "  tool_call: null | {tool, args}"
 )
 
 

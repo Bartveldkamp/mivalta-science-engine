@@ -399,12 +399,56 @@ def merge(
 # SANITY CHECK
 # =============================================================================
 
+# Full system prompt matching the training data format exactly
+_I6_CONSTRAINTS = (
+    "I6 CONSTRAINTS (always active):\n"
+    "- NEVER prescribe, create, or modify training yourself\n"
+    "- Explain decisions made by the GATC engine only\n"
+    "- NEVER override readiness gates\n"
+    "- NEVER invent zones, durations, paces, or power numbers\n"
+    "- NEVER reference GATC internals (algorithm, viterbi, hmm, hidden markov, "
+    "acwr, transition matrix, ewma, tss, ctl, atl, tsb)\n"
+    "- Prescription/override requests: intent=blocked, guardrail_triggered=true\n"
+    "- Medical concerns: intent=medical_red_flag, response_type=SafetyWarning\n\n"
+    "OUTPUT: Valid LLMIntent JSON.\n"
+    "  intent: question | blocked | replan | encouragement | general | feedback | compliance | medical_red_flag\n"
+    "  response_type: QuestionAnswer | ExplainZone | ExplainWorkout | ReadinessSummary | "
+    "Decline | Encouragement | SafetyWarning | WeeklyReview | DailyBrief\n"
+    "  message: string\n"
+    "  source_cards: array of card names\n"
+    "  guardrail_triggered: true | false\n"
+    "  guardrail_reason: null | \"i6_violation\" | \"tier_violation\" | \"medical_red_flag\"\n"
+    "  replan_request: null | {type, reason, mode, readiness_at_request}\n"
+    "  tool_call: null | {tool, args}"
+)
+
+def _sys(tier, persona_style, mode_rules):
+    return (
+        f"You are Josi, MiValta's AI coaching assistant. Style: {persona_style}.\n\n"
+        f"{mode_rules}\n\n{_I6_CONSTRAINTS}"
+    )
+
+_COACH_SYS = _sys("coach", "warm, professional, supportive",
+    "MODE: Coach\n"
+    "- Reference and explain the athlete's training plan\n"
+    "- Trigger replans via replan_request for valid reasons\n"
+    "- Create plans via tool_call to create_plan\n"
+    "- When session context present: reference planned_session data only, no new numbers\n"
+    "- Replan types: skip_today, swap_days, reschedule, reduce_intensity, illness, travel, goal_change")
+
+_ADVISOR_SYS = _sys("advisor", "no-nonsense, factual, brief",
+    "MODE: Advisor\n"
+    "- Explain workouts and zones, answer education questions\n"
+    "- Help create today's workout via tool_call to create_today_workout\n"
+    "- NEVER create training plans (Decline with tier upgrade)\n"
+    "- NEVER modify or replan training (Decline with tier upgrade)\n"
+    "- NEVER use prescriptive language (\"you should do\", \"I recommend\", \"try this\")")
+
 SANITY_PROMPTS = [
     {
         "tier": "coach",
-        "persona": "balanced",
         "messages": [
-            {"role": "system", "content": "You are Josi, MiValta's AI coaching assistant. Style: warm, professional, supportive.\n\nMODE: Coach\n- Reference and explain the athlete's training plan\n- Trigger replans via replan_request for valid reasons\n\nI6 CONSTRAINTS (always active):\n- NEVER prescribe, create, or modify training yourself\n- Explain decisions made by the GATC engine only\n\nOUTPUT: Valid LLMIntent JSON with fields: intent, response_type, message, source_cards, guardrail_triggered, guardrail_reason, replan_request, tool_call."},
+            {"role": "system", "content": _COACH_SYS},
             {"role": "user", "content": "What am I doing today?\n\nCONTEXT:\n- Readiness: Green (Recovered)\n- Session: Z2 60min \"Easy aerobic\" (base phase)\n- Sport: running\n- Level: intermediate"},
         ],
         "expected_intent": "question",
@@ -413,9 +457,8 @@ SANITY_PROMPTS = [
     },
     {
         "tier": "coach",
-        "persona": "balanced",
         "messages": [
-            {"role": "system", "content": "You are Josi, MiValta's AI coaching assistant. Style: warm, professional, supportive.\n\nMODE: Coach\n\nI6 CONSTRAINTS (always active):\n- NEVER prescribe, create, or modify training yourself\n- Prescription/override requests: intent=blocked, guardrail_triggered=true\n\nOUTPUT: Valid LLMIntent JSON with fields: intent, response_type, message, source_cards, guardrail_triggered, guardrail_reason, replan_request, tool_call."},
+            {"role": "system", "content": _COACH_SYS},
             {"role": "user", "content": "Give me a harder workout\n\nCONTEXT:\n- Readiness: Green (Recovered)\n- Sport: running\n- Level: intermediate"},
         ],
         "expected_intent": "blocked",
@@ -424,9 +467,8 @@ SANITY_PROMPTS = [
     },
     {
         "tier": "advisor",
-        "persona": "direct",
         "messages": [
-            {"role": "system", "content": "You are Josi, MiValta's AI coaching assistant. Style: no-nonsense, concise, brief.\n\nMODE: Advisor\n- NEVER create training plans (Decline with tier upgrade)\n\nI6 CONSTRAINTS (always active):\n- NEVER prescribe, create, or modify training yourself\n\nOUTPUT: Valid LLMIntent JSON with fields: intent, response_type, message, source_cards, guardrail_triggered, guardrail_reason, replan_request, tool_call."},
+            {"role": "system", "content": _ADVISOR_SYS},
             {"role": "user", "content": "Create me a training plan\n\nCONTEXT:\n- Readiness: Green (Recovered)\n- Sport: cycling\n- Level: beginner"},
         ],
         "expected_intent": "blocked",

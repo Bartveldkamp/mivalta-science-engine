@@ -120,16 +120,25 @@ def quantize_gguf(
         llama_cpp_path = find_llama_cpp()
 
     llama_cpp = Path(llama_cpp_path)
-    quantize_bin = llama_cpp / "llama-quantize"
 
-    if not quantize_bin.exists():
-        # Try alternate name
-        quantize_bin = llama_cpp / "quantize"
-        if not quantize_bin.exists():
-            raise RuntimeError(
-                f"Quantize binary not found. Build llama.cpp first:\n"
-                f"  cd {llama_cpp} && make"
-            )
+    # Search common binary locations (CMake build, legacy Makefile, alternate names)
+    candidates = [
+        llama_cpp / "build" / "bin" / "llama-quantize",
+        llama_cpp / "build" / "llama-quantize",
+        llama_cpp / "llama-quantize",
+        llama_cpp / "quantize",
+    ]
+    quantize_bin = None
+    for candidate in candidates:
+        if candidate.exists():
+            quantize_bin = candidate
+            break
+
+    if quantize_bin is None:
+        raise RuntimeError(
+            f"Quantize binary not found. Build llama.cpp with CMake:\n"
+            f"  cd {llama_cpp} && cmake -B build && cmake --build build --target llama-quantize"
+        )
 
     if quant_type not in QUANT_LEVELS:
         raise ValueError(f"Unknown quant type: {quant_type}. Options: {list(QUANT_LEVELS.keys())}")
