@@ -8,9 +8,11 @@
 
 ## 1. Executive Summary
 
-MiValta fine-tunes open-source Mistral models (7B and 3B variants) using LoRA to create "Josi", an AI coaching assistant that explains athletic training decisions based on sports physiology. The pipeline covers dataset generation, fine-tuning, validation, and GGUF export for mobile deployment.
+MiValta fine-tunes open-source LLMs using LoRA to create "Josi", an AI coaching assistant that explains athletic training decisions based on sports physiology. The pipeline covers dataset generation, fine-tuning, validation, and GGUF export for mobile deployment.
 
-**Overall assessment:** The project has a well-structured knowledge base and a thoughtful approach to persona-driven coaching. However, there are several areas in the training pipeline that warrant attention, ranging from dataset quality concerns to training configuration choices and validation coverage gaps.
+**Deployed model:** The actual production model is **SmolLM2** (HuggingFaceTB) — exported as `josi-smollm2-merged-v2-q4_k_m.gguf`. However, the training scripts in the repository only reference Mistral-7B-Instruct-v0.3 and Ministral-3B. There is no SmolLM2 fine-tuning script in the codebase, which means the script used to train the deployed model is either missing from version control or maintained elsewhere.
+
+**Overall assessment:** The project has a well-structured knowledge base and a thoughtful approach to persona-driven coaching. However, there are several areas in the training pipeline that warrant attention — most critically, the **mismatch between the codebase and the actual deployed model**. Beyond that, dataset quality concerns, training configuration choices, and validation coverage gaps need attention.
 
 ---
 
@@ -198,6 +200,7 @@ The validation script (`validate_josi.py:37`) uses "amber" readiness, while the 
 
 | ID | Finding | Impact |
 |---|---|---|
+| F-TR0 | **Deployed model (SmolLM2) has no training script in repo** | Cannot reproduce or iterate on the production model |
 | F-DS2 | Massive duplication via repetition loops | Overfitting to specific phrasings |
 | F-TR2 | Manual chat template instead of `apply_chat_template()` | Incorrect formatting may confuse the model |
 | F-TR5 | 3B script drops system message | Core behavioral guardrails lost |
@@ -237,39 +240,43 @@ The validation script (`validate_josi.py:37`) uses "amber" readiness, while the 
 
 ## 9. Recommendations (Prioritized)
 
+### Priority 0 — Foundational
+
+1. **Add the SmolLM2 fine-tuning script to version control.** The deployed model (`josi-smollm2-merged-v2-q4_k_m.gguf`) was trained with SmolLM2 (HuggingFaceTB), but no corresponding training script exists in the repo. The existing scripts target Mistral-7B and Ministral-3B, which are not what's running in production. Without the SmolLM2 script, the training process is not reproducible. This script should include the exact hyperparameters, dataset, and LoRA configuration used to produce the v2 model. Note: SmolLM2 is a significantly smaller model (~1.7B parameters) than Mistral-7B, which means the LoRA configuration (rank, target modules) and training hyperparameters likely need to be different.
+
 ### Priority 1 — Fix before next training run
 
-1. **Deduplicate the training dataset.** Remove the repetition loops (`for _ in range(N)`) from `generate_dataset.py`. Instead, increase diversity by adding more question/response templates or using paraphrasing. If emphasis on certain behaviors is needed, use sample weights rather than data duplication.
+2. **Deduplicate the training dataset.** Remove the repetition loops (`for _ in range(N)`) from `generate_dataset.py`. Instead, increase diversity by adding more question/response templates or using paraphrasing. If emphasis on certain behaviors is needed, use sample weights rather than data duplication.
 
-2. **Use `tokenizer.apply_chat_template()` instead of manual formatting.** Replace the `format_chat_message()` function with the tokenizer's built-in template method. This ensures correct formatting for Mistral-Instruct and makes the code forward-compatible with other models.
+3. **Use `tokenizer.apply_chat_template()` instead of manual formatting.** Replace the `format_chat_message()` function with the tokenizer's built-in template method. This ensures correct formatting and makes the code forward-compatible with other models (including SmolLM2).
 
-3. **Fix the Ministral 3B script.** Use `AutoModelForCausalLM` instead of `Mistral3ForConditionalGeneration`. Include the system message in formatting. Add a validation split.
+4. **Fix the Ministral 3B script.** Use `AutoModelForCausalLM` instead of `Mistral3ForConditionalGeneration`. Include the system message in formatting. Add a validation split.
 
-4. **Rebalance I6 refusal examples.** Increase the number and diversity of I6 refusal examples to be proportional with other task types. This is a safety-critical behavior.
+5. **Rebalance I6 refusal examples.** Increase the number and diversity of I6 refusal examples to be proportional with other task types. This is a safety-critical behavior.
 
 ### Priority 2 — Improve quality
 
-5. **Introduce proper train/validation splitting.** Use stratified splitting by task type to ensure the validation set doesn't contain near-duplicates of training examples.
+6. **Introduce proper train/validation splitting.** Use stratified splitting by task type to ensure the validation set doesn't contain near-duplicates of training examples.
 
-6. **Add Z7 and Z8 to the training data.** These zones are defined in the knowledge base and users may ask about them.
+7. **Add Z7 and Z8 to the training data.** These zones are defined in the knowledge base and users may ask about them.
 
-7. **Align readiness terminology.** Use consistent naming (green/amber/red or green/yellow/orange/red) across all datasets and validation scripts.
+8. **Align readiness terminology.** Use consistent naming (green/amber/red or green/yellow/orange/red) across all datasets and validation scripts.
 
-8. **Enable experiment tracking.** Uncomment and configure Weights & Biases in `requirements.txt` and set `report_to="wandb"`.
+9. **Enable experiment tracking.** Uncomment and configure Weights & Biases in `requirements.txt` and set `report_to="wandb"`.
 
-9. **Add early stopping.** Configure `EarlyStoppingCallback` with patience of 2-3 evaluations based on validation loss.
+10. **Add early stopping.** Configure `EarlyStoppingCallback` with patience of 2-3 evaluations based on validation loss.
 
 ### Priority 3 — Strengthen validation
 
-10. **Add I6 contract tests to validation.** Include prompts that directly attempt to get the model to prescribe or modify training plans.
+11. **Add I6 contract tests to validation.** Include prompts that directly attempt to get the model to prescribe or modify training plans.
 
-11. **Add multi-turn evaluation.** Test whether the model maintains persona and compliance across conversation turns.
+12. **Add multi-turn evaluation.** Test whether the model maintains persona and compliance across conversation turns.
 
-12. **Make warmth scoring persona-aware.** Different personas should have different warmth thresholds.
+13. **Make warmth scoring persona-aware.** Different personas should have different warmth thresholds.
 
-13. **Run validation on GGUF output.** After quantization, re-run the validation suite to catch degradation.
+14. **Run validation on GGUF output.** After quantization, re-run the validation suite to catch degradation.
 
-14. **Expand the test set.** Increase from 50 to at least 100-200 prompts, with more coverage per category.
+15. **Expand the test set.** Increase from 50 to at least 100-200 prompts, with more coverage per category.
 
 ---
 
