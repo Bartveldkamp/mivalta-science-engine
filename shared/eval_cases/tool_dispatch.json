@@ -46,8 +46,9 @@
       "id": "TD-006",
       "tier": "monitor",
       "message": "How's my readiness?",
-      "expected_tool": "get_user_status",
-      "notes": "Monitor can query readiness"
+      "expected_tool": null,
+      "expected_response_type": "Decline",
+      "notes": "Monitor: general talks only, no personal data — decline with tier upgrade"
     },
     {
       "id": "TD-007",

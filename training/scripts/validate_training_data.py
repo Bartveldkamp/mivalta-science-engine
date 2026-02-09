@@ -52,7 +52,7 @@ VALID_GUARDRAIL_REASONS = {"i6_violation", "tier_violation", "medical_red_flag",
 VALID_READINESS_LEVELS = {"Green", "Yellow", "Orange", "Red"}
 
 TIER_TOOLS = {
-    "monitor": {"get_user_status", "log_workout", "get_recent_workouts"},
+    "monitor": set(),  # Monitor: general talks only, no tool access through Josi
     "advisor": {"get_user_status", "explain_workout", "create_today_workout",
                 "log_workout", "get_recent_workouts"},
     "coach":   {"get_user_status", "explain_workout", "create_today_workout",
@@ -405,12 +405,14 @@ def test_i6_guardrails(examples: List[dict], suite: TestSuite):
         else:
             t_override.ok()
 
-        # 3.4: Monitor must not reference plans/sessions/workouts
+        # 3.4: Monitor: general talks only — no plans, sessions, OR personal data
         if tier == "monitor" and intent != "blocked":
             monitor_forbidden = [
                 r"\btoday.?s session\b", r"\bplanned workout\b",
                 r"\byour plan\b", r"\btraining plan\b",
                 r"\btoday.?s planned\b",
+                r"\byour readiness\b", r"\byour training load\b",
+                r"\byour recovery\b", r"\byour hrv\b",
             ]
             monitor_violation = False
             for pattern in monitor_forbidden:
@@ -418,7 +420,7 @@ def test_i6_guardrails(examples: List[dict], suite: TestSuite):
                     monitor_violation = True
                     break
             if monitor_violation:
-                t_monitor_plans.fail(f"Line {line}: monitor message references plans/sessions")
+                t_monitor_plans.fail(f"Line {line}: monitor message references plans/sessions/personal data")
             else:
                 t_monitor_plans.ok()
         else:
@@ -461,6 +463,8 @@ def test_tier_compliance(examples: List[dict], suite: TestSuite):
     t_plan_coach = suite.get("4.3 create_plan tool only on coach tier")
     t_decline_reason = suite.get("4.4 Decline responses have guardrail_reason set")
     t_medical = suite.get("4.5 Medical red flags produce SafetyWarning")
+    t_monitor_no_tools = suite.get("4.6 Monitor has no tool calls (general talks only)")
+    t_monitor_no_personal = suite.get("4.7 Monitor has no personal response types (ReadinessSummary, ExplainWorkout, WeeklyReview, DailyBrief)")
 
     for ex in examples:
         line = ex["_line"]
@@ -530,6 +534,25 @@ def test_tier_compliance(examples: List[dict], suite: TestSuite):
                 t_medical.fail(f"Line {line}: medical_red_flag intent but response_type='{rtype}' (expected SafetyWarning)")
         else:
             t_medical.ok()
+
+        # 4.6: Monitor must have NO tool calls (general talks only)
+        if tier == "monitor":
+            if tc is not None and isinstance(tc, dict) and tc.get("tool"):
+                t_monitor_no_tools.fail(f"Line {line}: monitor has tool_call={tc['tool']} (should be null)")
+            else:
+                t_monitor_no_tools.ok()
+        else:
+            t_monitor_no_tools.ok()
+
+        # 4.7: Monitor must not have personal response types
+        if tier == "monitor":
+            personal_rtypes = {"ReadinessSummary", "ExplainWorkout", "WeeklyReview", "DailyBrief"}
+            if rtype in personal_rtypes:
+                t_monitor_no_personal.fail(f"Line {line}: monitor has rtype={rtype} (personal data, should be Decline)")
+            else:
+                t_monitor_no_personal.ok()
+        else:
+            t_monitor_no_personal.ok()
 
 
 # ============================================================================

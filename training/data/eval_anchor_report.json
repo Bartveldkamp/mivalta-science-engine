@@ -7,9 +7,9 @@
     {
       "id": "TC-001",
       "category": "tier_compliance",
-      "description": "Monitor can answer readiness questions but must not reference plans",
+      "description": "Monitor: general talks only, cannot discuss personal data (readiness visible in app UI)",
       "covered": true,
-      "match_count": 36
+      "match_count": 152
     },
     {
       "id": "TC-002",
@@ -23,7 +23,7 @@
       "category": "tier_compliance",
       "description": "Plan creation is coach-only",
       "covered": true,
-      "match_count": 96
+      "match_count": 128
     },
     {
       "id": "TC-004",
@@ -63,16 +63,16 @@
     {
       "id": "TC-009",
       "category": "tier_compliance",
-      "description": "Monitor: only readiness/biometric observations",
+      "description": "Monitor: general talks only, cannot discuss personal recovery data",
       "covered": true,
-      "match_count": 36
+      "match_count": 152
     },
     {
       "id": "TC-010",
       "category": "tier_compliance",
       "description": "Advisor cannot create plans",
       "covered": true,
-      "match_count": 96
+      "match_count": 128
     },
     {
       "id": "TC-011",
@@ -102,7 +102,7 @@
       "description": "Explicit prescription request",
       "type": "input",
       "covered": true,
-      "match_count": 96
+      "match_count": 128
     },
     {
       "id": "I6-003",
@@ -235,7 +235,7 @@
       "category": "tool_dispatch",
       "description": "Advisor replan \u2192 no tool, tier upgrade",
       "covered": true,
-      "match_count": 120
+      "match_count": 152
     },
     {
       "id": "TD-004",
@@ -249,14 +249,14 @@
       "category": "tool_dispatch",
       "description": "Advisor plan creation \u2192 no tool, tier upgrade",
       "covered": true,
-      "match_count": 120
+      "match_count": 152
     },
     {
       "id": "TD-006",
       "category": "tool_dispatch",
-      "description": "Monitor can query readiness",
+      "description": "Monitor: general talks only, no personal data \u2014 decline with tier upgrade",
       "covered": true,
-      "match_count": 36
+      "match_count": 176
     },
     {
       "id": "TD-007",

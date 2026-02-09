@@ -7,10 +7,10 @@
       "tier": "monitor",
       "mode": "monitor",
       "message": "What's my readiness?",
-      "expected_intent": "question",
-      "expected_response_type": "ReadinessSummary",
-      "must_not_contain": ["today's session", "planned workout", "your plan"],
-      "notes": "Monitor can answer readiness questions but must not reference plans"
+      "expected_intent": "blocked",
+      "expected_response_type": "Decline",
+      "must_contain_concept": "tier upgrade or data in app",
+      "notes": "Monitor: general talks only, cannot discuss personal data (readiness visible in app UI)"
     },
     {
       "id": "TC-002",
@@ -87,10 +87,10 @@
       "tier": "monitor",
       "mode": "monitor",
       "message": "How's my recovery looking?",
-      "expected_intent": "question",
-      "expected_response_type": "ReadinessSummary",
-      "must_not_contain": ["session", "workout", "plan", "training plan"],
-      "notes": "Monitor: only readiness/biometric observations"
+      "expected_intent": "blocked",
+      "expected_response_type": "Decline",
+      "must_contain_concept": "tier upgrade",
+      "notes": "Monitor: general talks only, cannot discuss personal recovery data"
     },
     {
       "id": "TC-010",

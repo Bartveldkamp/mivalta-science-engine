@@ -53,7 +53,7 @@ SOURCE_CARDS = [
 ]
 
 TIER_TOOLS = {
-    "monitor": ["get_user_status", "log_workout", "get_recent_workouts"],
+    "monitor": [],  # Monitor: general talks only, no tool access through Josi
     "advisor": ["get_user_status", "explain_workout", "create_today_workout",
                 "log_workout", "get_recent_workouts"],
     "coach": ["get_user_status", "explain_workout", "create_today_workout",
@@ -143,18 +143,23 @@ PERSONA_STYLES = {
 MODE_RULES = {
     "monitor": (
         "MODE: Monitor\n"
-        "- Discuss readiness, recovery, and biometric observations only\n"
+        "- General conversation and education only (zones, physiology, concepts)\n"
+        "- NEVER discuss the athlete's personal data (readiness, training load, HRV, workout history)\n"
         "- NEVER reference planned workouts, sessions, or training plans\n"
         "- NEVER prescribe or suggest training\n"
-        "- Plan/replan requests: Decline with tier upgrade suggestion"
+        "- Personal data, workout, and plan questions: Decline with tier upgrade suggestion\n"
+        "- The app shows data (readiness, HRV, graphs) — Josi does not discuss it in monitor mode"
     ),
     "advisor": (
         "MODE: Advisor\n"
         "- Explain workouts and zones, answer education questions\n"
-        "- Help create today's workout via tool_call to create_today_workout\n"
-        "- NEVER create training plans (Decline with tier upgrade)\n"
+        "- Discuss the athlete's personal data (readiness, training load, history)\n"
+        "- Help create TODAY's workout only via tool_call to create_today_workout\n"
+        "- STRICTLY today only — NEVER discuss tomorrow, next week, or future sessions\n"
+        "- NEVER create long-term training plans (Decline with tier upgrade)\n"
         "- NEVER modify or replan training (Decline with tier upgrade)\n"
-        "- NEVER use prescriptive language (\"you should do\", \"I recommend\", \"try this\")"
+        "- NEVER use prescriptive language (\"you should do\", \"I recommend\", \"try this\")\n"
+        "- Future workout/plan requests: Decline with tier upgrade suggestion"
     ),
     "coach": (
         "MODE: Coach\n"
@@ -518,7 +523,7 @@ TOOL_SCENARIOS = [
     {"msg": "I want something fun for 45 minutes", "tier": "advisor", "tool": "create_today_workout",
      "args": {"duration_minutes": 45, "mood": "fun"},
      "rtype": "QuestionAnswer", "intent": "question"},
-    {"msg": "How's my readiness?", "tier": "monitor", "tool": "get_user_status",
+    {"msg": "How's my readiness?", "tier": "advisor", "tool": "get_user_status",
      "args": {}, "rtype": "ReadinessSummary", "intent": "question"},
     {"msg": "I just finished my ride", "tier": "coach", "tool": "log_workout",
      "args": {}, "rtype": "QuestionAnswer", "intent": "feedback"},
@@ -605,6 +610,8 @@ def gen_zone_explanations() -> List[Example]:
                 q = ZONE_QUESTIONS[qi % len(ZONE_QUESTIONS)].format(z=zone)
                 qi += 1
                 msg = zone_msg(zone, persona)
+                if tier == "monitor":
+                    msg = depersonalize_for_monitor(msg)
                 examples.append(Example(
                     system=sys_prompt(tier, persona),
                     user=user_msg(q, "Green", "Recovered"),
@@ -622,6 +629,8 @@ def gen_zone_explanations() -> List[Example]:
                     q = ZONE_QUESTIONS[qi % len(ZONE_QUESTIONS)].format(z=zone)
                     qi += 1
                     msg = zone_msg(zone, persona)
+                    if tier == "monitor":
+                        msg = depersonalize_for_monitor(msg)
                     state = pick_state(level)
                     examples.append(Example(
                         system=sys_prompt(tier, persona),
@@ -634,13 +643,13 @@ def gen_zone_explanations() -> List[Example]:
 
 
 def gen_readiness_summaries() -> List[Example]:
-    """ReadinessSummary — all tiers, all personas, all levels."""
+    """ReadinessSummary — advisor + coach only (monitor can't access personal data)."""
     examples = []
     qi = 0
     for level in READINESS_LEVELS:
         states = READINESS_STATES_BY_LEVEL[level]
         for state in states:
-            for tier in TIERS:
+            for tier in ["advisor", "coach"]:
                 for persona in PERSONAS:
                     q = READINESS_QUESTIONS[qi % len(READINESS_QUESTIONS)]
                     qi += 1
@@ -765,6 +774,30 @@ def gen_weekly_reviews() -> List[Example]:
     return examples
 
 
+def depersonalize_for_monitor(msg: str) -> str:
+    """Make education answers impersonal for monitor tier.
+
+    Monitor users get general education but Josi doesn't reference
+    their personal data. Replace 'your readiness/plan/recovery' with
+    generic phrasing so the model learns the right voice for monitor.
+    """
+    import re
+    replacements = [
+        (r'\byour readiness score\b', 'the readiness score'),
+        (r'\byour readiness\b', 'readiness'),
+        (r'\byour recovery\b', 'recovery'),
+        (r'\byour training load\b', 'training load'),
+        (r'\byour plan\b', 'the plan'),
+        (r'\byour training\b', 'training'),
+        (r'\byour zone\b', 'the zone'),
+        (r'\byour Recovery zone\b', 'the Recovery zone'),
+    ]
+    result = msg
+    for pattern, repl in replacements:
+        result = re.sub(pattern, repl, result, flags=re.IGNORECASE)
+    return result
+
+
 def gen_education_qa() -> List[Example]:
     """QuestionAnswer — education topics, all tiers."""
     examples = []
@@ -774,6 +807,9 @@ def gen_education_qa() -> List[Example]:
                 msg_key = {"balanced": "a_bal", "direct": "a_dir",
                            "technical": "a_tech", "encouraging": "a_enc"}[persona]
                 msg = topic[msg_key]
+                # Monitor: depersonalize to avoid "your readiness" etc.
+                if tier == "monitor":
+                    msg = depersonalize_for_monitor(msg)
                 examples.append(Example(
                     system=sys_prompt(tier, persona),
                     user=user_msg(topic["q"], "Green", "Recovered"),
@@ -907,10 +943,10 @@ def gen_safety_warnings() -> List[Example]:
 
 
 def gen_feedback() -> List[Example]:
-    """Feedback/logging — all tiers."""
+    """Feedback/logging — advisor + coach only (monitor has no Josi tool access)."""
     examples = []
     for fb_msg in FEEDBACK_MESSAGES:
-        for tier in TIERS:
+        for tier in ["advisor", "coach"]:
             for persona in PERSONAS:
                 if persona == "balanced":
                     msg = "Nice work! I'll log that session for you."
@@ -1369,24 +1405,30 @@ def gen_auto_replan_explanations() -> List[Example]:
 
 
 def gen_monitor_boundary() -> List[Example]:
-    """Monitor must not reference sessions/plans even when asked."""
+    """Monitor: general talks only. No personal data, no workouts, no plans."""
     examples = []
-    boundary_qs = [
-        "What's today's workout?",
-        "Tell me about my plan",
-        "What session do I have?",
-        "How's my training going?",
+
+    # Questions about personal data — monitor must decline
+    data_qs = [
+        "What's my readiness?",
+        "How am I doing today?",
+        "Am I ready to train?",
+        "Show me my training load",
+        "How's my recovery looking?",
+        "What does my HRV say?",
+        "Show me my last 5 workouts",
+        "How was my week?",
     ]
-    for q in boundary_qs:
+    for q in data_qs:
         for persona in PERSONAS:
             if persona == "balanced":
-                msg = "In monitor mode, I can help with your readiness and recovery data. For workout and plan details, upgrading your tier would unlock that."
+                msg = "In monitor mode, I can chat about general training topics but I can't access your personal data through our conversation. Your data is visible in the app dashboard. For personal insights through chat, upgrading your tier would unlock that."
             elif persona == "direct":
-                msg = "Monitor mode: readiness only. No plan access."
+                msg = "Monitor mode: general education only. Your data is in the app. Upgrade for personal chat insights."
             elif persona == "technical":
-                msg = "Monitor tier provides readiness and biometric observations. Session and plan data requires advisor or coach tier access."
+                msg = "Monitor tier provides general education through chat. Personal data (readiness, training load, history) is displayed in the application interface. Chat-based personal insights require advisor or coach tier."
             else:
-                msg = "I'd love to help with that, but in monitor mode I focus on your readiness and recovery. Upgrading would give you access to workout details!"
+                msg = "Great question! Your data is right there in the app for you to see. In monitor mode, I can chat about training topics in general but not your personal data. Upgrading your tier would let us dive into your numbers together!"
             examples.append(Example(
                 system=sys_prompt("monitor", persona),
                 user=user_msg(q, "Green", "Recovered"),
@@ -1396,6 +1438,83 @@ def gen_monitor_boundary() -> List[Example]:
                                       reason="tier_violation"),
                 tier="monitor", persona=persona, category="monitor_boundary",
             ))
+
+    # Questions about workouts/plans — monitor must decline
+    plan_qs = [
+        "What's today's workout?",
+        "Tell me about my plan",
+        "What session do I have?",
+        "How's my training going?",
+        "I just finished my ride",
+        "Can I skip today?",
+    ]
+    for q in plan_qs:
+        for persona in PERSONAS:
+            if persona == "balanced":
+                msg = "In monitor mode, I can help with general training education but I can't discuss workouts or plans. Upgrading your tier would unlock workout and plan features."
+            elif persona == "direct":
+                msg = "Monitor mode: no workout or plan access. Upgrade tier for that."
+            elif persona == "technical":
+                msg = "Workout and plan discussion requires advisor or coach tier. Monitor provides general training education only."
+            else:
+                msg = "I'd love to help with that! But in monitor mode I focus on general training education. Upgrading would give you access to workout and plan features!"
+            examples.append(Example(
+                system=sys_prompt("monitor", persona),
+                user=user_msg(q, "Green", "Recovered"),
+                assistant=intent_json("blocked", "Decline", msg,
+                                      ["josi_explanations"],
+                                      guardrail=True,
+                                      reason="tier_violation"),
+                tier="monitor", persona=persona, category="monitor_boundary",
+            ))
+
+    return examples
+
+
+def gen_advisor_today_only() -> List[Example]:
+    """Advisor: today's workouts only. No tomorrow, next week, or long-term plans."""
+    examples = []
+
+    future_qs = [
+        ("What's tomorrow's workout?", "future_session"),
+        ("What's my plan for next week?", "future_plan"),
+        ("Can you plan my next month of training?", "long_term_plan"),
+        ("What sessions do I have this week?", "future_session"),
+        ("Set up my training for the next 3 months", "long_term_plan"),
+        ("What should I do on Saturday?", "future_session"),
+        ("Plan my race preparation", "long_term_plan"),
+        ("What's coming up in my training?", "future_session"),
+    ]
+    for q, category in future_qs:
+        for persona in PERSONAS:
+            if category == "long_term_plan":
+                if persona == "balanced":
+                    msg = "Creating long-term training plans isn't available in advisor mode. I can help with today's workout and answer training questions. For full plan creation, upgrading to coach would unlock that."
+                elif persona == "direct":
+                    msg = "Long-term plans require coach tier. I handle today's workout and education."
+                elif persona == "technical":
+                    msg = "Long-term plan generation requires coach-tier access to the PlanEngine. Advisor mode provides today's workout creation and educational support."
+                else:
+                    msg = "I'd love to help map out your training! But building long-term plans is a coach-tier feature. What I can do is help you with today's workout or answer any training questions!"
+            else:  # future_session
+                if persona == "balanced":
+                    msg = "I can only help with today's workout in advisor mode. I don't have access to future sessions. For full plan visibility, coach tier would give you that."
+                elif persona == "direct":
+                    msg = "Advisor mode: today only. No future session access. Upgrade for that."
+                elif persona == "technical":
+                    msg = "Advisor tier is limited to today's session context. Future session data and plan visibility require coach-tier access."
+                else:
+                    msg = "I wish I could peek ahead for you! But in advisor mode I focus on today's workout. Upgrading to coach would let us talk about your full plan!"
+            examples.append(Example(
+                system=sys_prompt("advisor", persona),
+                user=user_msg(q, "Green", "Recovered"),
+                assistant=intent_json("blocked", "Decline", msg,
+                                      ["josi_explanations"],
+                                      guardrail=True,
+                                      reason="tier_violation"),
+                tier="advisor", persona=persona, category="advisor_today_only",
+            ))
+
     return examples
 
 
@@ -1541,6 +1660,7 @@ def main():
         ("workout_creation_flow", gen_workout_creation_flows),
         ("auto_replan", gen_auto_replan_explanations),
         ("monitor_boundary", gen_monitor_boundary),
+        ("advisor_today_only", gen_advisor_today_only),
     ]
 
     all_examples = []

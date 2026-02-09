@@ -8,11 +8,7 @@
     "All tool calls are JSON-in/JSON-out via the FFI layer"
   ],
   "tier_tool_allowlist": {
-    "monitor": [
-      "get_user_status",
-      "log_workout",
-      "get_recent_workouts"
-    ],
+    "monitor": [],
     "advisor": [
       "get_user_status",
       "explain_workout",
@@ -34,7 +30,7 @@
     "get_user_status": {
       "engine": "ViterbiEngine",
       "method": "process_observation_json",
-      "tiers": ["monitor", "advisor", "coach"],
+      "tiers": ["advisor", "coach"],
       "description": "Get current readiness state from latest biometric observation"
     },
     "explain_workout": {
@@ -67,15 +63,15 @@
     "log_workout": {
       "engine": "VaultManager",
       "method": "insert into activities",
-      "tiers": ["monitor", "advisor", "coach"],
+      "tiers": ["advisor", "coach"],
       "description": "Store completed workout in Vault"
     },
     "get_recent_workouts": {
       "engine": "VaultManager",
       "method": "query activities",
-      "tiers": ["monitor", "advisor", "coach"],
+      "tiers": ["advisor", "coach"],
       "description": "Retrieve recent workout history",
-      "note": "Monitor/Advisor: limited history. Coach: full_history capability."
+      "note": "Advisor: limited history. Coach: full_history capability."
     }
   },
   "dispatch_rules": [
@@ -105,6 +101,11 @@
       "tool": null,
       "force_response_type": "Decline",
       "note": "Return tier upgrade message"
+    },
+    {
+      "when": {"tier": "monitor"},
+      "tool": null,
+      "note": "Monitor: general talks only — no tool calls. Personal data visible in app UI, not through Josi chat. Education and general conversation only."
     },
     {
       "when": {"intent": "feedback"},
