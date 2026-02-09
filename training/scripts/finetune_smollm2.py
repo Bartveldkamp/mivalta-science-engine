@@ -109,12 +109,13 @@ def load_jsonl(path: str) -> list[dict]:
     return rows
 
 
-def prepare_dataset(path: str, tokenizer) -> Dataset:
-    """Load JSONL and format with tokenizer's chat template."""
+def prepare_dataset(path: str, tokenizer, max_seq_length: int = 1024) -> Dataset:
+    """Load JSONL and format with tokenizer's chat template, with truncation."""
     raw = load_jsonl(path)
     print(f"  Loaded {len(raw)} examples from {path}")
 
     texts = []
+    truncated = 0
     for ex in raw:
         messages = ex["messages"]
         # apply_chat_template returns the full formatted string with ChatML tokens
@@ -123,7 +124,15 @@ def prepare_dataset(path: str, tokenizer) -> Dataset:
             tokenize=False,
             add_generation_prompt=False,
         )
+        # Truncate to max_seq_length tokens (decode back to text)
+        tokens = tokenizer(text, truncation=True, max_length=max_seq_length)
+        if len(tokens["input_ids"]) >= max_seq_length:
+            truncated += 1
+            text = tokenizer.decode(tokens["input_ids"], skip_special_tokens=False)
         texts.append({"text": text})
+
+    if truncated:
+        print(f"  WARNING: {truncated}/{len(raw)} examples truncated to {max_seq_length} tokens")
 
     ds = Dataset.from_list(texts)
     return ds
@@ -243,9 +252,10 @@ def train(
     )
 
     # Load datasets
-    print("\nLoading datasets...")
-    train_dataset = prepare_dataset(train_path, tokenizer)
-    val_dataset = prepare_dataset(val_path, tokenizer)
+    max_seq = cfg["max_seq_length"]
+    print(f"\nLoading datasets (max_seq_length={max_seq})...")
+    train_dataset = prepare_dataset(train_path, tokenizer, max_seq)
+    val_dataset = prepare_dataset(val_path, tokenizer, max_seq)
 
     # Verify a sample
     print(f"\n  Sample formatted text (first 300 chars):")
@@ -274,11 +284,9 @@ def train(
         metric_for_best_model="eval_loss",
         greater_is_better=False,
         bf16=True,
-        max_seq_length=cfg["max_seq_length"],
         gradient_checkpointing=True,
         max_grad_norm=1.0,
         report_to=report_to,
-        dataset_text_field="text",
     )
 
     # Callbacks
