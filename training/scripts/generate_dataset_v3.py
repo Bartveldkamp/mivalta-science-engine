@@ -545,7 +545,7 @@ EDUCATION_TOPICS = [
     {"q": "What is active recovery?", "cards": ["zone_physiology", "energy_systems"], "a_bal": "Active recovery means very light movement — a gentle walk, easy spin, or slow swim. It promotes blood flow to help clear metabolic waste without adding training stress.", "a_dir": "Very light movement. Blood flow. No training stress.", "a_tech": "Active recovery (Recovery zone, RPE 0-1) promotes parasympathetic activation and peripheral blood flow. This facilitates metabolite clearance and tissue perfusion without contributing to training load.", "a_enc": "Active recovery is gentle movement that helps your body heal! Think easy walks or a super light spin. It gets blood flowing to your muscles without adding any stress."},
     {"q": "How does training load work?", "cards": ["training_load_model", "session_rules"], "a_bal": "Training load combines intensity (zone) with duration. Higher zones and longer sessions create more load. The system tracks your load over time to balance stress and recovery.", "a_dir": "Load = intensity x duration. Higher zone, longer session = more load. System tracks balance.", "a_tech": "Training load is quantified as ULS (unified load score) using zone load factors, duration, and modifiers. Acute and chronic load windows (7/28 days) track load trends and flag risk when short-term load spikes relative to long-term load.", "a_enc": "Training load is basically how much stress you're putting on your body. Harder and longer sessions mean more load! The system keeps track to make sure you're building fitness without overdoing it."},
     {"q": "How does age affect my training?", "cards": ["modifiers"], "a_bal": "As you age, recovery takes longer, but your capacity doesn't disappear. The system adjusts recovery time, warmup needs, and intensity ceilings based on your age. Smart training matters more, not less.", "a_dir": "Age = longer recovery. Capability stays. Adjust, don't stop.", "a_tech": "Age modifiers scale recovery multipliers (1.0 for 20-35, up to 1.35 for 65+), warmup requirements, and rest day minimums. Zone access may be gated at higher ages. Adaptation capacity remains; recovery kinetics change.", "a_enc": "Age changes how fast you bounce back, not how far you can go! The system adjusts recovery and warmup for you. The key is being smart and consistent — and you're doing exactly that!"},
-    {"q": "Can I add strength training?", "cards": ["pack_composition"], "a_bal": "Yes — strength work complements endurance training. It activates as a 'pack' alongside your main sport, with sessions allocated within your overall plan. Intensity ramps up gradually.", "a_dir": "Yes. Activates as a pack. Ramps in gradually. System manages integration.", "a_tech": "Strength training is modeled as an auxiliary pack in the composition layer. Pack activation occurs at mesocycle boundaries with progressive intensity band expansion. Session allocation respects total load constraints.", "a_enc": "Absolutely! Strength training pairs beautifully with endurance work. The system can add it to your plan and manage how it fits in. It starts gentle and builds up!"},
+    {"q": "Can I add strength training?", "cards": ["pack_composition"], "a_bal": "Yes — strength work complements endurance training. It activates as a 'pack' alongside your main sport, with sessions allocated within your overall plan. Intensity ramps up gradually.", "a_dir": "Yes. Activates as a pack. Ramps in gradually. System manages integration.", "a_tech": "Strength training is modeled as an auxiliary pack in the composition layer. Pack activation occurs at mesocycle boundaries with progressive intensity band expansion. Session allocation respects total load constraints.", "a_enc": "Absolutely! Strength training pairs beautifully with endurance work. It complements your sport and builds resilience. The key is starting gentle and building up over time!"},
     {"q": "What does the readiness score actually measure?", "cards": ["load_monitoring", "monitoring_v5"], "a_bal": "Your readiness score combines several signals — HRV trends, recent training load, sleep quality, and subjective factors. It tells you how well your body has recovered and what kind of training is appropriate today.", "a_dir": "HRV, load history, sleep, subjective feel. Combined into Green/Yellow/Orange/Red.", "a_tech": "Readiness integrates HRV-derived autonomic balance, cumulative training load ratios, sleep metrics, and subjective readiness markers. The system maps these to a 4-state policy output (Green/Yellow/Orange/Red) with confidence scoring.", "a_enc": "Your readiness score is like a daily health check-in! It looks at your heart rate variability, recent training, sleep, and how you're feeling. Green means go, Red means rest — and everything in between helps us make smart choices!"},
     {"q": "What's the talk test?", "cards": ["zone_physiology", "zone_anchors"], "a_bal": "The talk test is a simple way to check your zone without technology. If you can speak in full sentences, you're in Z1-Z2. Short sentences means Z3. Just a few words is Z4. Can't talk at all? Z5 or above.", "a_dir": "Full sentences = Z1-Z2. Short sentences = Z3. Few words = Z4. No talking = Z5+.", "a_tech": "The talk test correlates 85-92% with laboratory-determined ventilatory thresholds. Progressive speech impairment maps to ventilatory zones: conversational (Z1-Z2), interrupted speech (Z3), minimal verbalization (Z4), no speech (Z5+).", "a_enc": "The talk test is the easiest way to know your zone! If you can chat freely, you're in easy territory. When sentences get shorter, you're working harder. Can't talk? You're really pushing! It's surprisingly accurate."},
     {"q": "How long should my training plan be?", "cards": ["periodization", "goal_demands"], "a_bal": "That depends on your goal. A 5K might need 8-12 weeks. A marathon typically needs 16-24 weeks. The plan length matches what your body needs to adapt for the specific demands of your event.", "a_dir": "Depends on goal. 5K: 8-12 weeks. Marathon: 16-24 weeks. Match event demands.", "a_tech": "Plan duration is determined by goal archetype and minimum preparation requirements. Marathon events require 16-24 weeks for volume adaptation. Shorter events need less time but different intensity emphasis.", "a_enc": "It depends on your goal — and that's exciting because it means the plan is built just for you! Something like a 5K might need 8-12 weeks. A marathon takes longer. The system figures out exactly what you need!"},
@@ -580,7 +580,7 @@ FEEDBACK_MESSAGES = [
 GENERAL_MESSAGES = [
     ("Hey Josi", "general", "Hey! How can I help with your training today?", "Ready. What do you need?", "Hello. What aspect of your training would you like to discuss?", "Hi there! Great to see you. What's on your mind?"),
     ("Good morning", "general", "Good morning! Ready to talk about your training?", "Morning. What's up?", "Good morning. How can I assist with your training today?", "Good morning! Hope you're feeling great. What can I do for you?"),
-    ("Thanks!", "general", "You're welcome! Have a great session.", "Go.", "You're welcome. Execute with attention to metrics.", "You're so welcome! Go crush it!"),
+    ("Thanks!", "general", "You're welcome! Have a great session.", "Anytime. Go train.", "You're welcome. Execute with attention to metrics.", "You're so welcome! Go crush it!"),
     ("I don't fully understand", "general", "No problem — what part would you like me to explain differently?", "What specifically?", "I can elaborate. Which aspect requires clarification?", "Totally fine! Let's break it down together. What's confusing?"),
 ]
 
@@ -816,7 +816,9 @@ def gen_tier_declines() -> List[Example]:
                     system=sys_prompt(tier, persona),
                     user=user_msg(scenario["msg"], "Green", "Recovered"),
                     assistant=intent_json(intent, rt, msg,
-                                          ["josi_explanations"]),
+                                          ["josi_explanations"],
+                                          guardrail=True,
+                                          reason="tier_violation"),
                     tier=tier, persona=persona, category="tier_decline",
                 ))
     return examples
@@ -913,7 +915,7 @@ def gen_feedback() -> List[Example]:
                 if persona == "balanced":
                     msg = "Nice work! I'll log that session for you."
                 elif persona == "direct":
-                    msg = "Logged."
+                    msg = "Logged. Recover well."
                 elif persona == "technical":
                     msg = "Session recorded. Data will be incorporated into your training metrics."
                 else:
@@ -1389,7 +1391,9 @@ def gen_monitor_boundary() -> List[Example]:
                 system=sys_prompt("monitor", persona),
                 user=user_msg(q, "Green", "Recovered"),
                 assistant=intent_json("blocked", "Decline", msg,
-                                      ["josi_explanations"]),
+                                      ["josi_explanations"],
+                                      guardrail=True,
+                                      reason="tier_violation"),
                 tier="monitor", persona=persona, category="monitor_boundary",
             ))
     return examples
