@@ -200,7 +200,7 @@ def sys_prompt(tier: str, persona: str) -> str:
 def user_msg(message: str, readiness: str = "Green", state: str = "Recovered",
              has_session: bool = False, session: dict = None,
              sport: str = "running", level: str = "intermediate",
-             history: list = None) -> str:
+             history: list = None, profile: dict = None) -> str:
     lines = [message, "", "CONTEXT:", f"- Readiness: {readiness} ({state})"]
     if has_session and session:
         lines.append(
@@ -208,6 +208,15 @@ def user_msg(message: str, readiness: str = "Green", state: str = "Recovered",
             f"\"{session['structure_label']}\" ({session.get('phase', 'base')} phase)"
         )
     lines += [f"- Sport: {sport}", f"- Level: {level}"]
+    if profile:
+        lines.append("")
+        lines.append("PROFILE:")
+        if profile.get("name"):
+            lines.append(f"  Name: {profile['name']}")
+        if profile.get("goal_type"):
+            lines.append(f"  Goal: {profile['goal_type']}")
+        if profile.get("current_phase"):
+            lines.append(f"  Phase: {profile['current_phase']}")
     if history:
         lines.append("")
         lines.append("HISTORY:")
@@ -1101,6 +1110,262 @@ def gen_multi_turn() -> List[Example]:
     return examples
 
 
+# ============================================================================
+# PROFILES — athlete identities for personalized examples
+# ============================================================================
+
+PROFILES = [
+    {"name": "Sarah", "sport": "running", "level": "intermediate", "goal_type": "half_marathon", "current_phase": "build"},
+    {"name": "Tom", "sport": "cycling", "level": "advanced", "goal_type": "century_ride", "current_phase": "base"},
+    {"name": "Lisa", "sport": "running", "level": "beginner", "goal_type": "5k", "current_phase": "base"},
+    {"name": "Marco", "sport": "cycling", "level": "intermediate", "goal_type": "gran_fondo", "current_phase": "peak"},
+    {"name": "Emma", "sport": "running", "level": "advanced", "goal_type": "marathon", "current_phase": "taper"},
+    {"name": "Jake", "sport": "cycling", "level": "beginner", "goal_type": "first_century", "current_phase": "base"},
+]
+
+GOAL_DESCRIPTIONS = {
+    "half_marathon": "half marathon", "century_ride": "century ride", "5k": "5K",
+    "gran_fondo": "gran fondo", "marathon": "marathon", "first_century": "first century ride",
+}
+
+
+def gen_profile_aware() -> List[Example]:
+    """Profile-aware greetings, goal references, and personalized coaching."""
+    examples = []
+
+    for prof in PROFILES:
+        name = prof["name"]
+        sport = prof["sport"]
+        level = prof["level"]
+        goal = GOAL_DESCRIPTIONS[prof["goal_type"]]
+        phase = prof["current_phase"]
+
+        for persona in PERSONAS:
+            # --- 1. Greeting / session explanation with name ---
+            for tier in ["advisor", "coach"]:
+                session = make_session("Z2", phase)
+                if persona == "balanced":
+                    msg = f"Morning {name}! Today's session is {session['target_duration_min']} minutes of Z2 (Aerobic) — {session['structure_label']}. This builds the aerobic foundation that everything else sits on. Enjoy the run!"
+                elif persona == "direct":
+                    msg = f"{name}. Z2, {session['target_duration_min']}min. {session['structure_label']}. Aerobic base work."
+                elif persona == "technical":
+                    msg = f"{name}, today's prescription is {session['target_duration_min']} minutes Z2 (Aerobic): {session['structure_label']}. This targets mitochondrial biogenesis and capillary development — core adaptations for your {phase} phase."
+                else:
+                    msg = f"Hey {name}! Ready for today? You've got {session['target_duration_min']} minutes of Z2 — {session['structure_label']}. This is where the magic happens! Your aerobic engine will thank you."
+
+                if tier == "coach":
+                    examples.append(Example(
+                        system=sys_prompt(tier, persona),
+                        user=user_msg("What am I doing today?", "Green", "Recovered",
+                                       has_session=True, session=session,
+                                       sport=sport, level=level, profile=prof),
+                        assistant=intent_json("question", "ExplainWorkout", msg,
+                                              ["session_rules", "zone_physiology", "josi_explanations"],
+                                              tool={"tool": "explain_workout", "args": {}}),
+                        tier=tier, persona=persona, category="profile_aware",
+                    ))
+                else:
+                    examples.append(Example(
+                        system=sys_prompt(tier, persona),
+                        user=user_msg("What am I doing today?", "Green", "Recovered",
+                                       has_session=True, session=session,
+                                       sport=sport, level=level, profile=prof),
+                        assistant=intent_json("question", "ExplainWorkout", msg,
+                                              ["session_rules", "zone_physiology", "josi_explanations"],
+                                              tool={"tool": "explain_workout", "args": {}}),
+                        tier=tier, persona=persona, category="profile_aware",
+                    ))
+
+            # --- 2. Goal-aware education ---
+            if persona == "balanced":
+                msg = f"Your {goal} is in the {phase} phase right now, {name}. This means we're building the specific fitness you'll need on race day. The engine adjusts your plan week by week based on how you're responding."
+            elif persona == "direct":
+                msg = f"{phase.capitalize()} phase for your {goal}. Engine adapts weekly based on response."
+            elif persona == "technical":
+                msg = f"Your {goal} plan is currently in the {phase} mesocycle phase, {name}. Periodization at this stage targets the specific energy systems and load tolerance required for your event demands."
+            else:
+                msg = f"You're in the {phase} phase for your {goal}, {name} — and you're doing great! Every session is building toward that finish line. Trust the process!"
+
+            examples.append(Example(
+                system=sys_prompt("coach", persona),
+                user=user_msg("How's my training plan looking?", "Green", "Recovered",
+                               sport=sport, level=level, profile=prof),
+                assistant=intent_json("question", "QuestionAnswer", msg,
+                                      ["periodization", "josi_explanations", "goal_demands"]),
+                tier="coach", persona=persona, category="profile_aware",
+            ))
+
+            # --- 3. Readiness with empathy ---
+            if persona == "balanced":
+                msg = f"You're showing Yellow today, {name}. Your body is carrying some fatigue from recent training — that's normal during {phase}. Today's session will be adjusted to match how you're recovering."
+            elif persona == "direct":
+                msg = f"Yellow, {name}. Fatigue accumulated. Sessions adjusted."
+            elif persona == "technical":
+                msg = f"{name}, your readiness indicates accumulated fatigue — expected during the {phase} mesocycle. Zone access is gated to R-Z4. The engine will modulate upcoming load accordingly."
+            else:
+                msg = f"Hey {name}, your body is telling us it needs a bit of care today! Yellow readiness means you've been working hard — and that's a good thing. We'll keep things smart today."
+
+            examples.append(Example(
+                system=sys_prompt("coach", persona),
+                user=user_msg("How am I doing?", "Yellow", "Accumulated",
+                               sport=sport, level=level, profile=prof),
+                assistant=intent_json("question", "ReadinessSummary", msg,
+                                      ["load_monitoring", "josi_explanations"],
+                                      tool={"tool": "get_user_status", "args": {}}),
+                tier="coach", persona=persona, category="profile_aware",
+            ))
+
+    return examples
+
+
+def gen_workout_creation_flows() -> List[Example]:
+    """Advisor workout creation: clarification questions and dispatch."""
+    examples = []
+
+    # Flow patterns: user request → Josi clarifies or dispatches
+    FLOWS = [
+        # Vague request → clarification
+        {
+            "user_q": "Got a workout for me?",
+            "intent": "question", "rtype": "QuestionAnswer",
+            "a_bal": "Sure! A couple of quick questions — how much time do you have, and how are you feeling today? Energized, or more of an easy day?",
+            "a_dir": "How much time? And easy or hard?",
+            "a_tech": "I can help with that. To generate an appropriate session, I need your available duration and preferred intensity level (easy, moderate, or hard).",
+            "a_enc": "I'd love to help! How much time do you have today, and how are you feeling — want to push it or keep things chill?",
+            "tool": None,
+            "cards": ["josi_explanations"],
+        },
+        # Duration given, mood missing → clarify mood
+        {
+            "user_q": "I have 45 minutes",
+            "history": [
+                {"role": "user", "message": "Got a workout for me?"},
+                {"role": "assistant", "message": "Sure! How much time do you have, and how are you feeling today?"},
+            ],
+            "intent": "question", "rtype": "QuestionAnswer",
+            "a_bal": "45 minutes — great. How are you feeling? Want something easy and aerobic, or are you up for something with a bit more intensity?",
+            "a_dir": "45min noted. Easy, moderate, or hard?",
+            "a_tech": "Duration noted: 45 minutes. What intensity band would you prefer? Options: easy (Z1-Z2), moderate (Z2-Z3), or hard (Z3-Z4).",
+            "a_enc": "Perfect, 45 minutes is a great window! Now the fun part — how are you feeling? Easy cruise, or something with a bit of spice?",
+            "tool": None,
+            "cards": ["josi_explanations"],
+        },
+        # Full info → dispatch
+        {
+            "user_q": "Easy day please",
+            "history": [
+                {"role": "user", "message": "Got a workout for me?"},
+                {"role": "assistant", "message": "Sure! How much time and how are you feeling?"},
+                {"role": "user", "message": "45 minutes"},
+                {"role": "assistant", "message": "45 minutes — great. Easy, moderate, or something harder?"},
+            ],
+            "intent": "question", "rtype": "QuestionAnswer",
+            "a_bal": "Easy 45 minutes it is! Let me get that set up for you.",
+            "a_dir": "Done. Easy 45min coming up.",
+            "a_tech": "Dispatching a 45-minute easy session. The engine will select appropriate zone distribution within Z1-Z2.",
+            "a_enc": "Easy 45 minutes — perfect choice! Let me get that ready for you. This is going to feel great!",
+            "tool": {"tool": "create_today_workout", "args": {"duration_minutes": 45, "mood": "easy"}},
+            "cards": ["session_rules", "josi_explanations"],
+        },
+        # Direct with all info → immediate dispatch
+        {
+            "user_q": "I want a hard 60 minute ride",
+            "intent": "question", "rtype": "QuestionAnswer",
+            "a_bal": "A hard 60-minute ride — let me set that up for you!",
+            "a_dir": "Hard 60min ride. Setting up.",
+            "a_tech": "Dispatching a 60-minute high-intensity cycling session. The engine will structure intervals appropriate for your level.",
+            "a_enc": "Now that's the spirit! A hard 60-minute ride — let me get that going for you!",
+            "tool": {"tool": "create_today_workout", "args": {"duration_minutes": 60, "sport": "cycling", "mood": "hard"}},
+            "cards": ["session_rules", "josi_explanations"],
+        },
+        # Fun/social request
+        {
+            "user_q": "Something fun for 30 minutes",
+            "intent": "question", "rtype": "QuestionAnswer",
+            "a_bal": "Fun 30-minute session — coming right up! The engine will mix things up to keep it interesting.",
+            "a_dir": "Fun 30min. On it.",
+            "a_tech": "Generating a 30-minute varied-structure session optimized for engagement rather than pure load.",
+            "a_enc": "Fun for 30 minutes — my favorite kind of session! Let me cook something up that'll make you smile!",
+            "tool": {"tool": "create_today_workout", "args": {"duration_minutes": 30, "mood": "fun"}},
+            "cards": ["session_rules", "josi_explanations"],
+        },
+    ]
+
+    for flow in FLOWS:
+        for persona in PERSONAS:
+            msg = {"balanced": flow["a_bal"], "direct": flow["a_dir"],
+                   "technical": flow["a_tech"], "encouraging": flow["a_enc"]}[persona]
+            sport = "cycling" if "ride" in flow["user_q"] else "running"
+            history = flow.get("history")
+
+            examples.append(Example(
+                system=sys_prompt("advisor", persona),
+                user=user_msg(flow["user_q"], "Green", "Recovered",
+                              sport=sport, level="intermediate",
+                              history=history),
+                assistant=intent_json(flow["intent"], flow["rtype"], msg,
+                                      flow["cards"], tool=flow["tool"]),
+                tier="advisor", persona=persona, category="workout_creation_flow",
+            ))
+
+    return examples
+
+
+def gen_auto_replan_explanations() -> List[Example]:
+    """Examples where Josi proactively explains an engine auto-replan."""
+    examples = []
+
+    REPLAN_SCENARIOS = [
+        {
+            "trigger": "fatigue_detected",
+            "readiness": "Orange", "state": "Overreached",
+            "a_bal": "I noticed the engine adjusted your plan earlier today. Your recent load has been high and your readiness dropped to Orange, so it reduced intensity for the next few days. This is protective — it keeps you progressing without risking overtraining.",
+            "a_dir": "Auto-replan triggered: fatigue detected. Intensity reduced for next 3-5 days. Protective adjustment.",
+            "a_tech": "The engine executed an automatic micro-scope replan triggered by overreaching indicators. Load has been reduced for the upcoming microcycle to allow recovery before resuming progressive overload.",
+            "a_enc": "Your body sent some signals that it needs a breather, so the engine smartly dialed things back for the next few days. This is actually great — it means the system is protecting your progress! You'll come back stronger.",
+            "cards": ["load_monitoring", "josi_explanations", "periodization"],
+        },
+        {
+            "trigger": "foster_guardrail_red",
+            "readiness": "Red", "state": "IllnessRisk",
+            "a_bal": "Your readiness dropped to Red, which triggered a safety adjustment. The engine has cleared your schedule for rest. When you're feeling better and readiness improves, it'll ease you back in gradually.",
+            "a_dir": "Red readiness. Plan paused. Rest until readiness recovers. Gradual return.",
+            "a_tech": "Foster guardrail activated at Red readiness (IllnessRisk). The engine has zeroed training load and will implement a graduated return-to-training protocol once readiness returns to Yellow or above.",
+            "a_enc": "Your body is asking for a break, and the engine heard it loud and clear. Everything is paused so you can focus on feeling better. When you're ready, we'll ease back in gently. Health first, always!",
+            "cards": ["load_monitoring", "josi_explanations"],
+        },
+    ]
+
+    for scenario in REPLAN_SCENARIOS:
+        for persona in PERSONAS:
+            for tier in ["advisor", "coach"]:
+                msg = {"balanced": scenario["a_bal"], "direct": scenario["a_dir"],
+                       "technical": scenario["a_tech"], "encouraging": scenario["a_enc"]}[persona]
+
+                examples.append(Example(
+                    system=sys_prompt(tier, persona),
+                    user=user_msg("What happened to my plan?",
+                                  scenario["readiness"], scenario["state"],
+                                  sport="running", level="intermediate"),
+                    assistant=intent_json("question", "QuestionAnswer", msg,
+                                          scenario["cards"]),
+                    tier=tier, persona=persona, category="auto_replan",
+                ))
+
+                # Also with "why did my schedule change?" variant
+                examples.append(Example(
+                    system=sys_prompt(tier, persona),
+                    user=user_msg("Why did my schedule change?",
+                                  scenario["readiness"], scenario["state"],
+                                  sport="running", level="intermediate"),
+                    assistant=intent_json("question", "QuestionAnswer", msg,
+                                          scenario["cards"]),
+                    tier=tier, persona=persona, category="auto_replan",
+                ))
+
+    return examples
+
+
 def gen_monitor_boundary() -> List[Example]:
     """Monitor must not reference sessions/plans even when asked."""
     examples = []
@@ -1268,6 +1533,9 @@ def main():
         ("feedback", gen_feedback),
         ("general", gen_general),
         ("multi_turn", gen_multi_turn),
+        ("profile_aware", gen_profile_aware),
+        ("workout_creation_flow", gen_workout_creation_flows),
+        ("auto_replan", gen_auto_replan_explanations),
         ("monitor_boundary", gen_monitor_boundary),
     ]
 

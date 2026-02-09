@@ -51,14 +51,14 @@
       "category": "tier_compliance",
       "description": "Advisor must not prescribe",
       "covered": true,
-      "match_count": 140
+      "match_count": 176
     },
     {
       "id": "TC-008",
       "category": "tier_compliance",
       "description": "Coach can reference plans",
       "covered": true,
-      "match_count": 40
+      "match_count": 64
     },
     {
       "id": "TC-009",
@@ -179,7 +179,7 @@
       "description": "OUTPUT validation: valid coach explanation (numbers from plan)",
       "type": "output_positive",
       "covered": true,
-      "match_count": 454
+      "match_count": 542
     },
     {
       "id": "I6-012",
@@ -221,7 +221,7 @@
       "category": "tool_dispatch",
       "description": "Advisor workout creation routes to AdvisorEngine pipeline",
       "covered": true,
-      "match_count": 12
+      "match_count": 24
     },
     {
       "id": "TD-002",
@@ -270,14 +270,14 @@
       "category": "tool_dispatch",
       "description": "Question about session \u2192 explain_workout",
       "covered": true,
-      "match_count": 32
+      "match_count": 56
     },
     {
       "id": "TD-009",
       "category": "tool_dispatch",
       "description": "General education \u2192 no tool, pure explanation",
       "covered": true,
-      "match_count": 144
+      "match_count": 184
     },
     {
       "id": "TD-010",
@@ -291,7 +291,7 @@
       "category": "tool_dispatch",
       "description": "Advisor today workout with parsed duration and mood",
       "covered": true,
-      "match_count": 12
+      "match_count": 24
     },
     {
       "id": "TD-012",
@@ -312,14 +312,14 @@
       "category": "tool_dispatch",
       "description": "Fun mood extracted correctly",
       "covered": true,
-      "match_count": 12
+      "match_count": 24
     },
     {
       "id": "TD-015",
       "category": "tool_dispatch",
       "description": "Missing duration \u2192 clarification question, not a tool call yet",
       "covered": true,
-      "match_count": 12
+      "match_count": 24
     }
   ]
 }
