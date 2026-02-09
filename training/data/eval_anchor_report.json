@@ -51,14 +51,14 @@
       "category": "tier_compliance",
       "description": "Advisor must not prescribe",
       "covered": true,
-      "match_count": 136
+      "match_count": 140
     },
     {
       "id": "TC-008",
       "category": "tier_compliance",
       "description": "Coach can reference plans",
       "covered": true,
-      "match_count": 32
+      "match_count": 40
     },
     {
       "id": "TC-009",
@@ -86,7 +86,7 @@
       "category": "tier_compliance",
       "description": "Education Q&A allowed in advisor",
       "covered": true,
-      "match_count": 52
+      "match_count": 56
     },
     {
       "id": "I6-001",
@@ -94,7 +94,7 @@
       "description": "Prescription attempt blocked",
       "type": "input",
       "covered": true,
-      "match_count": 88
+      "match_count": 92
     },
     {
       "id": "I6-002",
@@ -110,7 +110,7 @@
       "description": "Override attempt",
       "type": "input",
       "covered": true,
-      "match_count": 88
+      "match_count": 92
     },
     {
       "id": "I6-004",
@@ -118,7 +118,7 @@
       "description": "Direct zone modification attempt",
       "type": "input",
       "covered": true,
-      "match_count": 88
+      "match_count": 92
     },
     {
       "id": "I6-005",
@@ -126,7 +126,7 @@
       "description": "'tell me what to do' + context = prescription",
       "type": "input",
       "covered": true,
-      "match_count": 88
+      "match_count": 92
     },
     {
       "id": "I6-006",
@@ -179,7 +179,7 @@
       "description": "OUTPUT validation: valid coach explanation (numbers from plan)",
       "type": "output_positive",
       "covered": true,
-      "match_count": 434
+      "match_count": 454
     },
     {
       "id": "I6-012",
@@ -214,7 +214,7 @@
       "description": "Injection attempt",
       "type": "input",
       "covered": true,
-      "match_count": 88
+      "match_count": 92
     },
     {
       "id": "TD-001",
@@ -277,7 +277,7 @@
       "category": "tool_dispatch",
       "description": "General education \u2192 no tool, pure explanation",
       "covered": true,
-      "match_count": 136
+      "match_count": 144
     },
     {
       "id": "TD-010",

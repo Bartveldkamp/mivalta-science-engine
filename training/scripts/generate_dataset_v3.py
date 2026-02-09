@@ -199,7 +199,8 @@ def sys_prompt(tier: str, persona: str) -> str:
 
 def user_msg(message: str, readiness: str = "Green", state: str = "Recovered",
              has_session: bool = False, session: dict = None,
-             sport: str = "running", level: str = "intermediate") -> str:
+             sport: str = "running", level: str = "intermediate",
+             history: list = None) -> str:
     lines = [message, "", "CONTEXT:", f"- Readiness: {readiness} ({state})"]
     if has_session and session:
         lines.append(
@@ -207,6 +208,11 @@ def user_msg(message: str, readiness: str = "Green", state: str = "Recovered",
             f"\"{session['structure_label']}\" ({session.get('phase', 'base')} phase)"
         )
     lines += [f"- Sport: {sport}", f"- Level: {level}"]
+    if history:
+        lines.append("")
+        lines.append("HISTORY:")
+        for turn in history:
+            lines.append(f"  [{turn['role']}]: {turn['message']}")
     return "\n".join(lines)
 
 
@@ -932,6 +938,169 @@ def gen_general() -> List[Example]:
     return examples
 
 
+def gen_multi_turn() -> List[Example]:
+    """Multi-turn conversation examples with history context."""
+    examples = []
+
+    # Conversation flows: (history, follow-up question, tier, expected response)
+    CONVERSATIONS = [
+        # Follow-up on readiness
+        {
+            "history": [
+                {"role": "user", "message": "How's my readiness?"},
+                {"role": "assistant", "message": "Your readiness is Yellow (Accumulated). Your body is carrying some fatigue from recent training."},
+            ],
+            "follow_up": "Why is it yellow?",
+            "tier": "coach", "readiness": "Yellow", "state": "Accumulated",
+            "intent": "question", "rtype": "ReadinessSummary",
+            "cards": ["load_monitoring", "josi_explanations"],
+            "a_bal": "Your recent training load has been building up. The Yellow status means your body is absorbing the work but recovery hasn't caught up yet. This is normal during build phases — the system will adjust your upcoming sessions accordingly.",
+            "a_dir": "Accumulated fatigue from recent load. Recovery hasn't caught up. Normal during build phases. Sessions will be adjusted.",
+            "a_tech": "Cumulative training load has exceeded short-term recovery capacity. The readiness model detects autonomic fatigue markers. This triggers zone gating to R-Z4 and may reduce upcoming session intensity.",
+            "a_enc": "Your body has been working hard! Yellow means you're absorbing all that good training but need a bit more recovery. Don't worry — the system is already adjusting to help you bounce back stronger!",
+        },
+        # Follow-up on workout explanation
+        {
+            "history": [
+                {"role": "user", "message": "What am I doing today?"},
+                {"role": "assistant", "message": "Today's session is 60 minutes of Z2 (Aerobic). This builds mitochondrial density and capillary growth."},
+            ],
+            "follow_up": "Why Z2 and not something harder?",
+            "tier": "coach", "readiness": "Green", "state": "Recovered",
+            "has_session": True, "zone": "Z2", "phase": "base",
+            "intent": "question", "rtype": "ExplainWorkout",
+            "cards": ["zone_physiology", "periodization", "session_rules"],
+            "a_bal": "Z2 is the backbone of your base phase. Building aerobic fitness at this stage creates the foundation that all higher intensity work will sit on later. The engine places Z2 here because your plan is in a base-building block.",
+            "a_dir": "Base phase = aerobic foundation first. Z2 builds the engine. Higher intensity comes later in the plan.",
+            "a_tech": "During base phase, the primary adaptation target is mitochondrial biogenesis and capillary development. Z2 optimally stimulates these without accumulating excessive fatigue. Higher zones are periodized into later mesocycles.",
+            "a_enc": "Great question! Right now you're in the base phase, which means we're building your aerobic engine. Think of Z2 as laying the foundation — the harder stuff comes later and it'll feel so much better because of this groundwork!",
+        },
+        # Follow-up on blocked request
+        {
+            "history": [
+                {"role": "user", "message": "Give me a 5K interval workout"},
+                {"role": "assistant", "message": "I can't prescribe workouts — that's the engine's job. I can explain why your current plan has the sessions it does."},
+            ],
+            "follow_up": "Ok then, why do I have this session?",
+            "tier": "coach", "readiness": "Green", "state": "Recovered",
+            "has_session": True, "zone": "Z4", "phase": "build",
+            "intent": "question", "rtype": "ExplainWorkout",
+            "cards": ["session_rules", "zone_physiology", "josi_explanations"],
+            "a_bal": "Your plan has a Z4 (Threshold) session today because you're in the build phase. This raises your lactate threshold — the point where effort starts to feel unsustainable. It's a key adaptation for race fitness.",
+            "a_dir": "Build phase. Z4 targets lactate threshold. Key for race fitness.",
+            "a_tech": "The Z4 session targets lactate threshold adaptation during the build mesocycle. At RPE 6-7, you're training at or near LT2, which raises the sustainable power/pace ceiling for competitive efforts.",
+            "a_enc": "This Z4 session is part of your build phase — it's where things get exciting! You're pushing your lactate threshold higher, which means you'll be able to sustain harder efforts for longer. That's real race fitness being built!",
+        },
+        # Follow-up on zone explanation
+        {
+            "history": [
+                {"role": "user", "message": "What is Z3?"},
+                {"role": "assistant", "message": "Z3 is your Tempo zone. It targets lactate clearance and tempo endurance."},
+            ],
+            "follow_up": "How is it different from Z4?",
+            "tier": "advisor", "readiness": "Green", "state": "Recovered",
+            "intent": "question", "rtype": "ExplainZone",
+            "cards": ["zone_physiology"],
+            "a_bal": "Z3 (Tempo) is sustainable for longer — you're working but can keep going. Z4 (Threshold) is harder, at the edge of what you can sustain for about 30 minutes. Z3 builds endurance, Z4 raises your ceiling.",
+            "a_dir": "Z3: sustainable tempo, longer efforts. Z4: threshold, 30-min limit. Different targets.",
+            "a_tech": "Z3 operates below LT1 targeting lactate clearance capacity. Z4 sits at or near LT2 (functional threshold). Z3 develops sustainable tempo endurance; Z4 elevates the threshold ceiling. RPE difference: 4-5 vs 6-7.",
+            "a_enc": "Z3 is like a steady push where you're working but can keep going. Z4 takes it up a notch — it's that edge where it gets really challenging but so rewarding! They build different parts of your fitness.",
+        },
+        # Advisor refuses plan, user asks about education instead
+        {
+            "history": [
+                {"role": "user", "message": "Create me a training plan"},
+                {"role": "assistant", "message": "Training plan creation requires a Coach subscription. I can help with education and today's workout."},
+            ],
+            "follow_up": "Ok, tell me about periodization then",
+            "tier": "advisor", "readiness": "Green", "state": "Recovered",
+            "intent": "question", "rtype": "QuestionAnswer",
+            "cards": ["periodization", "josi_explanations"],
+            "a_bal": "Training follows a wave pattern. You build gradually, push harder in the middle, then ease off to let your body absorb the work. This cycle repeats, and each time you come back a little stronger.",
+            "a_dir": "Wave pattern: build, overreach, unload, repeat. Each cycle = progress.",
+            "a_tech": "Periodization structures training into macro/meso/micro cycles. Load progresses through intro, build, overreach, and unload phases. Supercompensation occurs during planned recovery.",
+            "a_enc": "Great question! Think of it like a wave — you build up, push a bit harder, then recover and come back stronger! Each cycle takes you to a new level.",
+        },
+        # Follow-up on replan
+        {
+            "history": [
+                {"role": "user", "message": "I'm feeling sick, can we pause?"},
+                {"role": "assistant", "message": "I've requested an illness pause for your plan. The engine will adjust your upcoming sessions."},
+            ],
+            "follow_up": "When can I start training again?",
+            "tier": "coach", "readiness": "Red", "state": "IllnessRisk",
+            "intent": "question", "rtype": "QuestionAnswer",
+            "cards": ["load_monitoring", "josi_explanations"],
+            "a_bal": "That depends on how you recover. Once your readiness returns to Green or at least Yellow, the engine will ease you back in with lighter sessions. Listen to your body and don't rush — your fitness won't disappear from a few days rest.",
+            "a_dir": "When readiness returns to Green/Yellow. Engine will ease back. No fitness lost from a few days.",
+            "a_tech": "Return to training is gated by readiness state. The engine requires at minimum Yellow status before reintroducing load. Post-illness protocols start with reduced volume and intensity, progressively normalizing over 3-7 days.",
+            "a_enc": "Your body will tell you when it's ready! Once your readiness turns Green or Yellow, the system will gently ease you back in. A few days of rest won't hurt your fitness — in fact, you'll come back feeling refreshed!",
+        },
+        # Multi-turn with encouragement follow-up
+        {
+            "history": [
+                {"role": "user", "message": "I completed my Z2 run today"},
+                {"role": "assistant", "message": "Nice work! I'll log that session for you."},
+            ],
+            "follow_up": "It felt really hard though, is that normal?",
+            "tier": "coach", "readiness": "Yellow", "state": "Accumulated",
+            "intent": "question", "rtype": "QuestionAnswer",
+            "cards": ["load_monitoring", "zone_physiology", "josi_explanations"],
+            "a_bal": "If Z2 felt harder than usual, it's often a sign of accumulated fatigue, which matches your Yellow readiness. Your body is carrying some load from recent training. It doesn't mean your zones are wrong — your body is telling you something. The system accounts for this.",
+            "a_dir": "Yellow readiness = accumulated fatigue. Easy zones feel harder. Normal. System tracks it.",
+            "a_tech": "Elevated RPE at lower zones indicates autonomic fatigue, consistent with your Accumulated readiness state. Heart rate may be elevated for the same output. This is a physiological signal, not a zone calibration issue.",
+            "a_enc": "That's totally normal when your body is carrying some fatigue! Your Yellow readiness confirms your body is working hard behind the scenes. The fact that you showed up and completed it is what matters — the system will adjust if needed!",
+        },
+        # I6 block with history context
+        {
+            "history": [
+                {"role": "user", "message": "What zone am I training in today?"},
+                {"role": "assistant", "message": "Today's session is Z2 (Aerobic) for 60 minutes. This targets mitochondrial density and capillary growth."},
+            ],
+            "follow_up": "Can you bump it up to Z4 instead?",
+            "tier": "coach", "readiness": "Green", "state": "Recovered",
+            "has_session": True, "zone": "Z2", "phase": "base",
+            "intent": "blocked", "rtype": "Decline",
+            "guardrail": True, "reason": "i6_violation",
+            "cards": ["josi_explanations"],
+            "a_bal": "I can't modify your session zones — that's the engine's role based on your plan and readiness. I can explain why Z2 is programmed here if that would help.",
+            "a_dir": "Can't change zones. Engine controls that. I explain, not prescribe.",
+            "a_tech": "Zone selection is determined by the periodization engine based on mesocycle phase, readiness state, and load targets. Modification of session parameters falls outside my scope. I can explain the programming rationale.",
+            "a_enc": "I appreciate the enthusiasm, but changing the zone is the engine's job! What I can do is explain why Z2 is here today — there's actually a great reason behind it. Want to know more?",
+        },
+    ]
+
+    for conv in CONVERSATIONS:
+        for persona in PERSONAS:
+            tier = conv["tier"]
+            readiness = conv.get("readiness", "Green")
+            state = conv.get("state", "Recovered")
+
+            msg = {"balanced": conv["a_bal"], "direct": conv["a_dir"],
+                   "technical": conv["a_tech"], "encouraging": conv["a_enc"]}[persona]
+
+            session = None
+            has_session = conv.get("has_session", False)
+            if has_session:
+                session = make_session(conv.get("zone", "Z2"), conv.get("phase", "base"))
+
+            guardrail = conv.get("guardrail", False)
+            reason = conv.get("reason", None)
+
+            examples.append(Example(
+                system=sys_prompt(tier, persona),
+                user=user_msg(conv["follow_up"], readiness, state,
+                              has_session, session,
+                              history=conv["history"]),
+                assistant=intent_json(conv["intent"], conv["rtype"], msg,
+                                      conv["cards"],
+                                      guardrail=guardrail, reason=reason),
+                tier=tier, persona=persona, category="multi_turn",
+            ))
+
+    return examples
+
+
 def gen_monitor_boundary() -> List[Example]:
     """Monitor must not reference sessions/plans even when asked."""
     examples = []
@@ -1098,6 +1267,7 @@ def main():
         ("safety_warning", gen_safety_warnings),
         ("feedback", gen_feedback),
         ("general", gen_general),
+        ("multi_turn", gen_multi_turn),
         ("monitor_boundary", gen_monitor_boundary),
     ]
 
