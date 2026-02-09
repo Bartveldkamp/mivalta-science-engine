@@ -334,7 +334,7 @@ def train(
         "train_loss": result.training_loss,
         "best_eval_loss": trainer.state.best_metric,
         "total_steps": result.global_step,
-        "epochs_completed": result.num_train_epochs,
+        "epochs_completed": round(trainer.state.epoch, 2) if trainer.state.epoch else epochs,
     }
     with open(output_path / "training_metrics.json", "w") as f:
         json.dump(metrics, f, indent=2)
