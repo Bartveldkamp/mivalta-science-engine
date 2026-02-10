@@ -59,12 +59,14 @@ data class ChatContext(
     val tier: String,           // "advisor" or "coach" (never "monitor")
     val mode: String,           // same as tier
     val personaId: String,      // "balanced" | "direct" | "technical" | "encouraging"
-    val today: String,          // "2026-02-10"
+    val today: String,          // "2026-02-10" (device local date)
     val readiness: Readiness,
     val hasSessionContext: Boolean,
     val plannedSession: PlannedSession?,  // required if hasSessionContext=true
-    val history: List<ChatMessage>,
+    val history: List<ChatMessage>,       // max 30 turns, 60-day TTL
     val profileSummary: ProfileSummary?,
+    val recentAutoReplan: AutoReplan?,    // non-null if auto-replan fired recently
+    val uiHints: UiHints?,               // optional frontend hints
 )
 
 data class Readiness(
@@ -81,6 +83,32 @@ data class PlannedSession(
     val structureLabel: String,   // e.g. "4 x 5min Z4 / 3min Z1"
     val phase: String?,           // "base" | "build" | "peak" | "taper" | "recovery"
     val mesoDay: Int?,            // 1–28
+)
+
+data class ChatMessage(
+    val role: String,    // "user" | "assistant"
+    val message: String,
+    val ts: String,      // ISO 8601: "2026-02-10T14:30:00Z"
+)
+
+data class ProfileSummary(
+    val name: String?,
+    val sport: String?,
+    val level: String?,
+    val goalType: String?,
+    val currentPhase: String?,
+)
+
+data class AutoReplan(
+    val trigger: String,     // "fatigue_detected" | "foster_guardrail_red"
+    val scope: String,       // "micro" | "meso" | "macro"
+    val summary: String,
+    val daysAffected: Int,
+)
+
+data class UiHints(
+    val explainMore: Boolean? = null,
+    val showMoreOptions: Boolean? = null,
 )
 ```
 
@@ -384,6 +412,25 @@ The Rust engine caps workout zones based on readiness. Josi is trained to respec
 | Red | Z2 |
 
 **Exception:** Coach PlanEngine is exempt — it can schedule Z7/Z8 within a periodized plan.
+
+---
+
+## Valid Source Cards
+
+The `source_cards` field in LLMIntent must reference one or more of these knowledge cards:
+
+```
+advisor_policy       energy_systems       fatigue_policy
+feasibility_policy   goal_demands         insight_rules_v1
+josi_explanations    josi_personas_v1     load_monitoring
+meso_dance_policy    modifiers            modifiers_cycling
+modifiers_running    monitoring_v5        monotony_policy
+operational          pack_composition     periodization
+session_rules        session_variety_policy
+training_load_model  zone_anchors         zone_physiology
+```
+
+These are the internal knowledge documents that Josi references. The model was trained to cite relevant cards. The app does not need to do anything with these beyond passing them through — the Rust engine may use them for logging/audit.
 
 ---
 
