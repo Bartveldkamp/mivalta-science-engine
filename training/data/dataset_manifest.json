@@ -1,7 +1,7 @@
 {
   "version": "v3",
-  "total_examples": 1836,
-  "train_examples": 1645,
+  "total_examples": 1840,
+  "train_examples": 1649,
   "val_examples": 191,
   "duplicates_removed": 4,
   "i6_decline_count": 384,
@@ -9,55 +9,55 @@
   "by_category": {
     "education_qa": 360,
     "i6_block": 264,
-    "workout_explanation": 208,
-    "zone_explanation": 156,
+    "workout_explanation": 200,
+    "zone_explanation": 168,
     "encouragement": 120,
     "profile_aware": 96,
-    "readiness_summary": 64,
     "tier_decline": 64,
-    "weekly_review": 60,
+    "readiness_summary": 64,
     "safety_warning": 60,
+    "weekly_review": 60,
     "replan_request": 56,
     "monitor_boundary": 56,
     "tool_dispatch": 52,
     "general": 48,
     "feedback": 40,
     "advisor_today_only": 32,
-    "multi_turn": 32,
     "auto_replan": 32,
+    "multi_turn": 32,
     "workout_creation_flow": 20,
     "daily_brief": 16
   },
   "by_tier": {
-    "coach": 726,
-    "advisor": 686,
-    "monitor": 424
+    "coach": 734,
+    "advisor": 678,
+    "monitor": 428
   },
   "by_persona": {
-    "balanced": 460,
-    "technical": 460,
-    "direct": 460,
-    "encouraging": 456
+    "technical": 461,
+    "balanced": 461,
+    "direct": 461,
+    "encouraging": 457
   },
   "by_response_type": {
     "QuestionAnswer": 636,
     "Decline": 420,
-    "ExplainWorkout": 264,
-    "ExplainZone": 160,
+    "ExplainWorkout": 256,
+    "ExplainZone": 172,
     "Encouragement": 120,
     "ReadinessSummary": 100,
-    "WeeklyReview": 60,
     "SafetyWarning": 60,
+    "WeeklyReview": 60,
     "DailyBrief": 16
   },
   "by_intent": {
-    "question": 1008,
+    "question": 1012,
     "blocked": 372,
     "encouragement": 120,
     "replan": 104,
     "general": 64,
-    "compliance": 60,
     "medical_red_flag": 60,
+    "compliance": 60,
     "feedback": 48
   }
 }

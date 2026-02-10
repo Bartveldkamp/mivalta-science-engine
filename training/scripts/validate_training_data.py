@@ -52,7 +52,8 @@ VALID_GUARDRAIL_REASONS = {"i6_violation", "tier_violation", "medical_red_flag",
 VALID_READINESS_LEVELS = {"Green", "Yellow", "Orange", "Red"}
 
 TIER_TOOLS = {
-    "monitor": set(),  # Monitor: general talks only, no tool access through Josi
+    # Must match Rust tool_dispatcher.rs allowlists
+    "monitor": {"get_user_status", "log_workout", "get_recent_workouts"},
     "advisor": {"get_user_status", "explain_workout", "create_today_workout",
                 "log_workout", "get_recent_workouts"},
     "coach":   {"get_user_status", "explain_workout", "create_today_workout",
@@ -60,10 +61,12 @@ TIER_TOOLS = {
 }
 
 ZONE_GATING = {
-    "Green":  {"R", "Z1", "Z2", "Z3", "Z4", "Z5", "Z6", "Z7", "Z8"},
+    # Must match Rust default_zone_caps() in workout_suggester.rs
+    # green→Z6, yellow→Z4, orange→Z3, red→Z2
+    "Green":  {"R", "Z1", "Z2", "Z3", "Z4", "Z5", "Z6"},
     "Yellow": {"R", "Z1", "Z2", "Z3", "Z4"},
-    "Orange": {"R", "Z1", "Z2"},
-    "Red":    {"R", "Z1"},
+    "Orange": {"R", "Z1", "Z2", "Z3"},
+    "Red":    {"R", "Z1", "Z2"},
 }
 
 BANNED_TOKENS = [
@@ -463,7 +466,7 @@ def test_tier_compliance(examples: List[dict], suite: TestSuite):
     t_plan_coach = suite.get("4.3 create_plan tool only on coach tier")
     t_decline_reason = suite.get("4.4 Decline responses have guardrail_reason set")
     t_medical = suite.get("4.5 Medical red flags produce SafetyWarning")
-    t_monitor_no_tools = suite.get("4.6 Monitor has no tool calls (general talks only)")
+    t_monitor_tools = suite.get("4.6 Monitor tool calls limited to get_user_status, log_workout, get_recent_workouts")
     t_monitor_no_personal = suite.get("4.7 Monitor has no personal response types (ReadinessSummary, ExplainWorkout, WeeklyReview, DailyBrief)")
 
     for ex in examples:
@@ -535,14 +538,15 @@ def test_tier_compliance(examples: List[dict], suite: TestSuite):
         else:
             t_medical.ok()
 
-        # 4.6: Monitor must have NO tool calls (general talks only)
-        if tier == "monitor":
-            if tc is not None and isinstance(tc, dict) and tc.get("tool"):
-                t_monitor_no_tools.fail(f"Line {line}: monitor has tool_call={tc['tool']} (should be null)")
+        # 4.6: Monitor tool calls limited to Rust MONITOR_TOOLS
+        if tier == "monitor" and tc is not None and isinstance(tc, dict) and tc.get("tool"):
+            monitor_allowed = {"get_user_status", "log_workout", "get_recent_workouts"}
+            if tc["tool"] in monitor_allowed:
+                t_monitor_tools.ok()
             else:
-                t_monitor_no_tools.ok()
+                t_monitor_tools.fail(f"Line {line}: monitor has tool_call={tc['tool']} (only {monitor_allowed} allowed)")
         else:
-            t_monitor_no_tools.ok()
+            t_monitor_tools.ok()
 
         # 4.7: Monitor must not have personal response types
         if tier == "monitor":
@@ -591,11 +595,13 @@ def test_zone_gating(examples: List[dict], suite: TestSuite):
             continue
 
         # Check session zone in CONTEXT matches gating
+        # Zone caps (from Rust workout_suggester.rs) apply to advisor tier only.
+        # Coach-tier sessions come from the PlanEngine which can schedule any zone.
         session_zone = extract_session_zone(user)
-        if session_zone:
+        tier = extract_tier(system)
+        if session_zone and tier != "coach":
             allowed = ZONE_GATING[readiness]
             if session_zone not in allowed:
-                # The session itself is above the gate — this is a data problem
                 t.fail(f"Line {line}: session zone={session_zone} above {readiness} gate ({allowed})")
                 continue
 
@@ -608,7 +614,9 @@ def test_zone_gating(examples: List[dict], suite: TestSuite):
             continue
 
         # For workout explanations and daily briefs, check zones mentioned
-        if rtype in ("ExplainWorkout", "DailyBrief"):
+        # Zone caps only apply to advisor (Rust workout_suggester).
+        # Coach PlanEngine can schedule any zone at any readiness.
+        if rtype in ("ExplainWorkout", "DailyBrief") and tier != "coach":
             zones = zones_mentioned_in_message(msg)
             allowed = ZONE_GATING[readiness]
             above_gate = zones - allowed

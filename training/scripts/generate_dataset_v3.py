@@ -53,7 +53,9 @@ SOURCE_CARDS = [
 ]
 
 TIER_TOOLS = {
-    "monitor": [],  # Monitor: general talks only, no tool access through Josi
+    # Must match Rust MONITOR_TOOLS / ADVISOR_TOOLS / COACH_TOOLS
+    # in gatc-josi/src/tool_dispatcher.rs
+    "monitor": ["get_user_status", "log_workout", "get_recent_workouts"],
     "advisor": ["get_user_status", "explain_workout", "create_today_workout",
                 "log_workout", "get_recent_workouts"],
     "coach": ["get_user_status", "explain_workout", "create_today_workout",
@@ -61,10 +63,12 @@ TIER_TOOLS = {
 }
 
 ZONE_GATING = {
-    "Green": ZONES,
+    # Must match Rust default_zone_caps() in workout_suggester.rs
+    # green→Z6, yellow→Z4, orange→Z3, red→Z2
+    "Green": ["R", "Z1", "Z2", "Z3", "Z4", "Z5", "Z6"],
     "Yellow": ["R", "Z1", "Z2", "Z3", "Z4"],
-    "Orange": ["R", "Z1", "Z2"],
-    "Red": ["R", "Z1"],
+    "Orange": ["R", "Z1", "Z2", "Z3"],
+    "Red": ["R", "Z1", "Z2"],
 }
 
 
@@ -683,7 +687,8 @@ def gen_workout_explanations() -> List[Example]:
     """ExplainWorkout — advisor + coach only, needs session context.
 
     Covers:
-      - All 9 zones (R, Z1-Z8) for comprehensive coverage
+      - Advisor: R-Z6 only (Rust ZONE_INTENSITY_ORDER stops at Z6)
+      - Coach: All 9 zones (plan engine may schedule Z7/Z8)
       - All 5 phases (base, build, peak, taper, recovery)
       - Multiple readiness levels (Green, Yellow, Orange) with zone gating
       - Both sports (running, cycling)
@@ -692,10 +697,18 @@ def gen_workout_explanations() -> List[Example]:
     examples = []
     qi = 0
 
-    # --- Layer 1: All zones × core phases (Green readiness) ---
+    # Advisor can only handle R-Z6 (Rust workout_suggester range)
+    # Coach can explain all zones (plan engine may schedule Z7/Z8)
+    TIER_ZONES = {
+        "advisor": ["R", "Z1", "Z2", "Z3", "Z4", "Z5", "Z6"],
+        "coach": ZONES,
+    }
+
+    # --- Layer 1: All applicable zones × core phases (Green readiness) ---
     for tier in ["advisor", "coach"]:
+        tier_zones = TIER_ZONES[tier]
         for persona in PERSONAS:
-            for zone in ZONES:
+            for zone in tier_zones:
                 # Each zone gets 2 phase combos to keep variety without explosion
                 if zone in ("R", "Z1"):
                     phases = ["recovery", "base"]
@@ -994,7 +1007,9 @@ def gen_tool_dispatches() -> List[Example]:
             else:
                 msg = "On it! Let me get that for you."
             # Also run on other valid tiers for the same tool
-            valid_tiers = [t for t in TIERS if scenario["tool"] in TIER_TOOLS[t]]
+            # Exclude monitor: chat_enabled=false in tier_policy.json means
+            # Josi doesn't chat in monitor mode. Tools exist for app-direct calls only.
+            valid_tiers = [t for t in TIERS if scenario["tool"] in TIER_TOOLS[t] and t != "monitor"]
             for t in valid_tiers:
                 examples.append(Example(
                     system=sys_prompt(t, persona),
