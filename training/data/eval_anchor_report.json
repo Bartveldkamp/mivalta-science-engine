@@ -58,7 +58,7 @@
       "category": "tier_compliance",
       "description": "Coach can reference plans",
       "covered": true,
-      "match_count": 64
+      "match_count": 136
     },
     {
       "id": "TC-009",
@@ -179,7 +179,7 @@
       "description": "OUTPUT validation: valid coach explanation (numbers from plan)",
       "type": "output_positive",
       "covered": true,
-      "match_count": 542
+      "match_count": 614
     },
     {
       "id": "I6-012",
@@ -270,7 +270,7 @@
       "category": "tool_dispatch",
       "description": "Question about session \u2192 explain_workout",
       "covered": true,
-      "match_count": 56
+      "match_count": 128
     },
     {
       "id": "TD-009",

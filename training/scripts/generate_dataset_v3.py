@@ -308,12 +308,22 @@ def workout_msg(session: dict, persona: str) -> str:
     dur = session["target_duration_min"]
     struct = session["structure_label"]
     zone = session["target_zone"]
+    # Cue tailored to zone intensity
+    if zone in ("R", "Z1", "Z2"):
+        bal_cue = "Start easy and find your rhythm."
+        enc_cue = "Enjoy the process and trust your training!"
+    elif zone in ("Z3", "Z4"):
+        bal_cue = "Warm up well and settle into the effort."
+        enc_cue = "You've got this — lock in and enjoy the push!"
+    else:  # Z5-Z8
+        bal_cue = "Warm up thoroughly and commit to each effort."
+        enc_cue = "Time to dig deep — these efforts build champions!"
     if persona == "balanced":
         return (f"Today's session is {dur} minutes of {zone} ({z['label']}) work: {struct}. "
                 f"This targets {z['adapt']}. You should feel {z['feel']}. "
-                f"Start easy and find your rhythm.")
+                f"{bal_cue}")
     elif persona == "direct":
-        return f"{dur}min {zone}. {struct}. {z['label']}. Execute."
+        return f"{dur}min {zone}. {struct}. {z['label']}. RPE {z['rpe']}. Execute."
     elif persona == "technical":
         return (f"Session prescription: {struct} ({dur}min total). "
                 f"Target: {z['adapt']}. RPE {z['rpe']}. "
@@ -321,7 +331,7 @@ def workout_msg(session: dict, persona: str) -> str:
     else:
         return (f"Here's your session: {dur} minutes of {zone} work — {struct}! "
                 f"You're building {z['adapt']}. "
-                f"Enjoy the process and trust your training!")
+                f"{enc_cue}")
 
 
 def decline_i6_msg(persona: str) -> str:
@@ -465,6 +475,9 @@ WORKOUT_QUESTIONS = [
     "What's today's session?", "Explain today's workout",
     "What am I doing today?", "Walk me through today's session",
     "What zone is my session in?", "Why this structure today?",
+    "What's on the schedule?", "Tell me about today's training",
+    "Break down today's session for me", "What's the plan for today?",
+    "How should I approach today's session?", "What does today look like?",
 ]
 
 I6_VIOLATIONS = [
@@ -667,27 +680,97 @@ def gen_readiness_summaries() -> List[Example]:
 
 
 def gen_workout_explanations() -> List[Example]:
-    """ExplainWorkout — advisor + coach only, needs session context."""
+    """ExplainWorkout — advisor + coach only, needs session context.
+
+    Covers:
+      - All 9 zones (R, Z1-Z8) for comprehensive coverage
+      - All 5 phases (base, build, peak, taper, recovery)
+      - Multiple readiness levels (Green, Yellow, Orange) with zone gating
+      - Both sports (running, cycling)
+      - 12 question templates for variety
+    """
     examples = []
     qi = 0
+
+    # --- Layer 1: All zones × core phases (Green readiness) ---
     for tier in ["advisor", "coach"]:
         for persona in PERSONAS:
-            for zone in ["Z2", "Z3", "Z4", "Z5"]:
-                for phase in ["base", "build"]:
+            for zone in ZONES:
+                # Each zone gets 2 phase combos to keep variety without explosion
+                if zone in ("R", "Z1"):
+                    phases = ["recovery", "base"]
+                elif zone in ("Z2", "Z3"):
+                    phases = ["base", "build"]
+                elif zone in ("Z4", "Z5"):
+                    phases = ["build", "peak"]
+                elif zone in ("Z6", "Z7"):
+                    phases = ["peak", "build"]
+                else:  # Z8
+                    phases = ["peak", "taper"]
+                for phase in phases:
                     q = WORKOUT_QUESTIONS[qi % len(WORKOUT_QUESTIONS)]
                     qi += 1
                     sess = make_session(zone, phase)
                     msg = workout_msg(sess, persona)
+                    sport = random.choice(SPORTS)
                     tool = {"tool": "explain_workout", "args": {}}
                     examples.append(Example(
                         system=sys_prompt(tier, persona),
                         user=user_msg(q, "Green", "Recovered",
-                                      has_session=True, session=sess),
+                                      has_session=True, session=sess,
+                                      sport=sport),
                         assistant=intent_json("question", "ExplainWorkout", msg,
                                               ["session_rules", "josi_explanations",
                                                "zone_physiology"], tool=tool),
                         tier=tier, persona=persona, category="workout_explanation",
                     ))
+
+    # --- Layer 2: Non-Green readiness (zone-gated) ---
+    for tier in ["advisor", "coach"]:
+        for persona in PERSONAS:
+            for level in ["Yellow", "Orange", "Red"]:
+                allowed = ZONE_GATING[level]
+                # Pick up to 2 zones that are allowed at this readiness
+                gated_zones = [z for z in allowed if z != "R"][:2]
+                for zone in gated_zones:
+                    q = WORKOUT_QUESTIONS[qi % len(WORKOUT_QUESTIONS)]
+                    qi += 1
+                    state = pick_state(level)
+                    phase = random.choice(["base", "build"])
+                    sess = make_session(zone, phase)
+                    msg = workout_msg(sess, persona)
+                    sport = random.choice(SPORTS)
+                    tool = {"tool": "explain_workout", "args": {}}
+                    examples.append(Example(
+                        system=sys_prompt(tier, persona),
+                        user=user_msg(q, level, state,
+                                      has_session=True, session=sess,
+                                      sport=sport),
+                        assistant=intent_json("question", "ExplainWorkout", msg,
+                                              ["session_rules", "josi_explanations",
+                                               "zone_physiology"], tool=tool),
+                        tier=tier, persona=persona, category="workout_explanation",
+                    ))
+
+    # --- Layer 3: Recovery/taper-specific sessions (R and Z1) ---
+    for tier in ["advisor", "coach"]:
+        for persona in PERSONAS:
+            for zone, phase in [("R", "recovery"), ("Z1", "taper"), ("R", "taper")]:
+                q = WORKOUT_QUESTIONS[qi % len(WORKOUT_QUESTIONS)]
+                qi += 1
+                sess = make_session(zone, phase)
+                msg = workout_msg(sess, persona)
+                tool = {"tool": "explain_workout", "args": {}}
+                examples.append(Example(
+                    system=sys_prompt(tier, persona),
+                    user=user_msg(q, "Green", "Recovered",
+                                  has_session=True, session=sess),
+                    assistant=intent_json("question", "ExplainWorkout", msg,
+                                          ["session_rules", "josi_explanations",
+                                           "zone_physiology"], tool=tool),
+                    tier=tier, persona=persona, category="workout_explanation",
+                ))
+
     return examples
 
 
@@ -1171,7 +1254,10 @@ def gen_profile_aware() -> List[Example]:
     """Profile-aware greetings, goal references, and personalized coaching."""
     examples = []
 
-    for prof in PROFILES:
+    # Assign varied zones to profiles for diversity
+    PROFILE_ZONES = ["Z2", "Z3", "Z4", "Z2", "Z1", "Z2"]
+
+    for pi, prof in enumerate(PROFILES):
         name = prof["name"]
         sport = prof["sport"]
         level = prof["level"]
@@ -1181,15 +1267,17 @@ def gen_profile_aware() -> List[Example]:
         for persona in PERSONAS:
             # --- 1. Greeting / session explanation with name ---
             for tier in ["advisor", "coach"]:
-                session = make_session("Z2", phase)
+                pzone = PROFILE_ZONES[pi % len(PROFILE_ZONES)]
+                session = make_session(pzone, phase)
+                zd = ZD[pzone]
                 if persona == "balanced":
-                    msg = f"Morning {name}! Today's session is {session['target_duration_min']} minutes of Z2 (Aerobic) — {session['structure_label']}. This builds the aerobic foundation that everything else sits on. Enjoy the run!"
+                    msg = f"Morning {name}! Today's session is {session['target_duration_min']} minutes of {pzone} ({zd['label']}) — {session['structure_label']}. This targets {zd['adapt']}. Enjoy the session!"
                 elif persona == "direct":
-                    msg = f"{name}. Z2, {session['target_duration_min']}min. {session['structure_label']}. Aerobic base work."
+                    msg = f"{name}. {pzone}, {session['target_duration_min']}min. {session['structure_label']}. {zd['label']} work."
                 elif persona == "technical":
-                    msg = f"{name}, today's prescription is {session['target_duration_min']} minutes Z2 (Aerobic): {session['structure_label']}. This targets mitochondrial biogenesis and capillary development — core adaptations for your {phase} phase."
+                    msg = f"{name}, today's prescription is {session['target_duration_min']} minutes {pzone} ({zd['label']}): {session['structure_label']}. This targets {zd['adapt']} — key adaptations for your {phase} phase."
                 else:
-                    msg = f"Hey {name}! Ready for today? You've got {session['target_duration_min']} minutes of Z2 — {session['structure_label']}. This is where the magic happens! Your aerobic engine will thank you."
+                    msg = f"Hey {name}! Ready for today? You've got {session['target_duration_min']} minutes of {pzone} — {session['structure_label']}. You're building {zd['adapt']}!"
 
                 if tier == "coach":
                     examples.append(Example(
