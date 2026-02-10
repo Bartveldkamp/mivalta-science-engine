@@ -1,0 +1,167 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mivalta:chat_context",
+  "title": "ChatContext",
+  "description": "Context passed to every Josi chat() call. Frontend must populate per tier/mode. Engine validates at runtime.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["athlete_id", "tier", "mode", "persona_id", "today", "readiness", "has_session_context", "history"],
+  "properties": {
+    "athlete_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Unique athlete identifier"
+    },
+    "tier": {
+      "type": "string",
+      "enum": ["monitor", "advisor", "coach"],
+      "description": "Current subscription tier"
+    },
+    "mode": {
+      "type": "string",
+      "enum": ["monitor", "advisor", "coach"],
+      "description": "Active operational mode (monitor has no chat but included for internal tests)"
+    },
+    "persona_id": {
+      "type": "string",
+      "enum": ["balanced", "direct", "technical", "encouraging"],
+      "description": "User's selected coaching persona"
+    },
+    "today": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+      "description": "Device local date at midnight cutoff, YYYY-MM-DD"
+    },
+    "readiness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "confidence", "level", "data_tier"],
+      "properties": {
+        "state": {
+          "type": "string",
+          "enum": ["Recovered", "Productive", "Accumulated", "Overreached", "IllnessRisk"]
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "level": {
+          "type": "string",
+          "enum": ["Green", "Yellow", "Orange", "Red"]
+        },
+        "data_tier": {
+          "type": "string",
+          "enum": ["None", "Minimal", "Basic", "Standard", "Good", "Full", "Enhanced"]
+        }
+      }
+    },
+    "has_session_context": {
+      "type": "boolean",
+      "description": "If true, planned_session must be present. Required for I6 zone/duration validation."
+    },
+    "planned_session": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Current day's planned session from the active plan. Required when has_session_context=true.",
+      "required": ["intent", "target_zone", "target_duration_min", "structure_label"],
+      "properties": {
+        "intent": {
+          "type": "string",
+          "enum": ["R", "Z1", "Z2", "Z3", "Z4", "Z5", "Z6", "Z7", "Z8", "OFF", "REST"]
+        },
+        "target_zone": {
+          "type": "string",
+          "enum": ["R", "Z1", "Z2", "Z3", "Z4", "Z5", "Z6", "Z7", "Z8"]
+        },
+        "target_duration_min": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1440.0
+        },
+        "structure_label": {
+          "type": "string",
+          "minLength": 1,
+          "description": "e.g. '4 x 5min Z4 / 3min Z1' or 'Continuous Z2 60min'"
+        },
+        "meso_day": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 28,
+          "description": "Day within current mesocycle (1-indexed)"
+        },
+        "phase": {
+          "type": "string",
+          "enum": ["base", "build", "peak", "taper", "recovery"],
+          "description": "Current training phase"
+        }
+      }
+    },
+    "history": {
+      "type": "array",
+      "description": "Conversation history. Engine enforces max 30 turns, 60-day TTL.",
+      "maxItems": 60,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["role", "message", "ts"],
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": ["user", "assistant"]
+          },
+          "message": {
+            "type": "string"
+          },
+          "ts": {
+            "type": "string",
+            "description": "ISO 8601 timestamp (YYYY-MM-DDTHH:MM:SSZ or YYYY-MM-DD)"
+          }
+        }
+      }
+    },
+    "profile_summary": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Non-sensitive summary for prompt context. No raw biometrics, no PII beyond name.",
+      "properties": {
+        "name": { "type": "string" },
+        "sport": { "type": "string" },
+        "level": { "type": "string" },
+        "goal_type": { "type": "string" },
+        "current_phase": { "type": "string" }
+      }
+    },
+    "recent_auto_replan": {
+      "type": ["object", "null"],
+      "description": "If an auto-replan fired recently, include summary so Josi can explain it.",
+      "properties": {
+        "trigger": {
+          "type": "string",
+          "enum": ["fatigue_detected", "foster_guardrail_red"]
+        },
+        "scope": {
+          "type": "string",
+          "enum": ["micro", "meso", "macro"]
+        },
+        "summary": { "type": "string" },
+        "days_affected": { "type": "integer" }
+      }
+    },
+    "ui_hints": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Optional frontend UI hints (e.g. user pressed 'Explain more')",
+      "properties": {
+        "explain_more": { "type": "boolean" },
+        "show_more_options": { "type": "boolean" }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "has_session_context": { "const": true } } },
+      "then": { "required": ["planned_session"] }
+    }
+  ]
+}
