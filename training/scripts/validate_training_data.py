@@ -349,7 +349,7 @@ def test_i6_guardrails(examples: List[dict], suite: TestSuite):
     t_banned = suite.get("3.1 No GATC banned tokens in assistant messages")
     t_prescr = suite.get("3.2 No prescriptive language in advisor-mode messages")
     t_override = suite.get("3.3 No readiness override language in messages")
-    t_monitor_plans = suite.get("3.4 Monitor-mode messages don't reference plans/sessions")
+    t_no_monitor = suite.get("3.4 No monitor-tier Josi examples (chat_enabled=false)")
     t_mod_claims = suite.get("3.5 No modification claims in messages")
     t_blocked_guard = suite.get("3.6 Blocked intents have guardrail_triggered=true")
 
@@ -408,26 +408,11 @@ def test_i6_guardrails(examples: List[dict], suite: TestSuite):
         else:
             t_override.ok()
 
-        # 3.4: Monitor: general talks only — no plans, sessions, OR personal data
-        if tier == "monitor" and intent != "blocked":
-            monitor_forbidden = [
-                r"\btoday.?s session\b", r"\bplanned workout\b",
-                r"\byour plan\b", r"\btraining plan\b",
-                r"\btoday.?s planned\b",
-                r"\byour readiness\b", r"\byour training load\b",
-                r"\byour recovery\b", r"\byour hrv\b",
-            ]
-            monitor_violation = False
-            for pattern in monitor_forbidden:
-                if re.search(pattern, msg, re.IGNORECASE):
-                    monitor_violation = True
-                    break
-            if monitor_violation:
-                t_monitor_plans.fail(f"Line {line}: monitor message references plans/sessions/personal data")
-            else:
-                t_monitor_plans.ok()
+        # 3.4: Monitor has no Josi chat — no monitor examples should exist
+        if tier == "monitor":
+            t_no_monitor.fail(f"Line {line}: monitor-tier example found (chat_enabled=false, no Josi for monitor)")
         else:
-            t_monitor_plans.ok()
+            t_no_monitor.ok()
 
         # 3.5: No modification claims
         mod_patterns = [
@@ -466,8 +451,8 @@ def test_tier_compliance(examples: List[dict], suite: TestSuite):
     t_plan_coach = suite.get("4.3 create_plan tool only on coach tier")
     t_decline_reason = suite.get("4.4 Decline responses have guardrail_reason set")
     t_medical = suite.get("4.5 Medical red flags produce SafetyWarning")
-    t_monitor_tools = suite.get("4.6 Monitor tool calls limited to get_user_status, log_workout, get_recent_workouts")
-    t_monitor_no_personal = suite.get("4.7 Monitor has no personal response types (ReadinessSummary, ExplainWorkout, WeeklyReview, DailyBrief)")
+    t_josi_tiers = suite.get("4.6 All examples use Josi tiers only (advisor or coach, never monitor)")
+    t_advisor_no_plan = suite.get("4.7 Advisor has no plan/replan tools (create_plan, replan)")
 
     for ex in examples:
         line = ex["_line"]
@@ -538,25 +523,21 @@ def test_tier_compliance(examples: List[dict], suite: TestSuite):
         else:
             t_medical.ok()
 
-        # 4.6: Monitor tool calls limited to Rust MONITOR_TOOLS
-        if tier == "monitor" and tc is not None and isinstance(tc, dict) and tc.get("tool"):
-            monitor_allowed = {"get_user_status", "log_workout", "get_recent_workouts"}
-            if tc["tool"] in monitor_allowed:
-                t_monitor_tools.ok()
-            else:
-                t_monitor_tools.fail(f"Line {line}: monitor has tool_call={tc['tool']} (only {monitor_allowed} allowed)")
-        else:
-            t_monitor_tools.ok()
-
-        # 4.7: Monitor must not have personal response types
+        # 4.6: All examples must be advisor or coach (no monitor Josi)
         if tier == "monitor":
-            personal_rtypes = {"ReadinessSummary", "ExplainWorkout", "WeeklyReview", "DailyBrief"}
-            if rtype in personal_rtypes:
-                t_monitor_no_personal.fail(f"Line {line}: monitor has rtype={rtype} (personal data, should be Decline)")
-            else:
-                t_monitor_no_personal.ok()
+            t_josi_tiers.fail(f"Line {line}: monitor-tier example found (Josi only serves advisor + coach)")
         else:
-            t_monitor_no_personal.ok()
+            t_josi_tiers.ok()
+
+        # 4.7: Advisor must not use plan/replan tools (coach-only)
+        if tier == "advisor" and tc and isinstance(tc, dict):
+            coach_only_tools = {"create_plan", "replan"}
+            if tc.get("tool") in coach_only_tools:
+                t_advisor_no_plan.fail(f"Line {line}: advisor uses {tc['tool']} (coach-only)")
+            else:
+                t_advisor_no_plan.ok()
+        else:
+            t_advisor_no_plan.ok()
 
 
 # ============================================================================
@@ -706,7 +687,7 @@ def test_consistency(examples: List[dict], suite: TestSuite):
                 t_replan_tool.ok()
             else:
                 t_replan_tool.fail(f"Line {line}: coach replan but replan_request is null")
-        elif intent == "replan" and tier in ("monitor", "advisor"):
+        elif intent == "replan" and tier == "advisor":
             # Non-coach replan should be decline with null replan_request
             if rr is None:
                 t_replan_tool.ok()
@@ -767,7 +748,7 @@ def test_quality(examples: List[dict], suite: TestSuite):
 def test_distribution(examples: List[dict], suite: TestSuite):
     """Check dataset distribution: I6 density, tier balance, persona coverage."""
     t_i6_density = suite.get("8.1 I6/Decline density in 15-25% range")
-    t_tier_coverage = suite.get("8.2 All 3 tiers represented")
+    t_tier_coverage = suite.get("8.2 Both Josi tiers represented (advisor + coach)")
     t_persona_coverage = suite.get("8.3 All 4 personas represented")
     t_intent_coverage = suite.get("8.4 All 8 intents represented")
     t_rtype_coverage = suite.get("8.5 All 9 response types represented")
@@ -817,12 +798,12 @@ def test_distribution(examples: List[dict], suite: TestSuite):
     else:
         t_i6_density.fail(f"I6/Decline density={density:.1f}% (target 15-25%, acceptable 10-30%)")
 
-    # 8.2: All tiers
-    for tier in ["monitor", "advisor", "coach"]:
+    # 8.2: Both Josi tiers (advisor + coach, no monitor)
+    for tier in ["advisor", "coach"]:
         if tier_counts.get(tier, 0) > 0:
             t_tier_coverage.ok()
         else:
-            t_tier_coverage.fail(f"Missing tier: {tier}")
+            t_tier_coverage.fail(f"Missing Josi tier: {tier}")
 
     # 8.3: All personas
     for persona in ["balanced", "direct", "technical", "encouraging"]:

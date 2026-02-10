@@ -43,14 +43,6 @@
       "notes": "Advisor plan creation → no tool, tier upgrade"
     },
     {
-      "id": "TD-006",
-      "tier": "monitor",
-      "message": "How's my readiness?",
-      "expected_tool": null,
-      "expected_response_type": "Decline",
-      "notes": "Monitor: general talks only, no personal data — decline with tier upgrade"
-    },
-    {
       "id": "TD-007",
       "tier": "coach",
       "message": "I just finished my ride",

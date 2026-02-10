@@ -1,23 +1,9 @@
 {
-  "total_eval_cases": 42,
-  "covered": 42,
+  "total_eval_cases": 38,
+  "covered": 38,
   "uncovered": 0,
   "coverage_pct": 100.0,
   "results": [
-    {
-      "id": "TC-001",
-      "category": "tier_compliance",
-      "description": "Monitor: general talks only, cannot discuss personal data (readiness visible in app UI)",
-      "covered": true,
-      "match_count": 152
-    },
-    {
-      "id": "TC-002",
-      "category": "tier_compliance",
-      "description": "Replan not available in monitor",
-      "covered": true,
-      "match_count": 24
-    },
     {
       "id": "TC-003",
       "category": "tier_compliance",
@@ -59,13 +45,6 @@
       "description": "Coach can reference plans",
       "covered": true,
       "match_count": 140
-    },
-    {
-      "id": "TC-009",
-      "category": "tier_compliance",
-      "description": "Monitor: general talks only, cannot discuss personal recovery data",
-      "covered": true,
-      "match_count": 152
     },
     {
       "id": "TC-010",
@@ -250,13 +229,6 @@
       "description": "Advisor plan creation \u2192 no tool, tier upgrade",
       "covered": true,
       "match_count": 152
-    },
-    {
-      "id": "TD-006",
-      "category": "tool_dispatch",
-      "description": "Monitor: general talks only, no personal data \u2014 decline with tier upgrade",
-      "covered": true,
-      "match_count": 176
     },
     {
       "id": "TD-007",

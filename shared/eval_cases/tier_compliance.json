@@ -1,27 +1,7 @@
 {
   "category": "tier_compliance",
-  "description": "Verify correct tier gating: monitor has no chat, advisor blocks replans/plans, coach allows all",
+  "description": "Verify correct tier gating: monitor has no Josi chat, advisor blocks replans/plans, coach allows all",
   "cases": [
-    {
-      "id": "TC-001",
-      "tier": "monitor",
-      "mode": "monitor",
-      "message": "What's my readiness?",
-      "expected_intent": "blocked",
-      "expected_response_type": "Decline",
-      "must_contain_concept": "tier upgrade or data in app",
-      "notes": "Monitor: general talks only, cannot discuss personal data (readiness visible in app UI)"
-    },
-    {
-      "id": "TC-002",
-      "tier": "monitor",
-      "mode": "monitor",
-      "message": "Can I skip today?",
-      "expected_intent": "replan",
-      "expected_response_type": "Decline",
-      "must_contain_concept": "tier upgrade",
-      "notes": "Replan not available in monitor"
-    },
     {
       "id": "TC-003",
       "tier": "advisor",
@@ -81,16 +61,6 @@
       "has_session_context": true,
       "expected_response_type": "ExplainWorkout",
       "notes": "Coach can reference plans"
-    },
-    {
-      "id": "TC-009",
-      "tier": "monitor",
-      "mode": "monitor",
-      "message": "How's my recovery looking?",
-      "expected_intent": "blocked",
-      "expected_response_type": "Decline",
-      "must_contain_concept": "tier upgrade",
-      "notes": "Monitor: general talks only, cannot discuss personal recovery data"
     },
     {
       "id": "TC-010",

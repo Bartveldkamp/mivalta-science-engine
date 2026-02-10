@@ -30,6 +30,9 @@ OUTPUT_DIR = SCRIPT_DIR.parent / "data"
 # ============================================================================
 
 TIERS = ["monitor", "advisor", "coach"]
+# Josi chat is only available for advisor + coach.
+# Monitor tier: chat_enabled=false (tier_policy.json), app-only dashboard + one-way notifications.
+JOSI_TIERS = ["advisor", "coach"]
 PERSONAS = ["balanced", "direct", "technical", "encouraging"]
 READINESS_LEVELS = ["Green", "Yellow", "Orange", "Red"]
 READINESS_STATES_BY_LEVEL = {
@@ -145,15 +148,8 @@ PERSONA_STYLES = {
 }
 
 MODE_RULES = {
-    "monitor": (
-        "MODE: Monitor\n"
-        "- General conversation and education only (zones, physiology, concepts)\n"
-        "- NEVER discuss the athlete's personal data (readiness, training load, HRV, workout history)\n"
-        "- NEVER reference planned workouts, sessions, or training plans\n"
-        "- NEVER prescribe or suggest training\n"
-        "- Personal data, workout, and plan questions: Decline with tier upgrade suggestion\n"
-        "- The app shows data (readiness, HRV, graphs) — Josi does not discuss it in monitor mode"
-    ),
+    # Monitor: no Josi chat (chat_enabled=false in tier_policy.json)
+    # Monitor tools (get_user_status, log_workout, get_recent_workouts) are app-direct only.
     "advisor": (
         "MODE: Advisor\n"
         "- Explain workouts and zones, answer education questions\n"
@@ -510,14 +506,15 @@ I6_VIOLATIONS = [
 ]
 
 TIER_BLOCKED_SCENARIOS = [
-    {"msg": "Can I skip today?", "action": "replan", "tiers": ["monitor", "advisor"]},
-    {"msg": "Can I swap tomorrow's session with today?", "action": "replan", "tiers": ["monitor", "advisor"]},
-    {"msg": "Create me a 12 week training plan", "action": "create_plan", "tiers": ["monitor", "advisor"]},
-    {"msg": "Can you build me a plan for my marathon?", "action": "create_plan", "tiers": ["monitor", "advisor"]},
-    {"msg": "I feel sick, pause the plan for a few days", "action": "replan", "tiers": ["monitor", "advisor"]},
-    {"msg": "Change my goal to a half marathon", "action": "replan", "tiers": ["monitor", "advisor"]},
-    {"msg": "I'm going on vacation, adjust my plan", "action": "replan", "tiers": ["monitor", "advisor"]},
-    {"msg": "Reduce the intensity this week", "action": "replan", "tiers": ["monitor", "advisor"]},
+    # Advisor declines only — monitor has no Josi chat
+    {"msg": "Can I skip today?", "action": "replan", "tiers": ["advisor"]},
+    {"msg": "Can I swap tomorrow's session with today?", "action": "replan", "tiers": ["advisor"]},
+    {"msg": "Create me a 12 week training plan", "action": "create_plan", "tiers": ["advisor"]},
+    {"msg": "Can you build me a plan for my marathon?", "action": "create_plan", "tiers": ["advisor"]},
+    {"msg": "I feel sick, pause the plan for a few days", "action": "replan", "tiers": ["advisor"]},
+    {"msg": "Change my goal to a half marathon", "action": "replan", "tiers": ["advisor"]},
+    {"msg": "I'm going on vacation, adjust my plan", "action": "replan", "tiers": ["advisor"]},
+    {"msg": "Reduce the intensity this week", "action": "replan", "tiers": ["advisor"]},
 ]
 
 REPLAN_SCENARIOS = [
@@ -617,18 +614,16 @@ WEEKLY_REVIEW_DATA = [
 # ============================================================================
 
 def gen_zone_explanations() -> List[Example]:
-    """ExplainZone — all tiers, all personas, all 9 zones, multiple readiness levels."""
+    """ExplainZone — advisor + coach, all personas, all 9 zones, multiple readiness levels."""
     examples = []
     qi = 0
     for zone in ZONES:
-        for tier in TIERS:
+        for tier in JOSI_TIERS:
             for persona in PERSONAS:
                 # Primary: Green readiness
                 q = ZONE_QUESTIONS[qi % len(ZONE_QUESTIONS)].format(z=zone)
                 qi += 1
                 msg = zone_msg(zone, persona)
-                if tier == "monitor":
-                    msg = depersonalize_for_monitor(msg)
                 examples.append(Example(
                     system=sys_prompt(tier, persona),
                     user=user_msg(q, "Green", "Recovered"),
@@ -641,13 +636,11 @@ def gen_zone_explanations() -> List[Example]:
         for level in ["Yellow", "Orange"]:
             if zone not in ZONE_GATING[level]:
                 continue
-            for tier in TIERS:
+            for tier in JOSI_TIERS:
                 for persona in PERSONAS:
                     q = ZONE_QUESTIONS[qi % len(ZONE_QUESTIONS)].format(z=zone)
                     qi += 1
                     msg = zone_msg(zone, persona)
-                    if tier == "monitor":
-                        msg = depersonalize_for_monitor(msg)
                     state = pick_state(level)
                     examples.append(Example(
                         system=sys_prompt(tier, persona),
@@ -826,7 +819,7 @@ def gen_daily_briefs() -> List[Example]:
 def gen_encouragement() -> List[Example]:
     """Encouragement — all tiers."""
     examples = []
-    for tier in TIERS:
+    for tier in JOSI_TIERS:
         for persona in PERSONAS:
             for ctx in ENCOURAGEMENT_CONTEXTS:
                 qs = ENCOURAGEMENT_QUESTIONS[ctx]
@@ -870,42 +863,15 @@ def gen_weekly_reviews() -> List[Example]:
     return examples
 
 
-def depersonalize_for_monitor(msg: str) -> str:
-    """Make education answers impersonal for monitor tier.
-
-    Monitor users get general education but Josi doesn't reference
-    their personal data. Replace 'your readiness/plan/recovery' with
-    generic phrasing so the model learns the right voice for monitor.
-    """
-    import re
-    replacements = [
-        (r'\byour readiness score\b', 'the readiness score'),
-        (r'\byour readiness\b', 'readiness'),
-        (r'\byour recovery\b', 'recovery'),
-        (r'\byour training load\b', 'training load'),
-        (r'\byour plan\b', 'the plan'),
-        (r'\byour training\b', 'training'),
-        (r'\byour zone\b', 'the zone'),
-        (r'\byour Recovery zone\b', 'the Recovery zone'),
-    ]
-    result = msg
-    for pattern, repl in replacements:
-        result = re.sub(pattern, repl, result, flags=re.IGNORECASE)
-    return result
-
-
 def gen_education_qa() -> List[Example]:
-    """QuestionAnswer — education topics, all tiers."""
+    """QuestionAnswer — education topics, advisor + coach."""
     examples = []
-    for tier in TIERS:
+    for tier in JOSI_TIERS:
         for topic in EDUCATION_TOPICS:
             for persona in PERSONAS:
                 msg_key = {"balanced": "a_bal", "direct": "a_dir",
                            "technical": "a_tech", "encouraging": "a_enc"}[persona]
                 msg = topic[msg_key]
-                # Monitor: depersonalize to avoid "your readiness" etc.
-                if tier == "monitor":
-                    msg = depersonalize_for_monitor(msg)
                 examples.append(Example(
                     system=sys_prompt(tier, persona),
                     user=user_msg(topic["q"], "Green", "Recovered"),
@@ -920,7 +886,7 @@ def gen_i6_blocks() -> List[Example]:
     """I6 guardrail blocks — 15-25% target. All tiers, all personas."""
     examples = []
     for violation in I6_VIOLATIONS:
-        for tier in TIERS:
+        for tier in JOSI_TIERS:
             for persona in PERSONAS:
                 msg = decline_i6_msg(persona)
                 examples.append(Example(
@@ -1025,7 +991,7 @@ def gen_safety_warnings() -> List[Example]:
     """SafetyWarning — medical red flags, all tiers."""
     examples = []
     for trigger in SAFETY_TRIGGERS:
-        for tier in TIERS:
+        for tier in JOSI_TIERS:
             for persona in PERSONAS:
                 msg = safety_msg(persona)
                 examples.append(Example(
@@ -1069,7 +1035,7 @@ def gen_general() -> List[Example]:
     """General conversational exchanges."""
     examples = []
     for (q, intent, a_bal, a_dir, a_tech, a_enc) in GENERAL_MESSAGES:
-        for tier in TIERS:
+        for tier in JOSI_TIERS:
             for persona in PERSONAS:
                 msg = {"balanced": a_bal, "direct": a_dir,
                        "technical": a_tech, "encouraging": a_enc}[persona]
@@ -1507,73 +1473,6 @@ def gen_auto_replan_explanations() -> List[Example]:
     return examples
 
 
-def gen_monitor_boundary() -> List[Example]:
-    """Monitor: general talks only. No personal data, no workouts, no plans."""
-    examples = []
-
-    # Questions about personal data — monitor must decline
-    data_qs = [
-        "What's my readiness?",
-        "How am I doing today?",
-        "Am I ready to train?",
-        "Show me my training load",
-        "How's my recovery looking?",
-        "What does my HRV say?",
-        "Show me my last 5 workouts",
-        "How was my week?",
-    ]
-    for q in data_qs:
-        for persona in PERSONAS:
-            if persona == "balanced":
-                msg = "In monitor mode, I can chat about general training topics but I can't access your personal data through our conversation. Your data is visible in the app dashboard. For personal insights through chat, upgrading your tier would unlock that."
-            elif persona == "direct":
-                msg = "Monitor mode: general education only. Your data is in the app. Upgrade for personal chat insights."
-            elif persona == "technical":
-                msg = "Monitor tier provides general education through chat. Personal data (readiness, training load, history) is displayed in the application interface. Chat-based personal insights require advisor or coach tier."
-            else:
-                msg = "Great question! Your data is right there in the app for you to see. In monitor mode, I can chat about training topics in general but not your personal data. Upgrading your tier would let us dive into your numbers together!"
-            examples.append(Example(
-                system=sys_prompt("monitor", persona),
-                user=user_msg(q, "Green", "Recovered"),
-                assistant=intent_json("blocked", "Decline", msg,
-                                      ["josi_explanations"],
-                                      guardrail=True,
-                                      reason="tier_violation"),
-                tier="monitor", persona=persona, category="monitor_boundary",
-            ))
-
-    # Questions about workouts/plans — monitor must decline
-    plan_qs = [
-        "What's today's workout?",
-        "Tell me about my plan",
-        "What session do I have?",
-        "How's my training going?",
-        "I just finished my ride",
-        "Can I skip today?",
-    ]
-    for q in plan_qs:
-        for persona in PERSONAS:
-            if persona == "balanced":
-                msg = "In monitor mode, I can help with general training education but I can't discuss workouts or plans. Upgrading your tier would unlock workout and plan features."
-            elif persona == "direct":
-                msg = "Monitor mode: no workout or plan access. Upgrade tier for that."
-            elif persona == "technical":
-                msg = "Workout and plan discussion requires advisor or coach tier. Monitor provides general training education only."
-            else:
-                msg = "I'd love to help with that! But in monitor mode I focus on general training education. Upgrading would give you access to workout and plan features!"
-            examples.append(Example(
-                system=sys_prompt("monitor", persona),
-                user=user_msg(q, "Green", "Recovered"),
-                assistant=intent_json("blocked", "Decline", msg,
-                                      ["josi_explanations"],
-                                      guardrail=True,
-                                      reason="tier_violation"),
-                tier="monitor", persona=persona, category="monitor_boundary",
-            ))
-
-    return examples
-
-
 def gen_advisor_today_only() -> List[Example]:
     """Advisor: today's workouts only. No tomorrow, next week, or long-term plans."""
     examples = []
@@ -1704,7 +1603,7 @@ def generate_manifest(train: List[Example], val: List[Example]) -> dict:
     persona_counts = Counter(e.persona for e in all_ex)
 
     # Check I6 density
-    i6_count = sum(1 for e in all_ex if e.category in ("i6_block", "tier_decline", "monitor_boundary"))
+    i6_count = sum(1 for e in all_ex if e.category in ("i6_block", "tier_decline", "advisor_today_only"))
     total = len(all_ex)
 
     # Response type counts
@@ -1762,7 +1661,6 @@ def main():
         ("profile_aware", gen_profile_aware),
         ("workout_creation_flow", gen_workout_creation_flows),
         ("auto_replan", gen_auto_replan_explanations),
-        ("monitor_boundary", gen_monitor_boundary),
         ("advisor_today_only", gen_advisor_today_only),
     ]
 
@@ -1800,7 +1698,7 @@ def main():
 
     # Check I6 density
     i6_total = sum(1 for e in all_examples
-                   if e.category in ("i6_block", "tier_decline", "monitor_boundary"))
+                   if e.category in ("i6_block", "tier_decline", "advisor_today_only"))
     pct = i6_total / len(all_examples) * 100
     print(f"\n  I6/Decline density: {i6_total}/{len(all_examples)} = {pct:.1f}%")
     if pct < 15:
