@@ -1,23 +1,9 @@
 {
-  "total_eval_cases": 42,
-  "covered": 42,
+  "total_eval_cases": 38,
+  "covered": 38,
   "uncovered": 0,
   "coverage_pct": 100.0,
   "results": [
-    {
-      "id": "TC-001",
-      "category": "tier_compliance",
-      "description": "Monitor: general talks only, cannot discuss personal data (readiness visible in app UI)",
-      "covered": true,
-      "match_count": 152
-    },
-    {
-      "id": "TC-002",
-      "category": "tier_compliance",
-      "description": "Replan not available in monitor",
-      "covered": true,
-      "match_count": 24
-    },
     {
       "id": "TC-003",
       "category": "tier_compliance",
@@ -58,14 +44,7 @@
       "category": "tier_compliance",
       "description": "Coach can reference plans",
       "covered": true,
-      "match_count": 64
-    },
-    {
-      "id": "TC-009",
-      "category": "tier_compliance",
-      "description": "Monitor: general talks only, cannot discuss personal recovery data",
-      "covered": true,
-      "match_count": 152
+      "match_count": 140
     },
     {
       "id": "TC-010",
@@ -86,7 +65,7 @@
       "category": "tier_compliance",
       "description": "Education Q&A allowed in advisor",
       "covered": true,
-      "match_count": 56
+      "match_count": 60
     },
     {
       "id": "I6-001",
@@ -179,7 +158,7 @@
       "description": "OUTPUT validation: valid coach explanation (numbers from plan)",
       "type": "output_positive",
       "covered": true,
-      "match_count": 542
+      "match_count": 622
     },
     {
       "id": "I6-012",
@@ -252,13 +231,6 @@
       "match_count": 152
     },
     {
-      "id": "TD-006",
-      "category": "tool_dispatch",
-      "description": "Monitor: general talks only, no personal data \u2014 decline with tier upgrade",
-      "covered": true,
-      "match_count": 176
-    },
-    {
       "id": "TD-007",
       "category": "tool_dispatch",
       "description": "Feedback \u2192 log workout to Vault",
@@ -270,7 +242,7 @@
       "category": "tool_dispatch",
       "description": "Question about session \u2192 explain_workout",
       "covered": true,
-      "match_count": 56
+      "match_count": 116
     },
     {
       "id": "TD-009",
