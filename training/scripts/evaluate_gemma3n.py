@@ -31,6 +31,7 @@ Usage:
 import argparse
 import subprocess
 import json
+import re
 from pathlib import Path
 from datetime import datetime
 from dataclasses import dataclass, asdict
@@ -344,8 +345,117 @@ def evaluate_response(category: str, prompt: str, response: str) -> TestResult:
 # INFERENCE BACKENDS
 # =============================================================================
 
+def clean_unk_bytes(text: str) -> str:
+    """Strip [UNK_BYTE_...] debug tokens from llama.cpp output.
+
+    Gemma 3n GGUF models emit SentencePiece ▁ (U+2581) as [UNK_BYTE_0xe29681▁word]
+    because the byte 0xe29681 is unknown to the GGUF tokenizer. The actual decoded
+    text follows each bracket. We replace the bracket with a space (since ▁ = space
+    in SentencePiece) and keep the decoded text that follows.
+    """
+    cleaned = re.sub(r'\[UNK_BYTE_[^\]]*\]', ' ', text)
+    cleaned = re.sub(r' +', ' ', cleaned)
+    return cleaned.strip()
+
+
+def _strip_ansi(text: str) -> str:
+    """Remove ANSI escape sequences from terminal output."""
+    return re.sub(r'\x1b\[[0-9;]*[a-zA-Z]|\r', '', text)
+
+
+def _parse_gguf_output(raw: str) -> str:
+    """Extract model response text from llama-cli output.
+
+    Handles: banner, prompt echo (possibly truncated), model response,
+    JSON LLMIntent block, timing line, and UNK_BYTE tokens.
+    """
+    output = _strip_ansi(raw)
+    output = clean_unk_bytes(output)
+
+    if not output.strip():
+        return "[PARSE_ERROR]"
+
+    # --- Locate the model's response region ---
+
+    # Method A: split on <start_of_turn>model (works when prompt is echoed fully)
+    if "<start_of_turn>model" in output:
+        parts = output.split("<start_of_turn>model")
+        response = parts[-1]
+        response = response.split("<end_of_turn>")[0]
+        response = response.split("<start_of_turn>")[0]
+    else:
+        # Method B: find text after "(truncated)" and before timing line
+        truncated_pos = output.rfind("(truncated)")
+        if truncated_pos >= 0:
+            response = output[truncated_pos + len("(truncated)"):]
+        else:
+            # Method C: take everything after the last ">" prompt marker
+            last_prompt = output.rfind("\n>")
+            if last_prompt >= 0:
+                response = output[last_prompt:]
+            else:
+                response = output
+
+        # Trim at the timing line
+        timing = re.search(
+            r'\[\s*Prompt:\s*[\d.]+\s*t/s\s*\|\s*Generation:', response)
+        if timing:
+            response = response[:timing.start()]
+
+        # Also trim at "Exiting..."
+        exit_pos = response.find("Exiting...")
+        if exit_pos > 0:
+            response = response[:exit_pos]
+
+    # --- Strip JSON LLMIntent block (keep only the text response) ---
+    json_start = response.find('```json')
+    if json_start == -1:
+        json_start = response.find('```\n{')
+    if json_start == -1:
+        json_start = response.find('\n{"intent"')
+    if json_start == -1:
+        json_start = response.find('\n"intent"')
+    if json_start > 10:
+        response = response[:json_start]
+
+    response = re.sub(r'Valid\s+LLMIntent\s+JSON\s*:', '', response)
+
+    # --- Clean remaining noise lines ---
+    lines = response.split("\n")
+    clean_lines = []
+    for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if any(noise in stripped for noise in [
+            "▄▄", "██", "▀▀", "build :", "modalities :",
+            "available commands", "/exit", "/regen", "/clear",
+            "/read", "Loading model", "Prompt:", "Generation:",
+            "Exiting", "llama_", "memory breakdown", "Script started",
+            "Script done", "> <start_of_turn>",
+        ]):
+            continue
+        # Skip lines that are just markdown fences
+        if stripped in ("```", "```json"):
+            continue
+        clean_lines.append(stripped)
+
+    result = " ".join(clean_lines).strip()
+    # Collapse **bold** markers into plain text for eval scoring
+    result = re.sub(r'\*\*([^*]+)\*\*', r'\1', result)
+    result = re.sub(r'\*([^*]+)\*', r'\1', result)
+    return result if result else "[PARSE_ERROR]"
+
+
 def run_prompt_gguf(model_path: str, prompt: str, llama_cli: str) -> str:
-    """Run prompt via llama.cpp CLI (GGUF model) with Gemma 3n chat template."""
+    """Run prompt via llama.cpp CLI (GGUF model) with Gemma 3n chat template.
+
+    Uses script(1) to capture output via a pseudo-terminal, because
+    llama-cli in conversation mode writes to /dev/tty directly,
+    bypassing normal stdout/stderr capture.
+    """
+    import tempfile, os, shlex
+
     # Gemma 3n format: native system role supported
     formatted = (
         f"<start_of_turn>system\n"
@@ -355,47 +465,65 @@ def run_prompt_gguf(model_path: str, prompt: str, llama_cli: str) -> str:
         f"<start_of_turn>model\n"
     )
 
-    cmd = [
-        llama_cli,
-        "-m", model_path,
-        "-p", formatted,
-        "-n", "150",          # Max tokens (Gemma v4 output cap)
-        "--temp", "0.45",     # Temperature 0.4-0.5 range
-        "--single-turn",
-    ]
+    prompt_file = None
+    output_file = None
 
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
-        output = result.stdout + result.stderr
+        # Write prompt to temp file (avoids shell escaping issues)
+        fd, prompt_file = tempfile.mkstemp(suffix='.txt', prefix='josi_p_')
+        with os.fdopen(fd, 'w') as f:
+            f.write(formatted)
 
-        # Extract response after model turn
-        if "<start_of_turn>model" in output:
-            parts = output.split("<start_of_turn>model")
-            if len(parts) > 1:
-                response = parts[-1]
-                response = response.split("<end_of_turn>")[0]
-                response = response.split("<start_of_turn>")[0]
-                lines = response.split("\n")
-                clean_lines = []
-                for line in lines:
-                    line = line.strip()
-                    if not line:
-                        continue
-                    if any(noise in line for noise in [
-                        "Prompt:", "Generation:", "Exiting", "llama_",
-                        "memory breakdown", "t/s"
-                    ]):
-                        continue
-                    if line.startswith(">") or line.startswith("["):
-                        continue
-                    clean_lines.append(line)
-                return " ".join(clean_lines).strip()
+        fd2, output_file = tempfile.mkstemp(suffix='.txt', prefix='josi_o_')
+        os.close(fd2)
+
+        inner_cmd = (
+            f'{shlex.quote(llama_cli)} -m {shlex.quote(model_path)} '
+            f'-f {shlex.quote(prompt_file)} -n 150 --temp 0.45 --single-turn'
+        )
+
+        # Strategy 1: Use script(1) to capture PTY output.
+        # llama-cli in conversation mode writes to the terminal directly;
+        # script creates a pseudo-terminal so all output is captured.
+        script_cmd = (
+            f'script -q -c {shlex.quote(inner_cmd)} {shlex.quote(output_file)}'
+        )
+        subprocess.run(
+            script_cmd, shell=True, timeout=120,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+
+        with open(output_file) as f:
+            raw = f.read()
+
+        if raw.strip():
+            return _parse_gguf_output(raw)
+
+        # Strategy 2: Fall back to standard subprocess capture
+        # (in case script is unavailable or failed silently)
+        result = subprocess.run(
+            [llama_cli, "-m", model_path, "-f", prompt_file,
+             "-n", "150", "--temp", "0.45", "--single-turn"],
+            capture_output=True, text=True, timeout=120,
+        )
+        combined = (result.stdout or "") + (result.stderr or "")
+        if combined.strip():
+            return _parse_gguf_output(combined)
 
         return "[PARSE_ERROR]"
     except subprocess.TimeoutExpired:
         return "[TIMEOUT]"
     except Exception as e:
         return f"[ERROR: {e}]"
+    finally:
+        for f in [prompt_file, output_file]:
+            if f:
+                try:
+                    os.unlink(f)
+                except OSError:
+                    pass
 
 
 def run_prompt_hf(model, processor, prompt: str, device: str) -> str:

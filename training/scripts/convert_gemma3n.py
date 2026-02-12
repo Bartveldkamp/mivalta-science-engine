@@ -30,6 +30,8 @@ Requirements:
 """
 
 import argparse
+import re
+import shutil
 import subprocess
 import os
 from pathlib import Path
@@ -63,8 +65,73 @@ def find_llama_cpp():
     return None
 
 
+def _extract_pretokenizer_hash(stderr: str):
+    """Extract BPE pre-tokenizer hash from llama.cpp conversion error output."""
+    match = re.search(r'chkhsh:\s+([0-9a-f]{64})', stderr)
+    return match.group(1) if match else None
+
+
+def _patch_llama_pretokenizer(llama_cpp_path: Path, token_hash: str):
+    """Patch convert_hf_to_gguf.py to recognize a fine-tuned model's tokenizer hash.
+
+    Adds the hash before the NotImplementedError raise, mapping it to the
+    "default" BPE pre-tokenizer. Creates a .bak backup of the original file.
+    Returns the backup path on success, None on failure.
+    """
+    convert_script = llama_cpp_path / "convert_hf_to_gguf.py"
+    backup = convert_script.with_suffix(".py.bak")
+
+    shutil.copy2(convert_script, backup)
+
+    lines = convert_script.read_text().splitlines(keepends=True)
+
+    # The raise sits inside `if res is None:`, so we must insert BEFORE that
+    # guard block, not inside it. Find the `if res is None:` line that
+    # precedes the NotImplementedError raise.
+    guard_idx = None
+    raise_idx = None
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped == "if res is None:":
+            guard_idx = i
+        if "raise NotImplementedError" in line and "BPE pre-tokenizer was not recognized" in line:
+            raise_idx = i
+            break
+
+    # Insert before the guard block if found, otherwise before the raise
+    insert_idx = guard_idx if guard_idx is not None else raise_idx
+    if insert_idx is None:
+        backup.unlink(missing_ok=True)
+        return None
+
+    # Detect indentation from the target line
+    target_line = lines[insert_idx]
+    indent = target_line[: len(target_line) - len(target_line.lstrip())]
+
+    patch_lines = [
+        f'{indent}if chkhsh == "{token_hash}":\n',
+        f'{indent}    # gemma-3n fine-tuned tokenizer (auto-patched by convert_gemma3n.py)\n',
+        f'{indent}    res = "default"\n',
+    ]
+
+    lines[insert_idx:insert_idx] = patch_lines
+    convert_script.write_text("".join(lines))
+    return backup
+
+
+def _restore_llama_backup(backup_path: Path):
+    """Restore convert_hf_to_gguf.py from backup."""
+    if backup_path and backup_path.exists():
+        original = backup_path.with_suffix(".py")
+        shutil.move(str(backup_path), str(original))
+
+
 def convert_to_gguf(model_path: str, output_path: str, llama_cpp_path: str = None):
-    """Convert HuggingFace Gemma model to GGUF format (fp16)."""
+    """Convert HuggingFace Gemma model to GGUF format (fp16).
+
+    Automatically patches llama.cpp's converter if the model's BPE
+    pre-tokenizer hash is not recognized (common for fine-tuned models).
+    """
 
     if llama_cpp_path is None:
         llama_cpp_path = find_llama_cpp()
@@ -80,6 +147,12 @@ def convert_to_gguf(model_path: str, output_path: str, llama_cpp_path: str = Non
     if not convert_script.exists():
         raise RuntimeError(f"Convert script not found: {convert_script}")
 
+    # Restore from any leftover backup from a previous failed run
+    stale_backup = convert_script.with_suffix(".py.bak")
+    if stale_backup.exists():
+        print("Restoring convert_hf_to_gguf.py from leftover backup...")
+        shutil.move(str(stale_backup), str(convert_script))
+
     print(f"Converting {model_path} to GGUF (Gemma architecture)...")
     print(f"Output: {output_path}")
 
@@ -92,10 +165,44 @@ def convert_to_gguf(model_path: str, output_path: str, llama_cpp_path: str = Non
 
     result = subprocess.run(cmd, capture_output=True, text=True)
 
-    if result.returncode != 0:
+    if result.returncode == 0:
+        size_gb = os.path.getsize(output_path) / (1024**3)
+        print(f"Created: {output_path} ({size_gb:.2f} GB)")
+        return output_path
+
+    # Check if the failure is the known pre-tokenizer hash issue
+    if "BPE pre-tokenizer was not recognized" not in result.stderr:
         print(f"STDOUT: {result.stdout[-500:]}")
         print(f"STDERR: {result.stderr[-500:]}")
         raise RuntimeError("GGUF conversion failed")
+
+    # Extract the unrecognized hash and auto-patch llama.cpp
+    token_hash = _extract_pretokenizer_hash(result.stderr)
+    if not token_hash:
+        print(f"STDERR: {result.stderr[-1000:]}")
+        raise RuntimeError(
+            "GGUF conversion failed: BPE pre-tokenizer not recognized and "
+            "could not extract hash from error output"
+        )
+
+    print(f"Pre-tokenizer hash not in llama.cpp database: {token_hash}")
+    print(f"Auto-patching convert_hf_to_gguf.py to register fine-tuned tokenizer...")
+
+    backup = _patch_llama_pretokenizer(llama_cpp, token_hash)
+    if not backup:
+        raise RuntimeError(
+            "GGUF conversion failed: could not auto-patch convert_hf_to_gguf.py. "
+            "Manually add this hash to get_vocab_base_pre(): " + token_hash
+        )
+
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.returncode != 0:
+            print(f"STDOUT: {result.stdout[-500:]}")
+            print(f"STDERR: {result.stderr[-500:]}")
+            raise RuntimeError("GGUF conversion failed after patching pre-tokenizer")
+    finally:
+        _restore_llama_backup(backup)
 
     size_gb = os.path.getsize(output_path) / (1024**3)
     print(f"Created: {output_path} ({size_gb:.2f} GB)")
