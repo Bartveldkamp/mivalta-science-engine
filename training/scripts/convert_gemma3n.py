@@ -83,32 +83,30 @@ def _patch_llama_pretokenizer(llama_cpp_path: Path, token_hash: str):
 
     shutil.copy2(convert_script, backup)
 
-    content = convert_script.read_text()
+    lines = convert_script.read_text().splitlines(keepends=True)
 
-    patch_block = (
-        f'        if chkhsh == "{token_hash}":\n'
-        f'            # gemma-3n fine-tuned tokenizer (auto-patched by convert_gemma3n.py)\n'
-        f'            res = "default"\n'
-    )
+    # Find the raise NotImplementedError line and detect its indentation
+    insert_idx = None
+    indent = ""
+    for i, line in enumerate(lines):
+        if "raise NotImplementedError" in line and "BPE pre-tokenizer was not recognized" in line:
+            insert_idx = i
+            indent = line[: len(line) - len(line.lstrip())]
+            break
 
-    # Insert before the NotImplementedError raise
-    target = '        raise NotImplementedError("BPE pre-tokenizer was not recognized'
-    if target not in content:
-        # Try without leading whitespace variations
-        for candidate in [
-            'raise NotImplementedError("BPE pre-tokenizer was not recognized',
-            "raise NotImplementedError('BPE pre-tokenizer was not recognized",
-        ]:
-            if candidate in content:
-                target = candidate
-                patch_block = patch_block.lstrip()
-                break
-        else:
-            backup.unlink(missing_ok=True)
-            return None
+    if insert_idx is None:
+        backup.unlink(missing_ok=True)
+        return None
 
-    content = content.replace(target, patch_block + target, 1)
-    convert_script.write_text(content)
+    # Build patch with matching indentation (if at same level, body one level deeper)
+    patch_lines = [
+        f'{indent}if chkhsh == "{token_hash}":\n',
+        f'{indent}    # gemma-3n fine-tuned tokenizer (auto-patched by convert_gemma3n.py)\n',
+        f'{indent}    res = "default"\n',
+    ]
+
+    lines[insert_idx:insert_idx] = patch_lines
+    convert_script.write_text("".join(lines))
     return backup
 
 
