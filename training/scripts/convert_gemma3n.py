@@ -85,20 +85,29 @@ def _patch_llama_pretokenizer(llama_cpp_path: Path, token_hash: str):
 
     lines = convert_script.read_text().splitlines(keepends=True)
 
-    # Find the raise NotImplementedError line and detect its indentation
-    insert_idx = None
-    indent = ""
+    # The raise sits inside `if res is None:`, so we must insert BEFORE that
+    # guard block, not inside it. Find the `if res is None:` line that
+    # precedes the NotImplementedError raise.
+    guard_idx = None
+    raise_idx = None
     for i, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped == "if res is None:":
+            guard_idx = i
         if "raise NotImplementedError" in line and "BPE pre-tokenizer was not recognized" in line:
-            insert_idx = i
-            indent = line[: len(line) - len(line.lstrip())]
+            raise_idx = i
             break
 
+    # Insert before the guard block if found, otherwise before the raise
+    insert_idx = guard_idx if guard_idx is not None else raise_idx
     if insert_idx is None:
         backup.unlink(missing_ok=True)
         return None
 
-    # Build patch with matching indentation (if at same level, body one level deeper)
+    # Detect indentation from the target line
+    target_line = lines[insert_idx]
+    indent = target_line[: len(target_line) - len(target_line.lstrip())]
+
     patch_lines = [
         f'{indent}if chkhsh == "{token_hash}":\n',
         f'{indent}    # gemma-3n fine-tuned tokenizer (auto-patched by convert_gemma3n.py)\n',
