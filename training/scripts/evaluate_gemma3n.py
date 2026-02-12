@@ -564,6 +564,7 @@ def run_prompt_gguf(model_path: str, prompt: str, llama_cli: str) -> str:
             llama_cli, "-m", model_path,
             "-f", prompt_file,
             "-n", "150", "--temp", "0.45",
+            "--single-turn",
         ]
 
         # Strategy 1: PTY-based capture (handles /dev/tty writes)
