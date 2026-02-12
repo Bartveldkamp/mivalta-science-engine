@@ -8,10 +8,13 @@ transformers>=4.53.0    # >=4.53 required for Gemma 3n (Gemma3nForConditionalGen
 accelerate>=0.25.0
 datasets>=2.16.0
 
-# LoRA / PEFT / QLoRA
+# LoRA / PEFT
 peft>=0.7.0
-bitsandbytes>=0.42.0   # Required for QLoRA (4-bit NF4 quantization)
 trl>=0.7.0
+
+# Gemma 3n multimodal dependencies (required even for text-only)
+timm>=1.0.0
+torchvision>=0.16.0
 
 # Utilities
 sentencepiece>=0.1.99

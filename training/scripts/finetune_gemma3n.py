@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-MiValta Josi v4 — Gemma 3n E2B QLoRA Fine-Tuning Script
+MiValta Josi v4 — Gemma 3n E2B LoRA Fine-Tuning Script
 
 Fine-tunes google/gemma-3n-E2B-it (6B raw params, 2B effective via MatFormer)
 on Josi coaching training data (LLMIntent JSON output format).
@@ -10,7 +10,8 @@ Architecture notes:
   - Uses AutoProcessor (not AutoTokenizer) for chat template
   - Chat template supports system role natively
   - Message content uses array format: [{"type": "text", "text": "..."}]
-  - QLoRA: 4-bit NF4 quantized base + LoRA adapters (fits ~16GB VRAM)
+  - bf16 loading (~12 GB) + LoRA adapters + gradient checkpointing (fits ~20GB VRAM)
+  - Note: 4-bit QLoRA incompatible with Gemma 3n AltUp clamp_() on quantized weights
   - LoRA targets: attention + MLP projections on the language model
   - Merged + GGUF Q4_K_M for on-device deployment (~2-3GB)
 
@@ -34,7 +35,7 @@ Usage:
     python finetune_gemma3n.py sanity --model_path ./models/josi-v4-gemma3n-merged
 
 Requirements:
-    pip install -U transformers>=4.53.0 torch peft datasets accelerate trl bitsandbytes
+    pip install -U transformers>=4.53.0 torch peft datasets accelerate trl timm torchvision
 """
 
 import argparse
@@ -49,14 +50,12 @@ from datasets import Dataset
 from transformers import (
     AutoProcessor,
     Gemma3nForConditionalGeneration,
-    BitsAndBytesConfig,
     EarlyStoppingCallback,
 )
 from peft import (
     LoraConfig,
     TaskType,
     get_peft_model,
-    prepare_model_for_kbit_training,
 )
 from trl import SFTTrainer, SFTConfig
 
@@ -293,9 +292,14 @@ def prepare_dataset(path: str, processor, max_seq_length: int = 1024) -> Dataset
 # =============================================================================
 
 def load_model_and_processor(model_id: str = None):
-    """Load Gemma 3n E2B with QLoRA (4-bit NF4) and apply LoRA adapters.
+    """Load Gemma 3n E2B in bf16 and apply LoRA adapters.
 
     Uses Gemma3nForConditionalGeneration + AutoProcessor (not AutoTokenizer).
+
+    Note: 4-bit QLoRA fails with Gemma 3n because the AltUp prediction_coefs
+    module calls clamp_() during forward pass, which is incompatible with
+    bitsandbytes quantized uint8 weights. We load in bf16 instead (~12 GB),
+    which fits in 20 GB VRAM with LoRA + gradient checkpointing.
     """
     if model_id is None:
         model_id = resolve_model_id()
@@ -308,29 +312,23 @@ def load_model_and_processor(model_id: str = None):
         processor.tokenizer.pad_token = processor.tokenizer.eos_token
     processor.tokenizer.padding_side = "right"
 
-    # 4-bit quantization config for QLoRA
-    # Skip AltUp prediction_coefs — they use clamp_() which fails on quantized uint8 weights
-    bnb_config = BitsAndBytesConfig(
-        load_in_4bit=True,
-        bnb_4bit_quant_type="nf4",
-        bnb_4bit_compute_dtype=torch.bfloat16,
-        bnb_4bit_use_double_quant=True,  # Nested quantization for memory savings
-        llm_int8_skip_modules=["altup", "vision_tower"],
-    )
-
-    print(f"Loading model: {model_id} (4-bit QLoRA)")
+    print(f"Loading model: {model_id} (bf16, LoRA fine-tuning)")
     print(f"  Architecture: Gemma3nForConditionalGeneration")
     print(f"  6B raw params, 2B effective (MatFormer selective activation)")
+    print(f"  Loading in bf16 (~12 GB) — 4-bit QLoRA incompatible with AltUp clamp_()")
     model = Gemma3nForConditionalGeneration.from_pretrained(
         model_id,
-        quantization_config=bnb_config,
         device_map="auto",
         low_cpu_mem_usage=True,
         torch_dtype=torch.bfloat16,
     )
 
-    # Prepare model for k-bit training (freeze base, enable gradient checkpointing)
-    model = prepare_model_for_kbit_training(model)
+    # Freeze all base model parameters
+    for param in model.parameters():
+        param.requires_grad = False
+
+    # Enable gradient checkpointing to save VRAM
+    model.gradient_checkpointing_enable()
 
     # LoRA adapters — target the language model backbone
     lora_config = LoraConfig(
@@ -345,6 +343,12 @@ def load_model_and_processor(model_id: str = None):
     print(f"Applying LoRA (r={LORA_R}, alpha={LORA_ALPHA})")
     model = get_peft_model(model, lora_config)
     model.print_trainable_parameters()
+
+    # Report VRAM usage
+    if torch.cuda.is_available():
+        allocated = torch.cuda.memory_allocated() / (1024**3)
+        reserved = torch.cuda.memory_reserved() / (1024**3)
+        print(f"  VRAM: {allocated:.1f} GB allocated, {reserved:.1f} GB reserved")
 
     return model, processor
 
