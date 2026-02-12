@@ -671,10 +671,18 @@ def sanity_check(model_path: str, max_new_tokens: int = 200):
 
         print(f"\n  Raw output:\n  {generated[:500]}")
 
+        # Strip markdown code fences (Gemma often wraps JSON in ```json ... ```)
+        json_text = generated
+        if json_text.startswith("```"):
+            lines = json_text.split("\n")
+            # Remove first line (```json) and last line (```)
+            lines = [l for l in lines if not l.strip().startswith("```")]
+            json_text = "\n".join(lines).strip()
+
         # Validate
         checks = []
         try:
-            parsed = json.loads(generated)
+            parsed = json.loads(json_text)
             checks.append(("valid_json", True))
             checks.append(("has_intent", "intent" in parsed))
             checks.append(("has_response_type", "response_type" in parsed))
