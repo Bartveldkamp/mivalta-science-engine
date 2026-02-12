@@ -89,8 +89,8 @@ LORA_TARGET_MODULES = [
 
 # Training hyperparameters
 LEARNING_RATE = 2e-5       # Conservative for fine-tuning
-BATCH_SIZE = 4             # Smaller batch for VRAM (QLoRA + model)
-GRAD_ACCUM = 4             # Effective batch = 16
+BATCH_SIZE = 1             # Micro-batch=1 to fit bf16 model in 20GB VRAM
+GRAD_ACCUM = 16            # Effective batch = 16
 MAX_SEQ_LENGTH = 1024      # On-device context cap
 EPOCHS = 3                 # Gemma converges faster than SmolLM2-360M
 WARMUP_RATIO = 0.05
@@ -288,7 +288,7 @@ def prepare_dataset(path: str, processor, max_seq_length: int = 1024) -> Dataset
 
 
 # =============================================================================
-# MODEL SETUP — QLoRA
+# MODEL SETUP — bf16 + LoRA
 # =============================================================================
 
 def load_model_and_processor(model_id: str = None):
@@ -462,7 +462,7 @@ def train(
         gradient_checkpointing=True,
         max_grad_norm=1.0,
         report_to=report_to,
-        optim="paged_adamw_8bit",  # Memory-efficient optimizer for QLoRA
+        optim="adamw_torch_fused",  # Built-in fused optimizer (no bitsandbytes needed)
     )
 
     # Callbacks
@@ -485,11 +485,11 @@ def train(
 
     # Train
     print("\n" + "=" * 60)
-    print(f"Starting Josi v4 training — Gemma 3n E2B (QLoRA)")
+    print(f"Starting Josi v4 training — Gemma 3n E2B (bf16 + LoRA)")
     print(f"  Model: {MODEL_ID}")
     print(f"  Architecture: Gemma3nForConditionalGeneration")
     print(f"  Params: 6B raw, 2B effective (MatFormer)")
-    print(f"  QLoRA: r={LORA_R}, alpha={LORA_ALPHA}, NF4 4-bit")
+    print(f"  LoRA: r={LORA_R}, alpha={LORA_ALPHA}, bf16")
     print(f"  Effective batch size: {BATCH_SIZE * GRAD_ACCUM}")
     print(f"  Learning rate: {lr}")
     print(f"  Max epochs: {epochs} (early stopping patience={EARLY_STOPPING_PATIENCE})")
