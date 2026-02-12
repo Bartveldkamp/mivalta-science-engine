@@ -440,26 +440,25 @@ def load_hf_model(model_name: str):
     """Load a HuggingFace Gemma 3n model for direct inference.
 
     Uses Gemma3nForConditionalGeneration + AutoProcessor (not AutoModelForCausalLM).
+
+    Note: 4-bit QLoRA is incompatible with Gemma 3n because the AltUp
+    prediction_coefs module calls clamp_() on quantized uint8 weights.
+    We load in bf16 instead (~12 GB on GPU).
     """
     import torch
-    from transformers import Gemma3nForConditionalGeneration, AutoProcessor, BitsAndBytesConfig
+    from transformers import Gemma3nForConditionalGeneration, AutoProcessor
 
     print(f"Loading HF model: {model_name}")
     processor = AutoProcessor.from_pretrained(model_name)
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    # Gemma 3n 6B raw / 2B effective — use 4-bit quantization for eval
     if device == "cuda":
-        bnb_config = BitsAndBytesConfig(
-            load_in_4bit=True,
-            bnb_4bit_quant_type="nf4",
-            bnb_4bit_compute_dtype=torch.bfloat16,
-        )
         model = Gemma3nForConditionalGeneration.from_pretrained(
             model_name,
-            quantization_config=bnb_config,
             device_map="auto",
+            torch_dtype=torch.bfloat16,
+            low_cpu_mem_usage=True,
         )
     else:
         model = Gemma3nForConditionalGeneration.from_pretrained(

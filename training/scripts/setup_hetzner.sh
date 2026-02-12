@@ -213,7 +213,7 @@ verify_model() {
 
     python3 << 'PYEOF'
 import torch
-from transformers import Gemma3nForConditionalGeneration, AutoProcessor, BitsAndBytesConfig
+from transformers import Gemma3nForConditionalGeneration, AutoProcessor
 import os, sys
 
 MODEL_DIR = sys.argv[1] if len(sys.argv) > 1 else os.environ.get("MODEL_DIR", "")
@@ -234,19 +234,14 @@ formatted = processor.apply_chat_template(messages, tokenize=False, add_generati
 print(f"  Template format check:")
 print(f"    {formatted[:120]}...")
 
-# Quick load in 4-bit to verify model works
-print(f"\n  Loading model in 4-bit (QLoRA config)...")
-bnb_config = BitsAndBytesConfig(
-    load_in_4bit=True,
-    bnb_4bit_quant_type="nf4",
-    bnb_4bit_compute_dtype=torch.bfloat16,
-)
-
+# Load in bf16 to verify model works
+# Note: 4-bit QLoRA is incompatible with Gemma 3n AltUp clamp_() on quantized weights
+print(f"\n  Loading model in bf16...")
 model = Gemma3nForConditionalGeneration.from_pretrained(
     MODEL_DIR,
-    quantization_config=bnb_config,
     device_map="auto",
     low_cpu_mem_usage=True,
+    torch_dtype=torch.bfloat16,
 )
 
 params = sum(p.numel() for p in model.parameters())
