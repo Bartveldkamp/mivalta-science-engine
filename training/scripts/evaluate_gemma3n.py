@@ -31,6 +31,7 @@ Usage:
 import argparse
 import subprocess
 import json
+import re
 from pathlib import Path
 from datetime import datetime
 from dataclasses import dataclass, asdict
@@ -344,6 +345,19 @@ def evaluate_response(category: str, prompt: str, response: str) -> TestResult:
 # INFERENCE BACKENDS
 # =============================================================================
 
+def clean_unk_bytes(text: str) -> str:
+    """Strip [UNK_BYTE_...] debug tokens from llama.cpp output.
+
+    Gemma 3n GGUF models emit SentencePiece ▁ (U+2581) as [UNK_BYTE_0xe29681▁word]
+    because the byte 0xe29681 is unknown to the GGUF tokenizer. The actual decoded
+    text follows each bracket. We replace the bracket with a space (since ▁ = space
+    in SentencePiece) and keep the decoded text that follows.
+    """
+    cleaned = re.sub(r'\[UNK_BYTE_[^\]]*\]', ' ', text)
+    cleaned = re.sub(r' +', ' ', cleaned)
+    return cleaned.strip()
+
+
 def run_prompt_gguf(model_path: str, prompt: str, llama_cli: str) -> str:
     """Run prompt via llama.cpp CLI (GGUF model) with Gemma 3n chat template."""
     # Gemma 3n format: native system role supported
@@ -366,32 +380,99 @@ def run_prompt_gguf(model_path: str, prompt: str, llama_cli: str) -> str:
 
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
-        output = result.stdout + result.stderr
 
-        # Extract response after model turn
+        # Strategy 1: Use stdout only (llama.cpp writes tokens to stdout,
+        # logging/banner/timing to stderr)
+        response = result.stdout.strip()
+        if response:
+            response = clean_unk_bytes(response)
+
+            # Strip trailing JSON block — the model often emits a JSON
+            # LLMIntent after the text response; we evaluate only the text.
+            json_start = response.find('```json')
+            if json_start == -1:
+                json_start = response.find('{"intent"')
+            if json_start == -1:
+                json_start = response.find('"intent"')
+            if json_start > 20:
+                response = response[:json_start]
+
+            # Strip "Valid LLMIntent JSON:" preamble if present
+            response = re.sub(r'Valid\s+LLMIntent\s+JSON\s*:', '', response)
+
+            response = response.strip()
+            if response:
+                return response
+
+        # Strategy 2: Fall back to parsing combined stdout+stderr
+        output = clean_unk_bytes(result.stdout + result.stderr)
+
+        # Try splitting on <start_of_turn>model (original approach)
         if "<start_of_turn>model" in output:
             parts = output.split("<start_of_turn>model")
             if len(parts) > 1:
                 response = parts[-1]
                 response = response.split("<end_of_turn>")[0]
                 response = response.split("<start_of_turn>")[0]
-                lines = response.split("\n")
-                clean_lines = []
-                for line in lines:
-                    line = line.strip()
-                    if not line:
-                        continue
-                    if any(noise in line for noise in [
-                        "Prompt:", "Generation:", "Exiting", "llama_",
-                        "memory breakdown", "t/s"
-                    ]):
-                        continue
-                    if line.startswith(">") or line.startswith("["):
-                        continue
-                    clean_lines.append(line)
-                return " ".join(clean_lines).strip()
+        else:
+            # Interactive mode: response is between the prompt echo and
+            # the timing line [ Prompt: xx t/s | Generation: xx t/s ]
+            timing = re.search(
+                r'\[\s*Prompt:\s*[\d.]+\s*t/s\s*\|\s*Generation:', output)
+            if timing:
+                response = output[:timing.start()]
+            else:
+                response = output
 
-        return "[PARSE_ERROR]"
+        # Remove banner, prompt echo, and noise lines
+        lines = response.split("\n")
+        clean_lines = []
+        past_prompt = False
+        for line in lines:
+            stripped = line.strip()
+            if not stripped:
+                continue
+            # Detect end of prompt echo (truncated display)
+            if "(truncated)" in stripped:
+                past_prompt = True
+                continue
+            if not past_prompt:
+                # Skip banner / prompt echo / UI noise
+                if any(noise in stripped for noise in [
+                    "▄▄", "██", "▀▀", "build", "modalities",
+                    "available commands", "/exit", "/regen", "/clear",
+                    "/read", "Loading model", "> <start_of_turn>",
+                    "PERSONALITY:", "DIALOGUE RULES:", "I6 CONSTRAINTS",
+                    "OUTPUT:", "You are Josi",
+                ]):
+                    continue
+                # Also skip the echoed system prompt lines
+                if stripped.startswith(">"):
+                    past_prompt = True
+                    continue
+            if not past_prompt:
+                continue
+            # Skip noise in response area
+            if any(noise in stripped for noise in [
+                "Prompt:", "Generation:", "Exiting", "llama_",
+                "memory breakdown", "t/s",
+            ]):
+                continue
+            clean_lines.append(stripped)
+
+        response = " ".join(clean_lines).strip()
+
+        # Strip trailing JSON block
+        json_start = response.find('```json')
+        if json_start == -1:
+            json_start = response.find('{"intent"')
+        if json_start > 20:
+            response = response[:json_start]
+
+        response = re.sub(r'Valid\s+LLMIntent\s+JSON\s*:', '', response)
+        response = response.strip()
+
+        return response if response else "[PARSE_ERROR]"
     except subprocess.TimeoutExpired:
         return "[TIMEOUT]"
     except Exception as e:
