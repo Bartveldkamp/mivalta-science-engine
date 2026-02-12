@@ -1,15 +1,16 @@
 # MiValta Fine-Tuning Requirements
 # Tested on: CUDA 12.1, Python 3.10+
+# Supports: SmolLM2 (v3) and Gemma 3n E2B (v4) pipelines
 
 # Core ML
 torch>=2.1.0
-transformers>=4.36.0
+transformers>=4.44.0    # >=4.44 required for Gemma 2/3 model support
 accelerate>=0.25.0
 datasets>=2.16.0
 
-# LoRA / PEFT
+# LoRA / PEFT / QLoRA
 peft>=0.7.0
-bitsandbytes>=0.42.0
+bitsandbytes>=0.42.0   # Required for QLoRA (4-bit NF4 quantization)
 trl>=0.7.0
 
 # Utilities

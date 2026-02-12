@@ -6,20 +6,36 @@
 
 ## Overview
 
-Josi is a fine-tuned SmolLM2-360M model (GGUF, 0.25 GB) that runs **on-device** via llama.cpp / llama.android. It produces structured JSON (LLMIntent) that the Rust engine validates and acts on.
+Josi is a fine-tuned **Gemma 3n E2B** model (GGUF Q4_K_M, ~2.8 GB) that runs **100% on-device** via llama.cpp / llama.android. It produces structured JSON (LLMIntent) that the Rust engine validates and acts on. **No network calls during chat.**
+
+**Model:** `google/gemma-3n-E2B-it` — 5B params, 2GB effective RAM
+**Quantization:** Q4_K_M (4-bit)
+**Chat template:** Gemma (`<start_of_turn>` / `<end_of_turn>`)
 
 ```
 ┌─────────────────────────────────────────────────────────┐
 │                    KOTLIN APP                            │
 │                                                          │
 │  1. Build ChatContext (JSON)                              │
-│  2. Format system prompt + user message                  │
+│  2. Format system prompt + user message (Gemma template) │
 │  3. Run inference (llama.android)                         │
 │  4. Parse raw output → LLMIntent (JSON post-processor)   │
-│  5. If tool_call: dispatch to Rust engine via FFI         │
-│  6. Render message to user                               │
+│  5. Apply dialogue governor (answer-first, max 1 question)│
+│  6. If tool_call: dispatch to Rust engine via FFI         │
+│  7. Render message to user                               │
 └─────────────────────────────────────────────────────────┘
 ```
+
+### Runtime Constraints (on-device)
+
+| Parameter | Value |
+|-----------|-------|
+| Context cap | 1024 tokens |
+| Output cap | 150 tokens |
+| Temperature | 0.45 (range: 0.4-0.5) |
+| Top-p | 0.9 |
+| Model size | ~2.8 GB (Q4_K_M) |
+| Effective RAM | ~2 GB |
 
 ### Tier Architecture
 
@@ -35,15 +51,22 @@ Josi is a fine-tuned SmolLM2-360M model (GGUF, 0.25 GB) that runs **on-device** 
 
 ## Step 1: Download the Model
 
-**URL:** `https://cockpit.mivalta.com/models/josi-v3-360M-q4_k_m.gguf`
-**Size:** ~250 MB
-**Format:** GGUF q4_k_m (4-bit quantized)
+**Hosting:** Hetzner Object Storage
+**Size:** ~2.8 GB
+**Format:** GGUF Q4_K_M (4-bit quantized)
 
 ```kotlin
 // Download on first launch, store in app internal storage
-val modelUrl = "https://cockpit.mivalta.com/models/josi-v3-360M-q4_k_m.gguf"
-val modelFile = File(context.filesDir, "josi-v3-360M-q4_k_m.gguf")
+val modelUrl = "https://objects.mivalta.com/models/josi-v4-gemma3n-q4_k_m.gguf"
+val modelFile = File(context.filesDir, "josi-v4-gemma3n-q4_k_m.gguf")
 ```
+
+**App download flow:**
+1. User installs app (~50 MB, no model bundled)
+2. First launch: "Setting up your coach..." progress bar
+3. Model downloads from Hetzner Object Storage (~2.8 GB)
+4. Cached locally, never re-downloaded unless model version updates
+5. All inference runs on-device via llama.cpp — no network calls
 
 Load with [llama.android](https://github.com/ggerganov/llama.cpp/tree/master/examples/llama.android) or equivalent llama.cpp Kotlin/JNI bindings.
 
@@ -86,24 +109,53 @@ data class PlannedSession(
 
 ---
 
-## Step 3: Format the System Prompt
+## Step 3: Format the Prompt (Gemma Template)
 
-The model was trained with the SmolLM2 chat template (`<|im_start|>` / `<|im_end|>`). llama.android handles the template tokens — you provide the messages.
+Gemma does **not** have a native system role. The system prompt is prepended to the first user message.
 
-### System Prompt Template
+### Gemma Chat Template
 
 ```
-You are Josi, MiValta's AI coaching assistant. Style: warm, professional, supportive.
+<start_of_turn>user
+{system_prompt}
+
+{user_message}
+
+CONTEXT:
+- Readiness: {level} ({state})
+- Session: {target_zone} {target_duration_min}min "{structure_label}" ({phase} phase)
+- Sport: {sport}
+- Level: {level}<end_of_turn>
+<start_of_turn>model
+```
+
+Only include the Session line if `hasSessionContext = true`.
+
+### System Prompt
+
+```
+You are Josi, MiValta's AI coaching assistant.
+
+PERSONALITY:
+- Empathetic and warm — you genuinely care about the athlete
+- Direct and honest — no filler, no corporate speak
+- You ARE the coach — never recommend other apps, coaches, or services
+
+DIALOGUE RULES:
+- Answer first, always. Lead with the substance of your response.
+- Maximum 1 follow-up question per turn.
+- Keep responses under 100 words.
 
 MODE: {Advisor|Coach}
 {mode_rules}
 
-RULES (I6 — Invariant 6):
-- NEVER prescribe training (\"you should do 5x400m\")
-- NEVER create/modify training plans or sessions
-- NEVER output zone/duration that contradicts the planned session
-- ALWAYS explain what the engine produced; NEVER invent workouts
-- Respond in JSON matching the LLMIntent schema
+I6 CONSTRAINTS (always active):
+- NEVER prescribe, create, or modify training yourself
+- Explain decisions made by the coaching engine only
+- NEVER invent zones, durations, paces, or power numbers
+- NEVER reference internal systems (algorithm, viterbi, hmm, acwr, gatc, ewma, tss, ctl, atl, tsb)
+
+OUTPUT: Valid LLMIntent JSON.
 ```
 
 ### Mode Rules
@@ -112,13 +164,10 @@ RULES (I6 — Invariant 6):
 ```
 MODE: Advisor
 - Explain workouts and zones, answer education questions
-- Discuss the athlete's personal data (readiness, training load, history)
 - Help create TODAY's workout only via tool_call to create_today_workout
-- STRICTLY today only — NEVER discuss tomorrow, next week, or future sessions
-- NEVER create long-term training plans (Decline with tier upgrade)
+- STRICTLY today only — NEVER discuss future sessions
+- NEVER create training plans (Decline with tier upgrade)
 - NEVER modify or replan training (Decline with tier upgrade)
-- NEVER use prescriptive language ("you should do", "I recommend", "try this")
-- Future workout/plan requests: Decline with tier upgrade suggestion
 ```
 
 **Coach:**
@@ -127,42 +176,76 @@ MODE: Coach
 - Full coaching access: explain, plan, replan, review
 - May suggest replans via replan_request when readiness changes
 - May reference future sessions and weekly/meso structure
-- NEVER prescribe training directly — always use tool_call for actions
-- NEVER use prescriptive language ("you should do", "I recommend")
-- Explain the training produced by the engine, suggest adjustments via replan
+- Create plans via tool_call to create_plan
+- Replan types: skip_today, swap_days, reschedule, reduce_intensity, illness, travel, goal_change
 ```
 
-### User Message Format
-
-Append context after the user's message:
-
-```
-{user_message}
-
-CONTEXT:
-- Readiness: {level} ({state})
-- Session: {target_zone} {target_duration_min}min "{structure_label}" ({phase} phase)
-- Sport: {sport}
-- Level: {level}
-```
-
-Only include the Session line if `hasSessionContext = true`.
-
-### Full Example (llama.android messages)
+### Kotlin Prompt Builder
 
 ```kotlin
-val messages = listOf(
-    ChatMessage(role = "system", content = systemPrompt),
-    // ... conversation history ...
-    ChatMessage(role = "user", content = userMessageWithContext),
+fun buildGemmaPrompt(
+    systemPrompt: String,
+    history: List<ChatMessage>,
+    userMessage: String,
+    context: String,
+): String {
+    val sb = StringBuilder()
+
+    // First turn: system + first user message
+    if (history.isEmpty()) {
+        sb.append("<start_of_turn>user\n")
+        sb.append(systemPrompt).append("\n\n")
+        sb.append(userMessage).append("\n\n")
+        sb.append(context)
+        sb.append("<end_of_turn>\n")
+    } else {
+        // Multi-turn: system prepended to first historical user message
+        var systemPrepended = false
+        for (msg in history) {
+            if (msg.role == "user" && !systemPrepended) {
+                sb.append("<start_of_turn>user\n")
+                sb.append(systemPrompt).append("\n\n")
+                sb.append(msg.message)
+                sb.append("<end_of_turn>\n")
+                systemPrepended = true
+            } else {
+                val role = if (msg.role == "assistant") "model" else msg.role
+                sb.append("<start_of_turn>$role\n")
+                sb.append(msg.message)
+                sb.append("<end_of_turn>\n")
+            }
+        }
+        // Current user message
+        sb.append("<start_of_turn>user\n")
+        sb.append(userMessage).append("\n\n")
+        sb.append(context)
+        sb.append("<end_of_turn>\n")
+    }
+
+    // Generation prompt
+    sb.append("<start_of_turn>model\n")
+    return sb.toString()
+}
+```
+
+---
+
+## Step 4: Inference Parameters
+
+```kotlin
+val params = LlamaParams(
+    nPredict = 150,       // Output cap: 150 tokens
+    temperature = 0.45f,  // Range: 0.4-0.5
+    topP = 0.9f,
+    nCtx = 1024,          // Context cap: 1024 tokens
 )
 ```
 
 ---
 
-## Step 4: Parse Model Output → LLMIntent
+## Step 5: Parse Model Output → LLMIntent
 
-The model outputs JSON, but small models sometimes produce artifacts. Parse with this logic (port of `shared/llm_intent_parser.py`):
+The model outputs JSON. Gemma 3n E2B (5B params) has significantly better JSON compliance than SmolLM2-360M, but the post-processor is still needed for edge cases.
 
 ### LLMIntent Schema
 
@@ -291,6 +374,31 @@ private fun parseToolCall(obj: JSONObject): ToolCall? {
 }
 ```
 
+### Dialogue Governor (post-parse)
+
+After parsing the LLMIntent, apply the dialogue governor to enforce answer-first and max 1 question:
+
+```kotlin
+fun governDialogue(intent: LLMIntent): LLMIntent {
+    // Don't govern safety warnings or declines
+    if (intent.responseType in listOf("SafetyWarning", "Decline")) return intent
+
+    var message = intent.message
+
+    // Count questions
+    val questionCount = message.count { it == '?' }
+    if (questionCount > 1) {
+        // Keep only the last question (usually the follow-up)
+        val sentences = message.split(Regex("(?<=[.!?])\\s+"))
+        val nonQuestions = sentences.filter { !it.trimEnd().endsWith("?") }
+        val questions = sentences.filter { it.trimEnd().endsWith("?") }
+        message = (nonQuestions + questions.takeLast(1)).joinToString(" ")
+    }
+
+    return intent.copy(message = message)
+}
+```
+
 ### Fallback on Parse Failure
 
 If `parseLLMIntent()` returns `null`, use a deterministic fallback:
@@ -310,7 +418,7 @@ val FALLBACK = LLMIntent(
 
 ---
 
-## Step 5: Tool Dispatch → Rust FFI
+## Step 6: Tool Dispatch → Rust FFI
 
 When Josi returns a `tool_call`, dispatch it to the Rust engine. The Rust `ToolDispatcher` validates the tool against the tier allowlist before executing.
 
@@ -332,11 +440,14 @@ When Josi returns a `tool_call`, dispatch it to the Rust engine. The Rust `ToolD
 
 ```kotlin
 fun handleLLMIntent(intent: LLMIntent, tier: String) {
-    // 1. Display message to user
-    showMessage(intent.message)
+    // 1. Apply dialogue governor
+    val governed = governDialogue(intent)
 
-    // 2. If tool_call present, dispatch to Rust
-    intent.toolCall?.let { tc ->
+    // 2. Display message to user
+    showMessage(governed.message)
+
+    // 3. If tool_call present, dispatch to Rust
+    governed.toolCall?.let { tc ->
         // Rust ToolDispatcher validates tier access
         val result = rustEngine.dispatchTool(tier, tc.tool, tc.args)
 
@@ -351,9 +462,9 @@ fun handleLLMIntent(intent: LLMIntent, tier: String) {
         }
     }
 
-    // 3. If guardrail triggered, show decline UI
-    if (intent.guardrailTriggered) {
-        showDeclineUI(intent.guardrailReason)
+    // 4. If guardrail triggered, show decline UI
+    if (governed.guardrailTriggered) {
+        showDeclineUI(governed.guardrailReason)
     }
 }
 ```
@@ -372,7 +483,7 @@ if (intent.intent == "replan" && intent.replanRequest != null) {
 
 ---
 
-## Step 6: Zone Gating (Enforced by Rust)
+## Step 7: Zone Gating (Enforced by Rust)
 
 The Rust engine caps workout zones based on readiness. Josi is trained to respect these, but the engine enforces them as a hard guard:
 
@@ -405,16 +516,20 @@ These are the **contracts** between the Kotlin app, Josi, and the Rust engine.
 
 **User (Advisor tier, Green readiness) asks:** "What's my workout today?"
 
-**1. App builds prompt:**
+**1. App builds Gemma prompt:**
 ```
-System: You are Josi... MODE: Advisor... I6 rules...
-User: What's my workout today?
+<start_of_turn>user
+You are Josi, MiValta's AI coaching assistant...
+MODE: Advisor...
+
+What's my workout today?
 
 CONTEXT:
 - Readiness: Green (Recovered)
 - Session: Z2 60min "Continuous Z2 60min" (base phase)
 - Sport: running
-- Level: intermediate
+- Level: intermediate<end_of_turn>
+<start_of_turn>model
 ```
 
 **2. Model outputs:**
@@ -422,7 +537,7 @@ CONTEXT:
 {
   "intent": "question",
   "response_type": "ExplainWorkout",
-  "message": "Today you have a 60-minute easy aerobic session in Zone 2. The goal is to build your base endurance at a comfortable pace — you should be able to hold a conversation throughout.",
+  "message": "Today you have a 60-minute easy aerobic session in Zone 2. The goal is to build your base endurance at a comfortable pace — you should be able to hold a conversation throughout. How are you feeling?",
   "source_cards": ["session_rules", "zone_physiology"],
   "guardrail_triggered": false,
   "guardrail_reason": null,
@@ -478,3 +593,25 @@ CONTEXT:
 ```
 
 **App dispatches** `replan` to Rust `ReplanExecutor::from_josi()`.
+
+---
+
+## Migration from SmolLM2 (v3 → v4)
+
+| Change | v3 (SmolLM2) | v4 (Gemma 3n E2B) |
+|--------|-------------|-------------------|
+| Model | SmolLM2-360M | Gemma 3n E2B-it |
+| Size | ~250 MB | ~2.8 GB |
+| Chat template | ChatML (`<\|im_start\|>`) | Gemma (`<start_of_turn>`) |
+| System role | Native system message | Prepended to first user message |
+| Temperature | 0.7 | 0.45 |
+| Max output tokens | 120 | 150 |
+| Dialogue governor | No | Yes (answer-first, max 1 question) |
+| JSON reliability | Needs heavy post-processing | Much better, still use post-processor |
+| Reasoning quality | Basic pattern matching | Genuine reasoning about context |
+
+**Key integration changes:**
+1. Update model download URL and file size
+2. Switch from ChatML to Gemma prompt template
+3. Add dialogue governor after JSON parsing
+4. Update inference params (temp 0.45, max_tokens 150)
