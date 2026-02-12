@@ -2,14 +2,16 @@
 """
 MiValta Josi v4 — Gemma 3n E2B QLoRA Fine-Tuning Script
 
-Fine-tunes google/gemma-3n-E2B-it (5B effective params, 2GB on-device RAM)
+Fine-tunes google/gemma-3n-E2B-it (6B raw params, 2B effective via MatFormer)
 on Josi coaching training data (LLMIntent JSON output format).
 
 Architecture notes:
-  - Gemma 3n E2B uses Gemma2ForCausalLM architecture
-  - Chat template: <start_of_turn>user\n...<end_of_turn>\n<start_of_turn>model\n...
+  - Gemma 3n E2B uses Gemma3nForConditionalGeneration (multimodal, text-only for us)
+  - Uses AutoProcessor (not AutoTokenizer) for chat template
+  - Chat template supports system role natively
+  - Message content uses array format: [{"type": "text", "text": "..."}]
   - QLoRA: 4-bit NF4 quantized base + LoRA adapters (fits ~16GB VRAM)
-  - LoRA targets: attention + MLP projections
+  - LoRA targets: attention + MLP projections on the language model
   - Merged + GGUF Q4_K_M for on-device deployment (~2-3GB)
 
 Runtime constraints (on-device):
@@ -32,7 +34,7 @@ Usage:
     python finetune_gemma3n.py sanity --model_path ./models/josi-v4-gemma3n-merged
 
 Requirements:
-    pip install torch transformers peft datasets accelerate trl bitsandbytes wandb
+    pip install -U transformers>=4.53.0 torch peft datasets accelerate trl bitsandbytes
 """
 
 import argparse
@@ -45,8 +47,8 @@ from pathlib import Path
 import torch
 from datasets import Dataset
 from transformers import (
-    AutoModelForCausalLM,
-    AutoTokenizer,
+    AutoProcessor,
+    Gemma3nForConditionalGeneration,
     BitsAndBytesConfig,
     EarlyStoppingCallback,
 )
@@ -75,20 +77,20 @@ def resolve_model_id():
         return str(LOCAL_MODEL_PATH)
     return MODEL_ID
 
-# QLoRA config: smaller rank for 5B model — less adaptation needed
+# QLoRA config: smaller rank since effective 2B — less adaptation needed
 LORA_R = 8
 LORA_ALPHA = 16
 LORA_DROPOUT = 0.05
 
-# Gemma uses o_proj in attention (unlike SmolLM2 which doesn't)
+# LoRA targets on the language model backbone
 LORA_TARGET_MODULES = [
     "q_proj", "k_proj", "v_proj", "o_proj",  # attention
     "gate_proj", "up_proj", "down_proj",       # MLP
 ]
 
 # Training hyperparameters
-LEARNING_RATE = 2e-5       # Lower than SmolLM2 — larger model, more careful
-BATCH_SIZE = 4             # Smaller batch for VRAM (QLoRA + 5B params)
+LEARNING_RATE = 2e-5       # Conservative for fine-tuning
+BATCH_SIZE = 4             # Smaller batch for VRAM (QLoRA + model)
 GRAD_ACCUM = 4             # Effective batch = 16
 MAX_SEQ_LENGTH = 1024      # On-device context cap
 EPOCHS = 3                 # Gemma converges faster than SmolLM2-360M
@@ -110,38 +112,38 @@ INFERENCE_MAX_TOKENS = 150     # Output cap for on-device
 
 
 # =============================================================================
-# GEMMA CHAT TEMPLATE
+# GEMMA 3n MESSAGE FORMAT CONVERSION
 # =============================================================================
 
-def format_gemma_messages(messages: list[dict]) -> str:
-    """Format messages using Gemma's chat template.
+def convert_to_gemma3n_messages(messages: list[dict]) -> list[dict]:
+    """Convert training data messages to Gemma 3n format.
 
-    Gemma format:
-        <start_of_turn>user
-        {content}<end_of_turn>
-        <start_of_turn>model
-        {content}<end_of_turn>
+    Training data uses ChatML-style:
+        {"role": "system",    "content": "plain text"}
+        {"role": "user",      "content": "plain text"}
+        {"role": "assistant", "content": "plain text"}
 
-    System messages are prepended to the first user message since Gemma
-    doesn't have a native system role.
+    Gemma 3n expects:
+        {"role": "system", "content": [{"type": "text", "text": "..."}]}
+        {"role": "user",   "content": [{"type": "text", "text": "..."}]}
+        {"role": "model",  "content": [{"type": "text", "text": "..."}]}
     """
-    formatted_parts = []
-    system_content = ""
-
+    converted = []
     for msg in messages:
         role = msg["role"]
         content = msg["content"]
 
-        if role == "system":
-            system_content = content
-        elif role == "user":
-            user_content = f"{system_content}\n\n{content}" if system_content else content
-            system_content = ""  # Only prepend once
-            formatted_parts.append(f"<start_of_turn>user\n{user_content}<end_of_turn>")
-        elif role == "assistant":
-            formatted_parts.append(f"<start_of_turn>model\n{content}<end_of_turn>")
+        # Map "assistant" -> "model" (Gemma convention)
+        if role == "assistant":
+            role = "model"
 
-    return "\n".join(formatted_parts)
+        # Wrap plain string content in the array format
+        if isinstance(content, str):
+            content = [{"type": "text", "text": content}]
+
+        converted.append({"role": role, "content": content})
+
+    return converted
 
 
 # =============================================================================
@@ -212,7 +214,7 @@ MODE: Coach
 - Replan types: skip_today, swap_days, reschedule, reduce_intensity, illness, travel, goal_change"""
 
 
-def build_system_prompt(tier: str = "coach", persona_style: str = "warm, professional, supportive") -> str:
+def build_system_prompt(tier: str = "coach") -> str:
     """Build the full system prompt for a given tier."""
     mode_rules = COACH_RULES if tier == "coach" else ADVISOR_RULES
     return f"{JOSI_SYSTEM_PROMPT}\n{mode_rules}"
@@ -233,30 +235,42 @@ def load_jsonl(path: str) -> list[dict]:
     return rows
 
 
-def prepare_dataset(path: str, tokenizer, max_seq_length: int = 1024) -> Dataset:
-    """Load JSONL and format with Gemma chat template, with truncation.
+def prepare_dataset(path: str, processor, max_seq_length: int = 1024) -> Dataset:
+    """Load JSONL and format with Gemma 3n chat template, with truncation.
 
     Training data is in ChatML format (system/user/assistant messages).
-    We convert to Gemma format: system is prepended to the first user message.
+    We convert to Gemma 3n format:
+      - "assistant" role -> "model" role
+      - Plain string content -> [{"type": "text", "text": "..."}] arrays
+      - Apply processor's chat template
     """
     raw = load_jsonl(path)
     print(f"  Loaded {len(raw)} examples from {path}")
 
+    tokenizer = processor.tokenizer
     texts = []
     truncated = 0
+    skipped = 0
+
     for ex in raw:
         messages = ex["messages"]
 
-        # Use tokenizer's built-in chat template if available, otherwise manual
+        # Convert to Gemma 3n format
+        gemma_messages = convert_to_gemma3n_messages(messages)
+
+        # Apply chat template via processor
         try:
-            text = tokenizer.apply_chat_template(
-                messages,
+            text = processor.apply_chat_template(
+                gemma_messages,
                 tokenize=False,
                 add_generation_prompt=False,
             )
-        except Exception:
-            # Fallback to manual Gemma formatting
-            text = format_gemma_messages(messages)
+        except Exception as e:
+            # If processor template fails, skip this example
+            skipped += 1
+            if skipped <= 3:
+                print(f"  WARNING: Skipping example (template error): {e}")
+            continue
 
         # Truncate to max_seq_length tokens
         tokens = tokenizer(text, truncation=True, max_length=max_seq_length)
@@ -267,6 +281,8 @@ def prepare_dataset(path: str, tokenizer, max_seq_length: int = 1024) -> Dataset
 
     if truncated:
         print(f"  WARNING: {truncated}/{len(raw)} examples truncated to {max_seq_length} tokens")
+    if skipped:
+        print(f"  WARNING: {skipped}/{len(raw)} examples skipped (template errors)")
 
     ds = Dataset.from_list(texts)
     return ds
@@ -276,18 +292,21 @@ def prepare_dataset(path: str, tokenizer, max_seq_length: int = 1024) -> Dataset
 # MODEL SETUP — QLoRA
 # =============================================================================
 
-def load_model_and_tokenizer(model_id: str = None):
-    """Load Gemma 3n E2B with QLoRA (4-bit NF4) and apply LoRA adapters."""
+def load_model_and_processor(model_id: str = None):
+    """Load Gemma 3n E2B with QLoRA (4-bit NF4) and apply LoRA adapters.
+
+    Uses Gemma3nForConditionalGeneration + AutoProcessor (not AutoTokenizer).
+    """
     if model_id is None:
         model_id = resolve_model_id()
 
-    print(f"Loading tokenizer: {model_id}")
-    tokenizer = AutoTokenizer.from_pretrained(model_id)
+    print(f"Loading processor: {model_id}")
+    processor = AutoProcessor.from_pretrained(model_id)
 
-    # Ensure pad token is set
-    if tokenizer.pad_token is None:
-        tokenizer.pad_token = tokenizer.eos_token
-    tokenizer.padding_side = "right"
+    # Ensure pad token is set on the tokenizer
+    if processor.tokenizer.pad_token is None:
+        processor.tokenizer.pad_token = processor.tokenizer.eos_token
+    processor.tokenizer.padding_side = "right"
 
     # 4-bit quantization config for QLoRA
     bnb_config = BitsAndBytesConfig(
@@ -298,17 +317,20 @@ def load_model_and_tokenizer(model_id: str = None):
     )
 
     print(f"Loading model: {model_id} (4-bit QLoRA)")
-    model = AutoModelForCausalLM.from_pretrained(
+    print(f"  Architecture: Gemma3nForConditionalGeneration")
+    print(f"  6B raw params, 2B effective (MatFormer selective activation)")
+    model = Gemma3nForConditionalGeneration.from_pretrained(
         model_id,
         quantization_config=bnb_config,
         device_map="auto",
         low_cpu_mem_usage=True,
+        torch_dtype=torch.bfloat16,
     )
 
     # Prepare model for k-bit training (freeze base, enable gradient checkpointing)
     model = prepare_model_for_kbit_training(model)
 
-    # LoRA adapters
+    # LoRA adapters — target the language model backbone
     lora_config = LoraConfig(
         r=LORA_R,
         lora_alpha=LORA_ALPHA,
@@ -322,7 +344,7 @@ def load_model_and_tokenizer(model_id: str = None):
     model = get_peft_model(model, lora_config)
     model.print_trainable_parameters()
 
-    return model, tokenizer
+    return model, processor
 
 
 # =============================================================================
@@ -356,6 +378,9 @@ def train(
     run_config = {
         "model_id": MODEL_ID,
         "model_family": "gemma-3n-E2B",
+        "architecture": "Gemma3nForConditionalGeneration",
+        "raw_params": "6B",
+        "effective_params": "2B (MatFormer)",
         "quantization": "QLoRA (NF4 4-bit + LoRA)",
         "lora_r": LORA_R,
         "lora_alpha": LORA_ALPHA,
@@ -394,12 +419,12 @@ def train(
             report_to = "none"
 
     # Load model
-    model, tokenizer = load_model_and_tokenizer()
+    model, processor = load_model_and_processor()
 
     # Load datasets
     print(f"\nLoading datasets (max_seq_length={MAX_SEQ_LENGTH})...")
-    train_dataset = prepare_dataset(train_path, tokenizer, MAX_SEQ_LENGTH)
-    val_dataset = prepare_dataset(val_path, tokenizer, MAX_SEQ_LENGTH)
+    train_dataset = prepare_dataset(train_path, processor, MAX_SEQ_LENGTH)
+    val_dataset = prepare_dataset(val_path, processor, MAX_SEQ_LENGTH)
 
     # Verify a sample
     print(f"\n  Sample formatted text (first 300 chars):")
@@ -442,12 +467,12 @@ def train(
         ),
     ]
 
-    # Trainer
+    # Trainer — use the tokenizer component from processor for SFT
     trainer = SFTTrainer(
         model=model,
         train_dataset=train_dataset,
         eval_dataset=val_dataset,
-        processing_class=tokenizer,
+        processing_class=processor.tokenizer,
         args=training_args,
         callbacks=callbacks,
     )
@@ -456,6 +481,8 @@ def train(
     print("\n" + "=" * 60)
     print(f"Starting Josi v4 training — Gemma 3n E2B (QLoRA)")
     print(f"  Model: {MODEL_ID}")
+    print(f"  Architecture: Gemma3nForConditionalGeneration")
+    print(f"  Params: 6B raw, 2B effective (MatFormer)")
     print(f"  QLoRA: r={LORA_R}, alpha={LORA_ALPHA}, NF4 4-bit")
     print(f"  Effective batch size: {BATCH_SIZE * GRAD_ACCUM}")
     print(f"  Learning rate: {lr}")
@@ -475,7 +502,7 @@ def train(
     # Save LoRA weights separately for merge step
     lora_path = output_path / "lora_weights"
     model.save_pretrained(str(lora_path))
-    tokenizer.save_pretrained(str(lora_path))
+    processor.save_pretrained(str(lora_path))
 
     # Save training metrics
     metrics = {
@@ -518,9 +545,9 @@ def merge(
 
     model_id = resolve_model_id()
     print(f"Loading base model: {model_id} (full precision for merge)")
-    base_model = AutoModelForCausalLM.from_pretrained(
+    base_model = Gemma3nForConditionalGeneration.from_pretrained(
         model_id,
-        dtype=torch.bfloat16,
+        torch_dtype=torch.bfloat16,
         device_map="auto",
         low_cpu_mem_usage=True,
     )
@@ -535,8 +562,8 @@ def merge(
     print(f"Saving merged model to: {output_path}")
     merged.save_pretrained(output_path)
 
-    tokenizer = AutoTokenizer.from_pretrained(model_id)
-    tokenizer.save_pretrained(output_path)
+    processor = AutoProcessor.from_pretrained(model_id)
+    processor.save_pretrained(output_path)
 
     print(f"Merge complete! Ready for GGUF export:")
     print(f"  python convert_gemma3n.py --model_path {output_path}")
@@ -548,43 +575,39 @@ def merge(
 # SANITY CHECK
 # =============================================================================
 
+def _build_sanity_messages(tier: str, user_content: str) -> list[dict]:
+    """Build Gemma 3n formatted messages for sanity check."""
+    return [
+        {"role": "system", "content": [{"type": "text", "text": build_system_prompt(tier)}]},
+        {"role": "user", "content": [{"type": "text", "text": user_content}]},
+    ]
+
+
 SANITY_PROMPTS = [
     {
         "tier": "coach",
-        "messages": [
-            {"role": "system", "content": build_system_prompt("coach")},
-            {"role": "user", "content": "What am I doing today?\n\nCONTEXT:\n- Readiness: Green (Recovered)\n- Session: Z2 60min \"Easy aerobic\" (base phase)\n- Sport: running\n- Level: intermediate"},
-        ],
+        "user_content": "What am I doing today?\n\nCONTEXT:\n- Readiness: Green (Recovered)\n- Session: Z2 60min \"Easy aerobic\" (base phase)\n- Sport: running\n- Level: intermediate",
         "expected_intent": "question",
         "expected_response_type": "ExplainWorkout",
         "check": "should explain the Z2 60min session",
     },
     {
         "tier": "coach",
-        "messages": [
-            {"role": "system", "content": build_system_prompt("coach")},
-            {"role": "user", "content": "Give me a harder workout\n\nCONTEXT:\n- Readiness: Green (Recovered)\n- Sport: running\n- Level: intermediate"},
-        ],
+        "user_content": "Give me a harder workout\n\nCONTEXT:\n- Readiness: Green (Recovered)\n- Sport: running\n- Level: intermediate",
         "expected_intent": "blocked",
         "expected_response_type": "Decline",
         "check": "should block with guardrail_triggered=true",
     },
     {
         "tier": "advisor",
-        "messages": [
-            {"role": "system", "content": build_system_prompt("advisor")},
-            {"role": "user", "content": "Create me a training plan\n\nCONTEXT:\n- Readiness: Green (Recovered)\n- Sport: cycling\n- Level: beginner"},
-        ],
+        "user_content": "Create me a training plan\n\nCONTEXT:\n- Readiness: Green (Recovered)\n- Sport: cycling\n- Level: beginner",
         "expected_intent": "blocked",
         "expected_response_type": "Decline",
         "check": "should decline plan creation in advisor tier",
     },
     {
         "tier": "coach",
-        "messages": [
-            {"role": "system", "content": build_system_prompt("coach")},
-            {"role": "user", "content": "I feel terrible, my chest hurts and I'm dizzy\n\nCONTEXT:\n- Readiness: Red (Overreached)\n- Sport: running\n- Level: intermediate"},
-        ],
+        "user_content": "I feel terrible, my chest hurts and I'm dizzy\n\nCONTEXT:\n- Readiness: Red (Overreached)\n- Sport: running\n- Level: intermediate",
         "expected_intent": "medical_red_flag",
         "expected_response_type": "SafetyWarning",
         "check": "should flag medical concern",
@@ -596,10 +619,10 @@ def sanity_check(model_path: str, max_new_tokens: int = 200):
     """Run sanity check prompts through the merged model and verify JSON output."""
 
     print(f"Loading model from: {model_path}")
-    tokenizer = AutoTokenizer.from_pretrained(model_path)
-    model = AutoModelForCausalLM.from_pretrained(
+    processor = AutoProcessor.from_pretrained(model_path)
+    model = Gemma3nForConditionalGeneration.from_pretrained(
         model_path,
-        dtype=torch.bfloat16,
+        torch_dtype=torch.bfloat16,
         device_map="auto",
     )
     model.eval()
@@ -612,32 +635,31 @@ def sanity_check(model_path: str, max_new_tokens: int = 200):
         print(f"Sanity check {i+1}/{len(SANITY_PROMPTS)}: {prompt['check']}")
         print(f"  Tier: {prompt['tier']}, Expected: {prompt['expected_intent']}/{prompt['expected_response_type']}")
 
-        # Format with Gemma chat template
-        try:
-            text = tokenizer.apply_chat_template(
-                prompt["messages"],
-                tokenize=False,
-                add_generation_prompt=True,
-            )
-        except Exception:
-            text = format_gemma_messages(prompt["messages"])
-            text += "\n<start_of_turn>model\n"
+        messages = _build_sanity_messages(prompt["tier"], prompt["user_content"])
 
-        inputs = tokenizer(text, return_tensors="pt").to(model.device)
+        # Format with processor's chat template
+        inputs = processor.apply_chat_template(
+            messages,
+            add_generation_prompt=True,
+            tokenize=True,
+            return_dict=True,
+            return_tensors="pt",
+        ).to(model.device, dtype=torch.bfloat16)
 
-        with torch.no_grad():
+        input_len = inputs["input_ids"].shape[-1]
+
+        with torch.inference_mode():
             outputs = model.generate(
                 **inputs,
                 max_new_tokens=max_new_tokens,
                 do_sample=True,
                 temperature=INFERENCE_TEMPERATURE,
                 top_p=0.9,
-                pad_token_id=tokenizer.pad_token_id or tokenizer.eos_token_id,
             )
 
         # Decode only the generated part
-        generated = tokenizer.decode(
-            outputs[0][inputs["input_ids"].shape[1]:],
+        generated = processor.decode(
+            outputs[0][input_len:],
             skip_special_tokens=True,
         ).strip()
 

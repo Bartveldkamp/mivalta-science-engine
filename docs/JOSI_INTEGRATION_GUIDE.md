@@ -8,9 +8,10 @@
 
 Josi is a fine-tuned **Gemma 3n E2B** model (GGUF Q4_K_M, ~2.8 GB) that runs **100% on-device** via llama.cpp / llama.android. It produces structured JSON (LLMIntent) that the Rust engine validates and acts on. **No network calls during chat.**
 
-**Model:** `google/gemma-3n-E2B-it` — 5B params, 2GB effective RAM
+**Model:** `google/gemma-3n-E2B-it` — 6B params (2B effective via MatFormer)
 **Quantization:** Q4_K_M (4-bit)
-**Chat template:** Gemma (`<start_of_turn>` / `<end_of_turn>`)
+**HF class:** `Gemma3nForConditionalGeneration` + `AutoProcessor` (requires `transformers>=4.53.0`)
+**Chat template:** Gemma (`<start_of_turn>` / `<end_of_turn>`, native system role supported)
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -109,16 +110,16 @@ data class PlannedSession(
 
 ---
 
-## Step 3: Format the Prompt (Gemma Template)
+## Step 3: Format the Prompt (Gemma 3n Template)
 
-Gemma does **not** have a native system role. The system prompt is prepended to the first user message.
+Gemma 3n **does** support a native system role. Content uses array format with `{"type": "text", "text": "..."}` objects.
 
-### Gemma Chat Template
+### Gemma 3n Chat Template
 
 ```
+<start_of_turn>system
+{system_prompt}<end_of_turn>
 <start_of_turn>user
-{system_prompt}
-
 {user_message}
 
 CONTEXT:
@@ -130,6 +131,15 @@ CONTEXT:
 ```
 
 Only include the Session line if `hasSessionContext = true`.
+
+> **Note:** When using HuggingFace transformers, messages use array-format content:
+> ```python
+> messages = [
+>     {"role": "system", "content": [{"type": "text", "text": system_prompt}]},
+>     {"role": "user", "content": [{"type": "text", "text": user_message}]},
+> ]
+> ```
+> The model role is `"model"` (not `"assistant"`).
 
 ### System Prompt
 
@@ -191,36 +201,24 @@ fun buildGemmaPrompt(
 ): String {
     val sb = StringBuilder()
 
-    // First turn: system + first user message
-    if (history.isEmpty()) {
-        sb.append("<start_of_turn>user\n")
-        sb.append(systemPrompt).append("\n\n")
-        sb.append(userMessage).append("\n\n")
-        sb.append(context)
-        sb.append("<end_of_turn>\n")
-    } else {
-        // Multi-turn: system prepended to first historical user message
-        var systemPrepended = false
-        for (msg in history) {
-            if (msg.role == "user" && !systemPrepended) {
-                sb.append("<start_of_turn>user\n")
-                sb.append(systemPrompt).append("\n\n")
-                sb.append(msg.message)
-                sb.append("<end_of_turn>\n")
-                systemPrepended = true
-            } else {
-                val role = if (msg.role == "assistant") "model" else msg.role
-                sb.append("<start_of_turn>$role\n")
-                sb.append(msg.message)
-                sb.append("<end_of_turn>\n")
-            }
-        }
-        // Current user message
-        sb.append("<start_of_turn>user\n")
-        sb.append(userMessage).append("\n\n")
-        sb.append(context)
+    // System turn (native system role in Gemma 3n)
+    sb.append("<start_of_turn>system\n")
+    sb.append(systemPrompt)
+    sb.append("<end_of_turn>\n")
+
+    // Multi-turn history
+    for (msg in history) {
+        val role = if (msg.role == "assistant") "model" else msg.role
+        sb.append("<start_of_turn>$role\n")
+        sb.append(msg.message)
         sb.append("<end_of_turn>\n")
     }
+
+    // Current user message with context
+    sb.append("<start_of_turn>user\n")
+    sb.append(userMessage).append("\n\n")
+    sb.append(context)
+    sb.append("<end_of_turn>\n")
 
     // Generation prompt
     sb.append("<start_of_turn>model\n")
@@ -245,7 +243,7 @@ val params = LlamaParams(
 
 ## Step 5: Parse Model Output → LLMIntent
 
-The model outputs JSON. Gemma 3n E2B (5B params) has significantly better JSON compliance than SmolLM2-360M, but the post-processor is still needed for edge cases.
+The model outputs JSON. Gemma 3n E2B (6B raw, 2B effective) has significantly better JSON compliance than SmolLM2-360M, but the post-processor is still needed for edge cases.
 
 ### LLMIntent Schema
 
@@ -516,12 +514,12 @@ These are the **contracts** between the Kotlin app, Josi, and the Rust engine.
 
 **User (Advisor tier, Green readiness) asks:** "What's my workout today?"
 
-**1. App builds Gemma prompt:**
+**1. App builds Gemma 3n prompt:**
 ```
-<start_of_turn>user
+<start_of_turn>system
 You are Josi, MiValta's AI coaching assistant...
-MODE: Advisor...
-
+MODE: Advisor...<end_of_turn>
+<start_of_turn>user
 What's my workout today?
 
 CONTEXT:
@@ -603,7 +601,7 @@ CONTEXT:
 | Model | SmolLM2-360M | Gemma 3n E2B-it |
 | Size | ~250 MB | ~2.8 GB |
 | Chat template | ChatML (`<\|im_start\|>`) | Gemma (`<start_of_turn>`) |
-| System role | Native system message | Prepended to first user message |
+| System role | Native system message | Native system role (Gemma 3n) |
 | Temperature | 0.7 | 0.45 |
 | Max output tokens | 120 | 150 |
 | Dialogue governor | No | Yes (answer-first, max 1 question) |

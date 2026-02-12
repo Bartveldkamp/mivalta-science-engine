@@ -160,9 +160,9 @@ download_model() {
 
         # Quick validation
         python3 -c "
-from transformers import AutoTokenizer
-tok = AutoTokenizer.from_pretrained('$MODEL_DIR')
-print(f'  Tokenizer vocab: {tok.vocab_size}')
+from transformers import AutoProcessor
+proc = AutoProcessor.from_pretrained('$MODEL_DIR')
+print(f'  Processor: OK')
 print(f'  Model: OK')
 "
         info "Model verified. Skipping download."
@@ -208,29 +208,31 @@ verify_model() {
     echo "============================================================"
     echo ""
 
-    info "Loading tokenizer + quick inference test..."
+    info "Loading processor + quick inference test..."
+    info "Using Gemma3nForConditionalGeneration + AutoProcessor (Gemma 3n API)"
 
     python3 << 'PYEOF'
 import torch
-from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
+from transformers import Gemma3nForConditionalGeneration, AutoProcessor, BitsAndBytesConfig
 import os, sys
 
 MODEL_DIR = sys.argv[1] if len(sys.argv) > 1 else os.environ.get("MODEL_DIR", "")
 
 print(f"  Model: {MODEL_DIR}")
 
-# Load tokenizer
-tok = AutoTokenizer.from_pretrained(MODEL_DIR)
-print(f"  Tokenizer vocab: {tok.vocab_size}")
-print(f"  Chat template: {'yes' if tok.chat_template else 'no'}")
+# Load processor (NOT tokenizer — Gemma 3n uses AutoProcessor)
+processor = AutoProcessor.from_pretrained(MODEL_DIR)
+print(f"  Processor loaded OK")
+print(f"  Chat template: {'yes' if processor.chat_template else 'no'}")
 
-# Test chat template format
+# Test chat template format with Gemma 3n message structure
 messages = [
-    {"role": "user", "content": "Hello, what is Zone 2 training?"}
+    {"role": "system", "content": [{"type": "text", "text": "You are Josi, a coaching assistant."}]},
+    {"role": "user", "content": [{"type": "text", "text": "Hello, what is Zone 2 training?"}]},
 ]
-formatted = tok.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+formatted = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
 print(f"  Template format check:")
-print(f"    {formatted[:100]}...")
+print(f"    {formatted[:120]}...")
 
 # Quick load in 4-bit to verify model works
 print(f"\n  Loading model in 4-bit (QLoRA config)...")
@@ -240,7 +242,7 @@ bnb_config = BitsAndBytesConfig(
     bnb_4bit_compute_dtype=torch.bfloat16,
 )
 
-model = AutoModelForCausalLM.from_pretrained(
+model = Gemma3nForConditionalGeneration.from_pretrained(
     MODEL_DIR,
     quantization_config=bnb_config,
     device_map="auto",
@@ -248,14 +250,26 @@ model = AutoModelForCausalLM.from_pretrained(
 )
 
 params = sum(p.numel() for p in model.parameters())
-print(f"  Parameters: {params / 1e9:.1f}B")
+print(f"  Parameters: {params / 1e9:.1f}B (6B raw, 2B effective via MatFormer)")
 print(f"  Device: {next(model.parameters()).device}")
 
-# Quick generation test
-inputs = tok("Hello", return_tensors="pt").to(model.device)
+# Quick generation test using Gemma 3n message format
+test_messages = [
+    {"role": "user", "content": [{"type": "text", "text": "Hello"}]},
+]
+inputs = processor.apply_chat_template(
+    test_messages,
+    add_generation_prompt=True,
+    tokenize=True,
+    return_dict=True,
+    return_tensors="pt",
+).to(model.device)
+
 with torch.no_grad():
     out = model.generate(**inputs, max_new_tokens=10, do_sample=False)
-response = tok.decode(out[0], skip_special_tokens=True)
+
+input_len = inputs["input_ids"].shape[-1]
+response = processor.decode(out[0][input_len:], skip_special_tokens=True)
 print(f"  Quick gen test: '{response[:50]}'")
 
 print(f"\n  ✓ Model verified and ready for fine-tuning!")

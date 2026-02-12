@@ -345,11 +345,13 @@ def evaluate_response(category: str, prompt: str, response: str) -> TestResult:
 # =============================================================================
 
 def run_prompt_gguf(model_path: str, prompt: str, llama_cli: str) -> str:
-    """Run prompt via llama.cpp CLI (GGUF model) with Gemma chat template."""
-    # Gemma format: system is prepended to user message
+    """Run prompt via llama.cpp CLI (GGUF model) with Gemma 3n chat template."""
+    # Gemma 3n format: native system role supported
     formatted = (
+        f"<start_of_turn>system\n"
+        f"{JOSI_SYSTEM_PROMPT}<end_of_turn>\n"
         f"<start_of_turn>user\n"
-        f"{JOSI_SYSTEM_PROMPT}\n\n{prompt}<end_of_turn>\n"
+        f"{prompt}<end_of_turn>\n"
         f"<start_of_turn>model\n"
     )
 
@@ -396,26 +398,28 @@ def run_prompt_gguf(model_path: str, prompt: str, llama_cli: str) -> str:
         return f"[ERROR: {e}]"
 
 
-def run_prompt_hf(model, tokenizer, prompt: str, device: str) -> str:
-    """Run prompt via HuggingFace transformers (direct inference)."""
+def run_prompt_hf(model, processor, prompt: str, device: str) -> str:
+    """Run prompt via HuggingFace transformers (direct inference).
+
+    Uses Gemma 3n native message format:
+    - system role is natively supported
+    - content uses array format: [{"type": "text", "text": "..."}]
+    - assistant role is "model"
+    """
     import torch
 
     messages = [
-        {"role": "system", "content": JOSI_SYSTEM_PROMPT},
-        {"role": "user", "content": prompt},
+        {"role": "system", "content": [{"type": "text", "text": JOSI_SYSTEM_PROMPT}]},
+        {"role": "user", "content": [{"type": "text", "text": prompt}]},
     ]
 
-    try:
-        input_text = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-    except Exception:
-        # Manual Gemma format fallback
-        input_text = (
-            f"<start_of_turn>user\n"
-            f"{JOSI_SYSTEM_PROMPT}\n\n{prompt}<end_of_turn>\n"
-            f"<start_of_turn>model\n"
-        )
-
-    inputs = tokenizer(input_text, return_tensors="pt").to(device)
+    inputs = processor.apply_chat_template(
+        messages,
+        add_generation_prompt=True,
+        tokenize=True,
+        return_dict=True,
+        return_tensors="pt",
+    ).to(device)
 
     with torch.no_grad():
         outputs = model.generate(
@@ -424,47 +428,48 @@ def run_prompt_hf(model, tokenizer, prompt: str, device: str) -> str:
             temperature=0.45,       # 0.4-0.5 range
             do_sample=True,
             top_p=0.9,
-            pad_token_id=tokenizer.eos_token_id,
         )
 
-    generated = outputs[0][inputs["input_ids"].shape[-1]:]
-    response = tokenizer.decode(generated, skip_special_tokens=True).strip()
+    input_len = inputs["input_ids"].shape[-1]
+    generated = outputs[0][input_len:]
+    response = processor.decode(generated, skip_special_tokens=True).strip()
     return response
 
 
 def load_hf_model(model_name: str):
-    """Load a HuggingFace model for direct inference."""
+    """Load a HuggingFace Gemma 3n model for direct inference.
+
+    Uses Gemma3nForConditionalGeneration + AutoProcessor (not AutoModelForCausalLM).
+    """
     import torch
-    from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+    from transformers import Gemma3nForConditionalGeneration, AutoProcessor, BitsAndBytesConfig
 
     print(f"Loading HF model: {model_name}")
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-    if tokenizer.pad_token is None:
-        tokenizer.pad_token = tokenizer.eos_token
+    processor = AutoProcessor.from_pretrained(model_name)
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    # For Gemma 5B, use 4-bit quantization for eval to fit in VRAM
+    # Gemma 3n 6B raw / 2B effective — use 4-bit quantization for eval
     if device == "cuda":
         bnb_config = BitsAndBytesConfig(
             load_in_4bit=True,
             bnb_4bit_quant_type="nf4",
             bnb_4bit_compute_dtype=torch.bfloat16,
         )
-        model = AutoModelForCausalLM.from_pretrained(
+        model = Gemma3nForConditionalGeneration.from_pretrained(
             model_name,
             quantization_config=bnb_config,
             device_map="auto",
         )
     else:
-        model = AutoModelForCausalLM.from_pretrained(
+        model = Gemma3nForConditionalGeneration.from_pretrained(
             model_name,
             torch_dtype=torch.float32,
         )
         model = model.to(device)
 
     print(f"Loaded on {device}")
-    return model, tokenizer, device
+    return model, processor, device
 
 
 # =============================================================================
@@ -691,14 +696,14 @@ def main():
     reports = []
 
     if args.hf_model:
-        model, tokenizer, device = load_hf_model(args.hf_model)
-        run_fn = lambda prompt: run_prompt_hf(model, tokenizer, prompt, device)
+        model, processor, device = load_hf_model(args.hf_model)
+        run_fn = lambda prompt: run_prompt_hf(model, processor, prompt, device)
         report = run_validation(run_fn, label=args.hf_model, verbose=args.verbose, prompts_override=prompts_override)
         reports.append(report)
 
         if args.compare_hf:
-            model2, tokenizer2, device2 = load_hf_model(args.compare_hf)
-            run_fn2 = lambda prompt: run_prompt_hf(model2, tokenizer2, prompt, device2)
+            model2, processor2, device2 = load_hf_model(args.compare_hf)
+            run_fn2 = lambda prompt: run_prompt_hf(model2, processor2, prompt, device2)
             report2 = run_validation(run_fn2, label=args.compare_hf, verbose=args.verbose, prompts_override=prompts_override)
             reports.append(report2)
             print_comparison(report, report2)
