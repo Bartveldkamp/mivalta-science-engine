@@ -309,11 +309,13 @@ def load_model_and_processor(model_id: str = None):
     processor.tokenizer.padding_side = "right"
 
     # 4-bit quantization config for QLoRA
+    # Skip AltUp prediction_coefs — they use clamp_() which fails on quantized uint8 weights
     bnb_config = BitsAndBytesConfig(
         load_in_4bit=True,
         bnb_4bit_quant_type="nf4",
         bnb_4bit_compute_dtype=torch.bfloat16,
         bnb_4bit_use_double_quant=True,  # Nested quantization for memory savings
+        llm_int8_skip_modules=["altup", "vision_tower"],
     )
 
     print(f"Loading model: {model_id} (4-bit QLoRA)")
