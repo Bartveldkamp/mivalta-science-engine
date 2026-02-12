@@ -138,6 +138,12 @@ def convert_to_gguf(model_path: str, output_path: str, llama_cpp_path: str = Non
     if not convert_script.exists():
         raise RuntimeError(f"Convert script not found: {convert_script}")
 
+    # Restore from any leftover backup from a previous failed run
+    stale_backup = convert_script.with_suffix(".py.bak")
+    if stale_backup.exists():
+        print("Restoring convert_hf_to_gguf.py from leftover backup...")
+        shutil.move(str(stale_backup), str(convert_script))
+
     print(f"Converting {model_path} to GGUF (Gemma architecture)...")
     print(f"Output: {output_path}")
 
