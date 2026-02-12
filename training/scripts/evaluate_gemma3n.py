@@ -280,7 +280,11 @@ def check_pushback(response: str, category: str) -> bool:
         "not realistic", "unrealistic", "concern", "worried",
         "careful", "caution", "instead", "alternative", "defer",
         "half marathon", "longer timeline", "more time", "genuinely",
-        "ambitious", "significantly", "rush",
+        "ambitious", "significantly", "rush", "honest", "tough",
+        "patience", "patient", "gradual", "build up", "step by step",
+        "sustainable", "safely", "safe", "overdo", "burn out",
+        "burnout", "realistic", "adjust", "reconsider", "rethink",
+        "slow down", "ease into", "foundation", "base", "challenging",
     ]
     return any(p in response_lower for p in pushback_indicators)
 
@@ -410,6 +414,26 @@ def _parse_gguf_output(raw: str) -> str:
         if exit_pos > 0:
             response = response[:exit_pos]
 
+    # --- Early extraction: fenced JSON-only response (```json ... ```) ---
+    # If the model outputs primarily a fenced JSON block, extract "response"
+    # before noise filtering can mangle the multi-line JSON structure.
+    fenced_match = re.search(r'```\s*(?:json)?\s*\n(.*?)\n\s*```', response, re.DOTALL)
+    if fenced_match:
+        json_str = fenced_match.group(1).strip()
+        try:
+            data = json.loads(json_str)
+            if 'response' in data and isinstance(data['response'], str):
+                # Check if there's meaningful text BEFORE the fenced block
+                text_before = response[:fenced_match.start()].strip()
+                text_before = re.sub(r'Valid\s+LLMIntent\s+JSON\s*:', '', text_before).strip()
+                # Remove timing lines from text_before
+                text_before = re.sub(r'\[\s*Prompt:.*', '', text_before).strip()
+                if len(text_before.split()) < 5:
+                    # JSON-only response → return extracted text directly
+                    return data['response']
+        except (json.JSONDecodeError, ValueError):
+            pass
+
     # --- Strip JSON LLMIntent block (keep only the text response) ---
     # Try multiple patterns (handles fenced, bare, and indented JSON)
     json_pos = -1
@@ -446,8 +470,8 @@ def _parse_gguf_output(raw: str) -> str:
             continue
         if any(noise in stripped for noise in noise_markers):
             continue
-        # Skip markdown fences and timing lines
-        if stripped in ("```", "```json", ">"):
+        # Skip markdown fences (```json, ``` json, ```JSON, etc.) and timing lines
+        if re.match(r'^```\s*(?:json)?\s*$', stripped, re.IGNORECASE) or stripped == ">":
             continue
         if re.match(r'\[\s*Prompt:', stripped):
             continue
@@ -466,6 +490,17 @@ def _parse_gguf_output(raw: str) -> str:
                 result = data['response']
         except (json.JSONDecodeError, ValueError):
             pass
+
+    # Fallback: if result still contains fence markers with embedded JSON
+    if result and '```' in result and '"response"' in result:
+        inner_match = re.search(r'```\s*(?:json)?\s*(.*?)\s*```', result, re.DOTALL)
+        if inner_match:
+            try:
+                data = json.loads(inner_match.group(1).strip())
+                if 'response' in data and isinstance(data['response'], str):
+                    result = data['response']
+            except (json.JSONDecodeError, ValueError):
+                pass
 
     return result if result else "[PARSE_ERROR]"
 
