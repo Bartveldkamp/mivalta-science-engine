@@ -65,6 +65,16 @@ from trl import SFTTrainer, SFTConfig
 
 MODEL_ID = "google/gemma-3n-E2B-it"
 
+# Local path (set by setup_hetzner.sh download, falls back to HF hub)
+SCRIPT_DIR_FOR_MODEL = Path(__file__).resolve().parent
+LOCAL_MODEL_PATH = SCRIPT_DIR_FOR_MODEL.parent / "models" / "gemma-3n-E2B-it"
+
+def resolve_model_id():
+    """Use local download if available, otherwise pull from HuggingFace."""
+    if LOCAL_MODEL_PATH.exists() and (LOCAL_MODEL_PATH / "config.json").exists():
+        return str(LOCAL_MODEL_PATH)
+    return MODEL_ID
+
 # QLoRA config: smaller rank for 5B model — less adaptation needed
 LORA_R = 8
 LORA_ALPHA = 16
@@ -266,8 +276,10 @@ def prepare_dataset(path: str, tokenizer, max_seq_length: int = 1024) -> Dataset
 # MODEL SETUP — QLoRA
 # =============================================================================
 
-def load_model_and_tokenizer(model_id: str = MODEL_ID):
+def load_model_and_tokenizer(model_id: str = None):
     """Load Gemma 3n E2B with QLoRA (4-bit NF4) and apply LoRA adapters."""
+    if model_id is None:
+        model_id = resolve_model_id()
 
     print(f"Loading tokenizer: {model_id}")
     tokenizer = AutoTokenizer.from_pretrained(model_id)
@@ -504,9 +516,10 @@ def merge(
     if output_path is None:
         output_path = str(Path(lora_path).parent / "merged")
 
-    print(f"Loading base model: {MODEL_ID} (full precision for merge)")
+    model_id = resolve_model_id()
+    print(f"Loading base model: {model_id} (full precision for merge)")
     base_model = AutoModelForCausalLM.from_pretrained(
-        MODEL_ID,
+        model_id,
         dtype=torch.bfloat16,
         device_map="auto",
         low_cpu_mem_usage=True,
@@ -522,7 +535,7 @@ def merge(
     print(f"Saving merged model to: {output_path}")
     merged.save_pretrained(output_path)
 
-    tokenizer = AutoTokenizer.from_pretrained(MODEL_ID)
+    tokenizer = AutoTokenizer.from_pretrained(model_id)
     tokenizer.save_pretrained(output_path)
 
     print(f"Merge complete! Ready for GGUF export:")
