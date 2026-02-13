@@ -493,6 +493,41 @@ def evaluate_explainer(category: str, prompt: str, response: str) -> ExplainerRe
 # SCORING — INTERPRETER MODE
 # =============================================================================
 
+# Alias maps: model may emit synonyms for expected enum values
+SPORT_ALIASES = {
+    "bike": {"bike", "cycling", "cycle", "biking"},
+    "run": {"run", "running"},
+    "swim": {"swim", "swimming"},
+    "strength": {"strength", "gym", "weight", "weights", "strength_training"},
+}
+
+REPLAN_ALIASES = {
+    "skip_today": {"skip_today", "skip", "skip_session"},
+    "swap_days": {"swap_days", "swap", "swap_sessions"},
+    "illness": {"illness", "sick", "ill"},
+    "travel": {"travel", "traveling", "travelling", "trip"},
+    "reduce_intensity": {"reduce_intensity", "reduce", "less_intense", "less intense", "lower_intensity", "easier"},
+}
+
+
+def _match_sport(actual: str, expected: str) -> bool:
+    actual_lower = actual.lower().strip()
+    expected_lower = expected.lower().strip()
+    if actual_lower == expected_lower:
+        return True
+    aliases = SPORT_ALIASES.get(expected_lower, {expected_lower})
+    return actual_lower in aliases
+
+
+def _match_replan_type(actual: str, expected: str) -> bool:
+    actual_lower = actual.lower().strip()
+    expected_lower = expected.lower().strip()
+    if actual_lower == expected_lower:
+        return True
+    aliases = REPLAN_ALIASES.get(expected_lower, {expected_lower})
+    return actual_lower in aliases
+
+
 @dataclass
 class InterpreterResult:
     category: str
@@ -556,11 +591,11 @@ def evaluate_interpreter(category: str, test: dict, response: str) -> Interprete
     if not action_correct and valid_json:
         failures.append(f"Wrong action: got '{actual_action}', expected '{expected_action}'")
 
-    # Check sport
+    # Check sport (accept common synonyms)
     sport_correct = None
     if "expected_sport" in test:
         actual_sport = parsed.get("sport", "")
-        sport_correct = actual_sport == test["expected_sport"]
+        sport_correct = _match_sport(actual_sport, test["expected_sport"])
         if not sport_correct and valid_json:
             failures.append(f"Wrong sport: got '{actual_sport}', expected '{test['expected_sport']}'")
 
@@ -581,13 +616,14 @@ def evaluate_interpreter(category: str, test: dict, response: str) -> Interprete
         if not time_correct and valid_json:
             failures.append(f"Wrong time: got {actual_time}, expected {expected_time}")
 
-    # Check replan type
+    # Check replan type (accept common synonyms)
     replan_correct = None
     if "expected_replan_type" in test:
         actual_replan = parsed.get("replan_type", "")
-        replan_correct = actual_replan == test["expected_replan_type"]
+        replan_correct = _match_replan_type(actual_replan, test["expected_replan_type"])
         if not replan_correct and valid_json:
             failures.append(f"Wrong replan_type: got '{actual_replan}', expected '{test['expected_replan_type']}'")
+
 
     # Check no coaching text leaked into JSON output
     message = parsed.get("message", parsed.get("clarify_message", ""))
