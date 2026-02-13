@@ -1076,7 +1076,18 @@ def load_hf_model(model_name: str):
     else:
         # Full merged model
         print(f"Loading HF model: {model_name}")
-        processor = AutoProcessor.from_pretrained(model_name)
+
+        # Processor: try model dir, then sibling lora_weights, then base model
+        processor = None
+        base_id = _resolve_base_model()
+        for candidate in [model_name, str(model_path.parent / "lora_weights"), base_id]:
+            try:
+                processor = AutoProcessor.from_pretrained(candidate)
+                break
+            except (OSError, ValueError):
+                continue
+        if processor is None:
+            raise RuntimeError(f"Cannot load processor from {model_name} or base model {base_id}")
 
         if device == "cuda":
             model = Gemma3nForConditionalGeneration.from_pretrained(
