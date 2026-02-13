@@ -19,17 +19,16 @@ Evaluates the fine-tuned Gemma 3n E2B model in two separate modes:
     - No deflection (Josi IS the coach)
 
 Usage:
-    # Evaluate explainer mode (plain text quality)
-    python evaluate_gemma3n_v4.py --model path/to/explainer.gguf --mode explainer --verbose
+    # Evaluate both modes with separate fine-tuned checkpoints (LoRA or merged)
+    python evaluate_gemma3n_v4.py \
+        --interpreter models/josi-v4-gemma3n-*/final \
+        --explainer models/josi-v4-gemma3n-*/final --verbose
 
-    # Evaluate interpreter mode (JSON schema compliance)
-    python evaluate_gemma3n_v4.py --model path/to/interpreter.gguf --mode interpreter --verbose
-
-    # Evaluate both modes
-    python evaluate_gemma3n_v4.py --model path/to/model.gguf --mode both --verbose
-
-    # HuggingFace model
+    # Evaluate a single mode with a HuggingFace model
     python evaluate_gemma3n_v4.py --hf-model ./models/merged --mode explainer --verbose
+
+    # Evaluate with GGUF
+    python evaluate_gemma3n_v4.py --model path/to/model.gguf --mode interpreter --verbose
 """
 
 import argparse
@@ -1019,24 +1018,76 @@ def run_interpreter_eval(run_fn, label: str, verbose: bool = False) -> dict:
 # HF MODEL LOADER
 # =============================================================================
 
+BASE_MODEL_ID = "google/gemma-3n-E2B-it"
+LOCAL_BASE_PATH = Path(__file__).resolve().parent.parent / "models" / "gemma-3n-E2B-it"
+
+
+def _resolve_base_model():
+    """Use local base model download if available, otherwise HuggingFace hub."""
+    if LOCAL_BASE_PATH.exists() and (LOCAL_BASE_PATH / "config.json").exists():
+        return str(LOCAL_BASE_PATH)
+    return BASE_MODEL_ID
+
+
+def _is_lora_checkpoint(model_path: str) -> bool:
+    """Detect if path contains a LoRA adapter rather than a full model."""
+    return (Path(model_path) / "adapter_config.json").exists()
+
+
 def load_hf_model(model_name: str):
     import torch
     from transformers import Gemma3nForConditionalGeneration, AutoProcessor
 
-    print(f"Loading HF model: {model_name}")
-    processor = AutoProcessor.from_pretrained(model_name)
+    model_path = Path(model_name)
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    if device == "cuda":
-        model = Gemma3nForConditionalGeneration.from_pretrained(
-            model_name, device_map="auto", torch_dtype=torch.bfloat16,
-            low_cpu_mem_usage=True,
-        )
+    if _is_lora_checkpoint(model_name):
+        # LoRA adapter checkpoint — load base model + merge adapter
+        from peft import PeftModel
+        base_id = _resolve_base_model()
+        print(f"Loading base model: {base_id}")
+        print(f"Loading LoRA adapter: {model_name}")
+
+        if device == "cuda":
+            base_model = Gemma3nForConditionalGeneration.from_pretrained(
+                base_id, device_map="auto", torch_dtype=torch.bfloat16,
+                low_cpu_mem_usage=True,
+            )
+        else:
+            base_model = Gemma3nForConditionalGeneration.from_pretrained(
+                base_id, torch_dtype=torch.float32,
+            )
+            base_model = base_model.to(device)
+
+        model = PeftModel.from_pretrained(base_model, model_name)
+        model = model.merge_and_unload()
+        print("LoRA adapter merged into base model")
+
+        # Processor: try model dir, then sibling lora_weights, then base model
+        processor = None
+        for candidate in [model_name, str(model_path.parent / "lora_weights"), base_id]:
+            try:
+                processor = AutoProcessor.from_pretrained(candidate)
+                break
+            except (OSError, ValueError):
+                continue
+        if processor is None:
+            raise RuntimeError(f"Cannot load processor from {model_name} or base model {base_id}")
     else:
-        model = Gemma3nForConditionalGeneration.from_pretrained(
-            model_name, torch_dtype=torch.float32,
-        )
-        model = model.to(device)
+        # Full merged model
+        print(f"Loading HF model: {model_name}")
+        processor = AutoProcessor.from_pretrained(model_name)
+
+        if device == "cuda":
+            model = Gemma3nForConditionalGeneration.from_pretrained(
+                model_name, device_map="auto", torch_dtype=torch.bfloat16,
+                low_cpu_mem_usage=True,
+            )
+        else:
+            model = Gemma3nForConditionalGeneration.from_pretrained(
+                model_name, torch_dtype=torch.float32,
+            )
+            model = model.to(device)
 
     print(f"Loaded on {device}")
     return model, processor, device
@@ -1051,19 +1102,29 @@ def main():
         description="Evaluate Gemma 3n E2B — Dual-Mode (Interpreter + Explainer)"
     )
 
+    # Dual-model flags (separate interpreter and explainer checkpoints)
+    parser.add_argument("--interpreter", type=str,
+                        help="HuggingFace model path for interpreter eval (LoRA adapter or merged)")
+    parser.add_argument("--explainer", type=str,
+                        help="HuggingFace model path for explainer eval (LoRA adapter or merged)")
+
+    # Single-model flags (same model for both modes, or GGUF)
     parser.add_argument("--model", type=str, help="Path to GGUF model file")
     parser.add_argument("--hf-model", type=str, help="HuggingFace model for direct inference")
     parser.add_argument("--llama-cli", type=str, default=None, help="Path to llama-cli binary")
     parser.add_argument("--mode", type=str, default="explainer",
                         choices=["interpreter", "explainer", "both"],
-                        help="Evaluation mode (default: explainer)")
+                        help="Evaluation mode when using --model/--hf-model (default: explainer)")
     parser.add_argument("--output", type=str, default=None, help="Save report to JSON")
     parser.add_argument("--verbose", action="store_true", help="Show detailed output")
 
     args = parser.parse_args()
 
-    if not args.model and not args.hf_model:
-        parser.error("Provide either --model (GGUF) or --hf-model (HuggingFace)")
+    has_dual = args.interpreter or args.explainer
+    has_single = args.model or args.hf_model
+
+    if not has_dual and not has_single:
+        parser.error("Provide --interpreter/--explainer paths, or --model (GGUF) / --hf-model (HuggingFace)")
 
     reports = []
 
@@ -1071,7 +1132,30 @@ def main():
     interp_prompt = load_prompt("interpreter_system.txt")
     expl_prompt = load_prompt("explainer_system.txt")
 
-    if args.hf_model:
+    # --- Dual-model mode: separate checkpoints for interpreter & explainer ---
+    if has_dual:
+        if args.interpreter:
+            model, processor, device = load_hf_model(args.interpreter)
+            label = args.interpreter
+            run_fn = lambda prompt: run_prompt_hf(model, processor, prompt, interp_prompt, device, max_tokens=100)
+            report = run_interpreter_eval(run_fn, label=label, verbose=args.verbose)
+            reports.append(report)
+            # Free memory before loading next model
+            del model, processor
+            try:
+                import torch; torch.cuda.empty_cache()
+            except Exception:
+                pass
+
+        if args.explainer:
+            model, processor, device = load_hf_model(args.explainer)
+            label = args.explainer
+            run_fn = lambda prompt: run_prompt_hf(model, processor, prompt, expl_prompt, device, max_tokens=150)
+            report = run_explainer_eval(run_fn, label=label, verbose=args.verbose)
+            reports.append(report)
+
+    # --- Single-model mode: one model, choose mode via --mode ---
+    elif args.hf_model:
         model, processor, device = load_hf_model(args.hf_model)
         label = args.hf_model
 
