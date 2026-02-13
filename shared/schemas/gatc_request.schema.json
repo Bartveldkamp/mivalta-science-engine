@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mivalta:gatc_request",
+  "title": "GATCRequest",
+  "description": "Minimal structured output from Josi Interpreter mode. The LLM translates user language into a validated GATC action request. Never contains workout prescriptions — only parameters for GATC to produce one.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["action", "free_text"],
+  "properties": {
+    "action": {
+      "type": "string",
+      "enum": [
+        "create_workout",
+        "replan",
+        "explain",
+        "answer_question",
+        "clarify"
+      ],
+      "description": "create_workout: user wants a workout built by GATC. replan: user wants to change/skip/swap existing plan. explain: user wants explanation of an existing workout or readiness state. answer_question: general coaching/education question. clarify: LLM needs more info before it can form a valid request."
+    },
+    "sport": {
+      "type": "string",
+      "enum": ["run", "bike", "ski", "skate", "strength", "other"],
+      "description": "Required for create_workout and replan. Inferred from context when possible."
+    },
+    "date": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+      "description": "Target date for the workout/replan. Defaults to today if not specified."
+    },
+    "time_available_min": {
+      "type": "integer",
+      "minimum": 10,
+      "maximum": 300,
+      "description": "How many minutes the athlete has available. Required for create_workout."
+    },
+    "goal": {
+      "type": "string",
+      "enum": ["endurance", "threshold", "vo2", "recovery", "strength", "race_prep"],
+      "description": "Training goal for the session. GATC uses this to select zone targets."
+    },
+    "constraints": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "injury": {
+          "type": "string",
+          "enum": ["none", "knee", "back", "ankle", "shoulder", "other"],
+          "default": "none"
+        },
+        "fatigue_hint": {
+          "type": "string",
+          "enum": ["fresh", "ok", "tired", "very_tired"],
+          "description": "Athlete's self-reported fatigue level."
+        },
+        "no_intensity": {
+          "type": "boolean",
+          "default": false,
+          "description": "True if athlete explicitly wants no hard efforts."
+        }
+      }
+    },
+    "replan_type": {
+      "type": "string",
+      "enum": ["skip_today", "swap_days", "reschedule", "reduce_intensity", "illness", "travel", "goal_change"],
+      "description": "Required when action=replan. Type of plan modification."
+    },
+    "question": {
+      "type": "string",
+      "description": "The extracted question for action=answer_question or action=explain."
+    },
+    "missing": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "For action=clarify: list of required fields the LLM could not infer."
+    },
+    "clarify_message": {
+      "type": "string",
+      "description": "For action=clarify: the natural-language question to ask the user."
+    },
+    "free_text": {
+      "type": "string",
+      "description": "Original user message, always included for traceability."
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "action": { "const": "create_workout" } } },
+      "then": { "required": ["action", "sport", "free_text"] }
+    },
+    {
+      "if": { "properties": { "action": { "const": "replan" } } },
+      "then": { "required": ["action", "replan_type", "free_text"] }
+    },
+    {
+      "if": { "properties": { "action": { "const": "clarify" } } },
+      "then": { "required": ["action", "missing", "clarify_message", "free_text"] }
+    }
+  ]
+}
