@@ -569,9 +569,13 @@ def evaluate_interpreter(category: str, test: dict, response: str) -> Interprete
     if "expected_time" in test:
         actual_time = parsed.get("time_available_min")
         expected_time = test["expected_time"]
-        # Allow +/- 5 min tolerance
+        # Allow +/- 5 min tolerance (coerce str→int since model may emit "45" not 45)
         if actual_time is not None:
-            time_correct = abs(actual_time - expected_time) <= 5
+            try:
+                actual_time = int(actual_time)
+            except (ValueError, TypeError):
+                pass
+            time_correct = isinstance(actual_time, (int, float)) and abs(actual_time - expected_time) <= 5
         else:
             time_correct = False
         if not time_correct and valid_json:
