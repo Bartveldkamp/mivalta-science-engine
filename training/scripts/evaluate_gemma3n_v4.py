@@ -328,12 +328,16 @@ INTERPRETER_PROMPTS = {
 # =============================================================================
 
 FORBIDDEN_WORDS = [
-    "gatc", "algorithm", "viterbi", "hmm", "hidden markov",
+    "gatc", "algorithm", "viterbi", "hidden markov",
     "acwr", "acute:chronic", "acute chronic", "load ratio",
     "monotony index", "training monotony", "strain index",
-    "exponentially weighted", "ewma", "tss", "ctl", "atl", "tsb",
+    "exponentially weighted", "ewma",
     "impulse-response", "banister", "fitness-fatigue",
 ]
+
+# Short abbreviations that need word-boundary matching to avoid false positives
+# (e.g. "ctl" inside "directly", "atl" inside "atlas", "tss" inside "fitness")
+FORBIDDEN_ABBREVS = ["hmm", "tss", "ctl", "atl", "tsb"]
 
 JARGON_WORDS = [
     "periodization", "mesocycle", "microcycle", "macrocycle",
@@ -345,8 +349,12 @@ DEFLECTION_PHRASES = [
     "consult a professional", "see a professional", "hire a coach",
     "working with a professional coach", "recommend using a running app",
     "seek professional", "consult a coach", "find a coach",
-    "other app", "another app", "different app",
+    "other app", "another app",
 ]
+
+# Phrases needing word-boundary matching to avoid false positives
+# (e.g. "different app" inside "different approach")
+DEFLECTION_BOUNDARY = ["different app"]
 
 WARM_INDICATORS = [
     "i hear", "i get it", "i understand", "that's", "here's the thing",
@@ -443,9 +451,14 @@ def is_json_response(response: str) -> bool:
 
 def evaluate_explainer(category: str, prompt: str, response: str) -> ExplainerResult:
     words = len(response.split())
-    forbidden = [w for w in FORBIDDEN_WORDS if w in response.lower()]
-    jargon = [w for w in JARGON_WORDS if w in response.lower()]
-    deflections = [p for p in DEFLECTION_PHRASES if p in response.lower()]
+    lower = response.lower()
+    forbidden = [w for w in FORBIDDEN_WORDS if w in lower]
+    # Word-boundary check for short abbreviations to avoid false positives
+    forbidden += [w for w in FORBIDDEN_ABBREVS if re.search(r'\b' + re.escape(w) + r'\b', lower)]
+    jargon = [w for w in JARGON_WORDS if w in lower]
+    deflections = [p for p in DEFLECTION_PHRASES if p in lower]
+    # Word-boundary check for deflection phrases that could be substrings
+    deflections += [p for p in DEFLECTION_BOUNDARY if re.search(r'\b' + re.escape(p) + r'\b', lower)]
     warm = score_warmth(response)
     brevity = score_brevity(words)
     ans_first = check_answer_first(response)
