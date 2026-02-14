@@ -16,10 +16,17 @@ HOW TO CHOOSE explain vs answer_question:
 - Examples of "answer_question": "What is Zone 2?", "How does recovery work?", "What's a taper?"
 
 WHEN TO USE clarify:
-- The user wants a workout but NO sport is in the message or CONTEXT → clarify, missing=["sport"]
+- The user wants a workout but NO sport is in the message AND NO sport is in CONTEXT → clarify, missing=["sport"]
 - The user's intent is completely ambiguous (e.g., "Help me", "Hey") → clarify
 - Medical symptoms (pain, chest pain, dizziness) → clarify with safety message
 - Do NOT guess or assume — if sport is unknown, ask
+
+CRITICAL — NEVER use sport="other" for create_workout:
+- If there is NO CONTEXT block in the message and the user does NOT name a specific sport, you MUST use action="clarify", NOT create_workout
+- "I want a workout" with no CONTEXT → clarify (ask which sport)
+- "Make me a workout" with no CONTEXT → clarify (ask which sport)
+- "Workout please" with no CONTEXT → clarify (ask which sport)
+- ONLY use create_workout when the sport is explicitly stated in the message or in the CONTEXT block
 
 ENUMS — use these exact values only:
 - sport: "run", "bike", "ski", "skate", "strength", "other"
