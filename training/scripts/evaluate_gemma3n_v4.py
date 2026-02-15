@@ -47,6 +47,12 @@ try:
     HAS_GOVERNOR = True
 except ImportError:
     HAS_GOVERNOR = False
+
+try:
+    from gatc_postprocessor import postprocess_gatc_request
+    HAS_POSTPROCESSOR = True
+except ImportError:
+    HAS_POSTPROCESSOR = False
     print("Warning: dialogue_governor not found — skipping governor checks")
 
 # =============================================================================
@@ -553,6 +559,11 @@ def evaluate_interpreter(category: str, test: dict, response: str) -> Interprete
 
     if not valid_json:
         failures.append("Invalid JSON")
+
+    # Apply deterministic post-processing fixups
+    if valid_json and HAS_POSTPROCESSOR:
+        user_msg = test.get("user", "")
+        parsed = postprocess_gatc_request(parsed, user_msg)
 
     has_action = "action" in parsed
     has_free_text = "free_text" in parsed
