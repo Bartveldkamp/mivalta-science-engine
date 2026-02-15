@@ -285,11 +285,19 @@ def postprocess_gatc_request(parsed: dict, user_message: str) -> dict:
         result.pop("sport", None)
         result.pop("question", None)
 
-    # --- Fix 6: Ensure free_text is always present ---
-    if "free_text" not in result or not result.get("free_text"):
-        # Extract from user message (strip CONTEXT block)
-        msg = user_message.split("\n\nCONTEXT:")[0].strip()
-        if msg:
+    # --- Fix 6: Ensure free_text is always present and valid ---
+    msg = user_message.split("\n\nCONTEXT:")[0].strip()
+    if msg:
+        free = result.get("free_text", "")
+        # Backfill if: missing, empty, is an action name, or suspiciously
+        # short vs the actual message (model sometimes puts a single word)
+        _ACTION_NAMES = {"answer_question", "clarify", "explain", "replan", "create_workout"}
+        needs_fix = (
+            not free
+            or free.lower() in _ACTION_NAMES
+            or (len(free.split()) <= 2 and len(msg.split()) > 3)
+        )
+        if needs_fix:
             result["free_text"] = msg
 
     return result
