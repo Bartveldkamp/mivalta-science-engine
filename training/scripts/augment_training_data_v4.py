@@ -7,8 +7,9 @@ Generates additional training examples for underrepresented categories:
   - Explainer: examples demonstrating 0-1 question rule
 
 Based on eval results:
-  - Interpreter 54%: replan 0/5, clarify 1/2, missing free_text
-  - Explainer 72%: all 14 failures are "too many questions (2+, max 1)"
+  - Round 1: Interpreter 54%: replan 0/5, clarify 1/2, missing free_text
+  - Round 2: Interpreter 70.8%: time 0/4, clarify 0/2, illness→clarify confusion
+  - Explainer 72% → 98% (fixed in round 1)
 
 Usage:
     python augment_training_data_v4.py
@@ -98,6 +99,28 @@ INTERPRETER_AUGMENTATION = [
     {"user": "I've been sick all week, what now?\n\nCONTEXT:\n- Sport: running\n- Readiness: Red",
      "response": {"action": "replan", "replan_type": "illness", "sport": "run", "free_text": "I've been sick all week, what now?"}},
 
+    # --- REPLAN: illness — extra examples to distinguish from medical clarify (10 examples) ---
+    {"user": "I'm sick, should I still train?\n\nCONTEXT:\n- Sport: running\n- Readiness: Yellow",
+     "response": {"action": "replan", "replan_type": "illness", "sport": "run", "free_text": "I'm sick, should I still train?"}},
+    {"user": "I woke up with a sore throat and runny nose\n\nCONTEXT:\n- Sport: cycling\n- Readiness: Green",
+     "response": {"action": "replan", "replan_type": "illness", "sport": "bike", "free_text": "I woke up with a sore throat and runny nose"}},
+    {"user": "I have a cold, what should I do about training?\n\nCONTEXT:\n- Sport: running\n- Readiness: Green",
+     "response": {"action": "replan", "replan_type": "illness", "sport": "run", "free_text": "I have a cold, what should I do about training?"}},
+    {"user": "I'm not feeling well, think I'm getting sick\n\nCONTEXT:\n- Sport: running\n- Readiness: Yellow",
+     "response": {"action": "replan", "replan_type": "illness", "sport": "run", "free_text": "I'm not feeling well, think I'm getting sick"}},
+    {"user": "Got the flu, need to pause\n\nCONTEXT:\n- Sport: strength\n- Readiness: Red",
+     "response": {"action": "replan", "replan_type": "illness", "sport": "strength", "free_text": "Got the flu, need to pause"}},
+    {"user": "I've been sick since Monday\n\nCONTEXT:\n- Sport: running\n- Readiness: Red",
+     "response": {"action": "replan", "replan_type": "illness", "sport": "run", "free_text": "I've been sick since Monday"}},
+    {"user": "My kid got me sick, feeling terrible\n\nCONTEXT:\n- Sport: cycling\n- Readiness: Orange",
+     "response": {"action": "replan", "replan_type": "illness", "sport": "bike", "free_text": "My kid got me sick, feeling terrible"}},
+    {"user": "I have a fever today\n\nCONTEXT:\n- Sport: running\n- Readiness: Red",
+     "response": {"action": "replan", "replan_type": "illness", "sport": "run", "free_text": "I have a fever today"}},
+    {"user": "Sick day, can we reschedule this week?\n\nCONTEXT:\n- Sport: running\n- Readiness: Yellow",
+     "response": {"action": "replan", "replan_type": "illness", "sport": "run", "free_text": "Sick day, can we reschedule this week?"}},
+    {"user": "I'm ill and can't train for a few days\n\nCONTEXT:\n- Sport: cycling\n- Readiness: Red",
+     "response": {"action": "replan", "replan_type": "illness", "sport": "bike", "free_text": "I'm ill and can't train for a few days"}},
+
     # --- REPLAN: travel (10 examples) ---
     {"user": "I'm traveling next week, need to adjust my plan\n\nCONTEXT:\n- Sport: running\n- Readiness: Green",
      "response": {"action": "replan", "replan_type": "travel", "sport": "run", "free_text": "I'm traveling next week, need to adjust my plan"}},
@@ -174,6 +197,49 @@ INTERPRETER_AUGMENTATION = [
     {"user": "I want to change my training focus to strength\n\nCONTEXT:\n- Sport: running\n- Readiness: Green",
      "response": {"action": "replan", "replan_type": "goal_change", "sport": "run", "free_text": "I want to change my training focus to strength"}},
 
+    # --- CREATE_WORKOUT: time_available_min extraction (20 examples) ---
+    # These reinforce that any duration mention MUST produce time_available_min
+    {"user": "I have an hour to train\n\nCONTEXT:\n- Sport: running\n- Readiness: Green",
+     "response": {"action": "create_workout", "sport": "run", "time_available_min": 60, "free_text": "I have an hour to train", "constraints": {"fatigue_hint": "fresh"}}},
+    {"user": "Got about an hour, let's do it\n\nCONTEXT:\n- Sport: cycling\n- Readiness: Green",
+     "response": {"action": "create_workout", "sport": "bike", "time_available_min": 60, "free_text": "Got about an hour, let's do it", "constraints": {"fatigue_hint": "fresh"}}},
+    {"user": "Half an hour is all I have today\n\nCONTEXT:\n- Sport: running\n- Readiness: Yellow",
+     "response": {"action": "create_workout", "sport": "run", "time_available_min": 30, "free_text": "Half an hour is all I have today", "constraints": {"fatigue_hint": "ok"}}},
+    {"user": "I want to run for 45 minutes\n\nCONTEXT:\n- Sport: running\n- Readiness: Green",
+     "response": {"action": "create_workout", "sport": "run", "time_available_min": 45, "free_text": "I want to run for 45 minutes", "constraints": {"fatigue_hint": "fresh"}}},
+    {"user": "Something for 25 minutes please\n\nCONTEXT:\n- Sport: running\n- Readiness: Orange",
+     "response": {"action": "create_workout", "sport": "run", "time_available_min": 25, "free_text": "Something for 25 minutes please", "goal": "recovery", "constraints": {"fatigue_hint": "tired"}}},
+    {"user": "I've got 1 hour for a ride\n\nCONTEXT:\n- Sport: cycling\n- Readiness: Green",
+     "response": {"action": "create_workout", "sport": "bike", "time_available_min": 60, "free_text": "I've got 1 hour for a ride", "constraints": {"fatigue_hint": "fresh"}}},
+    {"user": "Let's do 35 minutes today\n\nCONTEXT:\n- Sport: running\n- Readiness: Green",
+     "response": {"action": "create_workout", "sport": "run", "time_available_min": 35, "free_text": "Let's do 35 minutes today", "constraints": {"fatigue_hint": "fresh"}}},
+    {"user": "I only have 15 minutes, is that enough?\n\nCONTEXT:\n- Sport: running\n- Readiness: Green",
+     "response": {"action": "create_workout", "sport": "run", "time_available_min": 15, "free_text": "I only have 15 minutes, is that enough?", "constraints": {"fatigue_hint": "fresh"}}},
+    {"user": "One hour strength session\n\nCONTEXT:\n- Sport: strength\n- Readiness: Green",
+     "response": {"action": "create_workout", "sport": "strength", "time_available_min": 60, "free_text": "One hour strength session", "constraints": {"fatigue_hint": "fresh"}}},
+    {"user": "Maybe 40 minutes today?\n\nCONTEXT:\n- Sport: running\n- Readiness: Yellow",
+     "response": {"action": "create_workout", "sport": "run", "time_available_min": 40, "free_text": "Maybe 40 minutes today?", "constraints": {"fatigue_hint": "ok"}}},
+    {"user": "I can spare 50 minutes\n\nCONTEXT:\n- Sport: cycling\n- Readiness: Green",
+     "response": {"action": "create_workout", "sport": "bike", "time_available_min": 50, "free_text": "I can spare 50 minutes", "constraints": {"fatigue_hint": "fresh"}}},
+    {"user": "About an hour and a half for a long ride\n\nCONTEXT:\n- Sport: cycling\n- Readiness: Green",
+     "response": {"action": "create_workout", "sport": "bike", "time_available_min": 90, "free_text": "About an hour and a half for a long ride", "goal": "endurance", "constraints": {"fatigue_hint": "fresh"}}},
+    {"user": "I've got 20 min before my meeting\n\nCONTEXT:\n- Sport: running\n- Readiness: Green",
+     "response": {"action": "create_workout", "sport": "run", "time_available_min": 20, "free_text": "I've got 20 min before my meeting", "constraints": {"fatigue_hint": "fresh"}}},
+    {"user": "60 minutes easy\n\nCONTEXT:\n- Sport: running\n- Readiness: Yellow",
+     "response": {"action": "create_workout", "sport": "run", "time_available_min": 60, "free_text": "60 minutes easy", "goal": "recovery", "constraints": {"fatigue_hint": "ok"}}},
+    {"user": "I have about 45 min for some intervals\n\nCONTEXT:\n- Sport: running\n- Readiness: Green",
+     "response": {"action": "create_workout", "sport": "run", "time_available_min": 45, "free_text": "I have about 45 min for some intervals", "goal": "vo2", "constraints": {"fatigue_hint": "fresh"}}},
+    {"user": "30 minute ride, keep it chill\n\nCONTEXT:\n- Sport: cycling\n- Readiness: Orange",
+     "response": {"action": "create_workout", "sport": "bike", "time_available_min": 30, "free_text": "30 minute ride, keep it chill", "goal": "recovery", "constraints": {"fatigue_hint": "tired"}}},
+    {"user": "I want to do an hour of cycling today\n\nCONTEXT:\n- Sport: cycling\n- Readiness: Green",
+     "response": {"action": "create_workout", "sport": "bike", "time_available_min": 60, "free_text": "I want to do an hour of cycling today", "constraints": {"fatigue_hint": "fresh"}}},
+    {"user": "Can you make me a 75 minute session?\n\nCONTEXT:\n- Sport: running\n- Readiness: Green",
+     "response": {"action": "create_workout", "sport": "run", "time_available_min": 75, "free_text": "Can you make me a 75 minute session?", "constraints": {"fatigue_hint": "fresh"}}},
+    {"user": "Just 20 minutes today, I'm wiped\n\nCONTEXT:\n- Sport: running\n- Readiness: Red",
+     "response": {"action": "create_workout", "sport": "run", "time_available_min": 20, "free_text": "Just 20 minutes today, I'm wiped", "goal": "recovery", "constraints": {"fatigue_hint": "very_tired"}}},
+    {"user": "An hour on the bike, something moderate\n\nCONTEXT:\n- Sport: cycling\n- Readiness: Green",
+     "response": {"action": "create_workout", "sport": "bike", "time_available_min": 60, "free_text": "An hour on the bike, something moderate", "goal": "threshold", "constraints": {"fatigue_hint": "fresh"}}},
+
     # --- CLARIFY: missing info (15 examples) ---
     {"user": "I want a workout",
      "response": {"action": "clarify", "missing": ["sport"], "clarify_message": "What sport would you like to train? Running, cycling, or something else?", "free_text": "I want a workout"}},
@@ -205,6 +271,38 @@ INTERPRETER_AUGMENTATION = [
      "response": {"action": "clarify", "missing": ["intent"], "clarify_message": "Hey! How can I help with your training today?", "free_text": "Hey"}},
     {"user": "Hi there, I need your help",
      "response": {"action": "clarify", "missing": ["intent"], "clarify_message": "Hi! What would you like help with? A workout, your plan, or a training question?", "free_text": "Hi there, I need your help"}},
+
+    # --- CLARIFY: more vague requests without context (15 examples) ---
+    {"user": "I want a workout today",
+     "response": {"action": "clarify", "missing": ["sport"], "clarify_message": "Which sport? Running, cycling, strength, or something else?", "free_text": "I want a workout today"}},
+    {"user": "Help me out today",
+     "response": {"action": "clarify", "missing": ["sport", "intent"], "clarify_message": "Happy to help! What do you need — a workout, plan explanation, or training advice?", "free_text": "Help me out today"}},
+    {"user": "Build me something",
+     "response": {"action": "clarify", "missing": ["sport"], "clarify_message": "What sport would you like a workout for?", "free_text": "Build me something"}},
+    {"user": "I need to train",
+     "response": {"action": "clarify", "missing": ["sport"], "clarify_message": "What sport do you want to train? Running, cycling, or something else?", "free_text": "I need to train"}},
+    {"user": "Let's go",
+     "response": {"action": "clarify", "missing": ["sport", "intent"], "clarify_message": "I'm ready! What sport and what kind of session today?", "free_text": "Let's go"}},
+    {"user": "Make me work hard",
+     "response": {"action": "clarify", "missing": ["sport"], "clarify_message": "Which sport? Running, cycling, strength?", "free_text": "Make me work hard"}},
+    {"user": "I want to exercise today",
+     "response": {"action": "clarify", "missing": ["sport"], "clarify_message": "What type of exercise? Running, cycling, strength, or something else?", "free_text": "I want to exercise today"}},
+    {"user": "Session please",
+     "response": {"action": "clarify", "missing": ["sport"], "clarify_message": "Which sport would you like a session for?", "free_text": "Session please"}},
+    {"user": "What can I do?",
+     "response": {"action": "clarify", "missing": ["sport", "intent"], "clarify_message": "I can help with workouts, plans, or training questions. What do you need?", "free_text": "What can I do?"}},
+    {"user": "Get me moving",
+     "response": {"action": "clarify", "missing": ["sport"], "clarify_message": "What sport do you want to get moving with?", "free_text": "Get me moving"}},
+    {"user": "I'm bored, give me something to do",
+     "response": {"action": "clarify", "missing": ["sport"], "clarify_message": "Which sport sounds good? Running, cycling, or strength?", "free_text": "I'm bored, give me something to do"}},
+    {"user": "Can you create a workout?",
+     "response": {"action": "clarify", "missing": ["sport"], "clarify_message": "Sure! What sport would you like the workout for?", "free_text": "Can you create a workout?"}},
+    {"user": "I have time to train",
+     "response": {"action": "clarify", "missing": ["sport"], "clarify_message": "Great! Which sport — running, cycling, strength, or something else?", "free_text": "I have time to train"}},
+    {"user": "Give me a good workout",
+     "response": {"action": "clarify", "missing": ["sport"], "clarify_message": "What sport would you like the workout for?", "free_text": "Give me a good workout"}},
+    {"user": "Help me",
+     "response": {"action": "clarify", "missing": ["intent"], "clarify_message": "Of course! What do you need help with? A workout, your plan, or a training question?", "free_text": "Help me"}},
 
     # --- CLARIFY: medical (8 examples) ---
     {"user": "I have chest pain and I feel dizzy\n\nCONTEXT:\n- Sport: running\n- Readiness: Green",

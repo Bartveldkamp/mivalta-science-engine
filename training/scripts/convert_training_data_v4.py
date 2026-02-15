@@ -114,12 +114,27 @@ def extract_sport_from_context(user_msg: str) -> str | None:
 
 def extract_duration_from_context(user_msg: str) -> int | None:
     """Try to extract duration in minutes from user message / context."""
-    # Look for explicit duration patterns
-    m = re.search(r'(\d+)\s*(?:min|minutes|mins)', user_msg.lower())
+    lower = user_msg.lower()
+
+    # Look for explicit duration patterns: "45 minutes", "30 min"
+    m = re.search(r'(\d+)\s*(?:min|minutes|mins|minute)', lower)
     if m:
         val = int(m.group(1))
         if 10 <= val <= 300:
             return val
+
+    # Look for hour patterns: "an hour", "one hour", "1 hour", "2 hours"
+    m = re.search(r'(\d+(?:\.\d+)?)\s*(?:hour|hours|hr|hrs)', lower)
+    if m:
+        val = int(float(m.group(1)) * 60)
+        if 10 <= val <= 300:
+            return val
+
+    # "an hour" / "one hour" / "half an hour"
+    if re.search(r'\bhalf\s+an?\s+hour\b', lower):
+        return 30
+    if re.search(r'\ban?\s+hour\b', lower) or re.search(r'\bone\s+hour\b', lower):
+        return 60
 
     # Look for "Z2 60min" style in context
     m = re.search(r'[ZzRr]\d\s+(\d+)\s*min', user_msg)
