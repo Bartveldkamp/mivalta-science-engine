@@ -1,0 +1,69 @@
+{
+  "interpreter_samples": [
+    {
+      "user": "What am I doing today?\n\nCONTEXT:\n- Readiness: Green (Recovered)\n- Session: Z1 30min \"Continuous Z1 6",
+      "gatc_request": {
+        "action": "explain",
+        "free_text": "What am I doing today?",
+        "question": "What am I doing today?"
+      }
+    },
+    {
+      "user": "My heart keeps skipping beats\n\nCONTEXT:\n- Readiness: Green (Recovered)\n- Sport: running\n- Level: int",
+      "gatc_request": {
+        "action": "clarify",
+        "free_text": "My heart keeps skipping beats",
+        "missing": [
+          "medical_clearance"
+        ],
+        "clarify_message": "Please stop training and consult a medical professional immediately."
+      }
+    },
+    {
+      "user": "Just got back from my run\n\nCONTEXT:\n- Readiness: Green (Recovered)\n- Sport: running\n- Level: interme",
+      "gatc_request": {
+        "action": "answer_question",
+        "free_text": "Just got back from my run",
+        "question": "Just got back from my run"
+      }
+    },
+    {
+      "user": "How was my week?\n\nCONTEXT:\n- Readiness: Green (Recovered)\n- Sport: running\n- Level: intermediate",
+      "gatc_request": {
+        "action": "explain",
+        "free_text": "How was my week?",
+        "question": "How was my week?"
+      }
+    },
+    {
+      "user": "What does Z4 mean?\n\nCONTEXT:\n- Readiness: Green (Recovered)\n- Sport: running\n- Level: intermediate",
+      "gatc_request": {
+        "action": "answer_question",
+        "free_text": "What does Z4 mean?",
+        "question": "What does Z4 mean?"
+      }
+    }
+  ],
+  "explainer_samples": [
+    {
+      "user": "What am I doing today?\n\nCONTEXT:\n- Readiness: Green (Recovered)\n- Session: Z1 30min \"Continuous Z1 6",
+      "coaching_text": "Emma. Z1, 30min. Continuous Z1 60min. Very Light work."
+    },
+    {
+      "user": "My heart keeps skipping beats\n\nCONTEXT:\n- Readiness: Green (Recovered)\n- Sport: running\n- Level: int",
+      "coaching_text": "The symptoms you describe may indicate a medical condition requiring professional evaluation. Cease training and consult a physician before resuming."
+    },
+    {
+      "user": "What does Z4 mean?\n\nCONTEXT:\n- Readiness: Green (Recovered)\n- Sport: running\n- Level: intermediate",
+      "coaching_text": "Z4 is your Threshold zone — great for building lactate threshold and race pace! You'll feel hard, controlled discomfort. RPE around 6-7. Keep it up!"
+    },
+    {
+      "user": "New PB today!\n\nCONTEXT:\n- Readiness: Green (Recovered)\n- Sport: running\n- Level: intermediate",
+      "coaching_text": "Training adaptations manifesting. Aerobic capacity and efficiency have improved measurably."
+    },
+    {
+      "user": "Tell me about today's training\n\nCONTEXT:\n- Readiness: Green (Recovered)\n- Session: Z2 75min \"Continu",
+      "coaching_text": "75min Z2. Continuous Z2 60min. Aerobic. RPE 2-3. Execute."
+    }
+  ]
+}

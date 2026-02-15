@@ -280,7 +280,11 @@ def check_pushback(response: str, category: str) -> bool:
         "not realistic", "unrealistic", "concern", "worried",
         "careful", "caution", "instead", "alternative", "defer",
         "half marathon", "longer timeline", "more time", "genuinely",
-        "ambitious", "significantly", "rush",
+        "ambitious", "significantly", "rush", "honest", "tough",
+        "patience", "patient", "gradual", "build up", "step by step",
+        "sustainable", "safely", "safe", "overdo", "burn out",
+        "burnout", "realistic", "adjust", "reconsider", "rethink",
+        "slow down", "ease into", "foundation", "base", "challenging",
     ]
     return any(p in response_lower for p in pushback_indicators)
 
@@ -353,13 +357,16 @@ def clean_unk_bytes(text: str) -> str:
     text follows each bracket. We replace the bracket with a space (since ▁ = space
     in SentencePiece) and keep the decoded text that follows.
     """
+    # Pattern 1: Bracketed [UNK_BYTE_0xe29681▁word] tokens
     cleaned = re.sub(r'\[UNK_BYTE_[^\]]*\]', ' ', text)
+    # Pattern 2: Unbracketed UNK_BYTE (rare edge case in some outputs)
+    cleaned = re.sub(r'UNK_BYTE_0x[0-9a-fA-F]+[\s\u2581]?', ' ', cleaned)
     cleaned = re.sub(r' +', ' ', cleaned)
     return cleaned.strip()
 
 
 def _strip_ansi(text: str) -> str:
-    """Remove ANSI escape sequences from terminal output."""
+    """Remove ANSI escape sequences and carriage returns from terminal output."""
     return re.sub(r'\x1b\[[0-9;]*[a-zA-Z]|\r', '', text)
 
 
@@ -392,7 +399,7 @@ def _parse_gguf_output(raw: str) -> str:
             # Method C: take everything after the last ">" prompt marker
             last_prompt = output.rfind("\n>")
             if last_prompt >= 0:
-                response = output[last_prompt:]
+                response = output[last_prompt + 2:]
             else:
                 response = output
 
@@ -407,54 +414,169 @@ def _parse_gguf_output(raw: str) -> str:
         if exit_pos > 0:
             response = response[:exit_pos]
 
+    # --- Early extraction: fenced JSON-only response (```json ... ```) ---
+    # If the model outputs primarily a fenced JSON block, extract "response"
+    # before noise filtering can mangle the multi-line JSON structure.
+    fenced_match = re.search(r'```\s*(?:json)?\s*\n(.*?)\n\s*```', response, re.DOTALL)
+    if fenced_match:
+        json_str = fenced_match.group(1).strip()
+        try:
+            data = json.loads(json_str)
+            if 'response' in data and isinstance(data['response'], str):
+                # Check if there's meaningful text BEFORE the fenced block
+                text_before = response[:fenced_match.start()].strip()
+                text_before = re.sub(r'Valid\s+LLMIntent\s+JSON\s*:', '', text_before).strip()
+                # Remove timing lines from text_before
+                text_before = re.sub(r'\[\s*Prompt:.*', '', text_before).strip()
+                if len(text_before.split()) < 5:
+                    # JSON-only response → return extracted text directly
+                    return data['response']
+        except (json.JSONDecodeError, ValueError):
+            pass
+
     # --- Strip JSON LLMIntent block (keep only the text response) ---
-    json_start = response.find('```json')
-    if json_start == -1:
-        json_start = response.find('```\n{')
-    if json_start == -1:
-        json_start = response.find('\n{"intent"')
-    if json_start == -1:
-        json_start = response.find('\n"intent"')
-    if json_start > 10:
-        response = response[:json_start]
+    # Try multiple patterns (handles fenced, bare, and indented JSON)
+    json_pos = -1
+    for pattern in [
+        r'\n\s*```json',                 # ```json fenced
+        r'\n\s*```\s*\n\s*\{',           # ``` then {
+        r'\n\s*\{\s*\n?\s*"intent"',     # standalone { "intent" (possibly indented)
+        r'\n\s*"intent"\s*:',            # bare "intent" key
+        r'\n\s*Valid\s+LLMIntent',       # "Valid LLMIntent JSON:" marker
+    ]:
+        m = re.search(pattern, response)
+        if m and m.start() > 10:
+            json_pos = m.start()
+            break
+    if json_pos > 0:
+        response = response[:json_pos]
 
     response = re.sub(r'Valid\s+LLMIntent\s+JSON\s*:', '', response)
 
     # --- Clean remaining noise lines ---
+    noise_markers = [
+        "▄▄", "██", "▀▀", "build :", "modalities :",
+        "available commands", "/exit", "/regen", "/clear",
+        "/read", "Loading model", "Exiting",
+        "llama_", "memory breakdown", "Script started",
+        "Script done", "> <start_of_turn>",
+        "model :", "model:",
+    ]
     lines = response.split("\n")
     clean_lines = []
     for line in lines:
         stripped = line.strip()
         if not stripped:
             continue
-        if any(noise in stripped for noise in [
-            "▄▄", "██", "▀▀", "build :", "modalities :",
-            "available commands", "/exit", "/regen", "/clear",
-            "/read", "Loading model", "Prompt:", "Generation:",
-            "Exiting", "llama_", "memory breakdown", "Script started",
-            "Script done", "> <start_of_turn>",
-        ]):
+        if any(noise in stripped for noise in noise_markers):
             continue
-        # Skip lines that are just markdown fences
-        if stripped in ("```", "```json"):
+        # Skip markdown fences (```json, ``` json, ```JSON, etc.) and timing lines
+        if re.match(r'^```\s*(?:json)?\s*$', stripped, re.IGNORECASE) or stripped == ">":
+            continue
+        if re.match(r'\[\s*Prompt:', stripped):
             continue
         clean_lines.append(stripped)
 
     result = " ".join(clean_lines).strip()
-    # Collapse **bold** markers into plain text for eval scoring
+    # Collapse **bold** and *italic* markers for eval scoring
     result = re.sub(r'\*\*([^*]+)\*\*', r'\1', result)
     result = re.sub(r'\*([^*]+)\*', r'\1', result)
+
+    # If the result is only JSON (no text preamble), extract "response" field
+    if result and result.lstrip().startswith('{') and '"response"' in result:
+        try:
+            data = json.loads(result)
+            if 'response' in data and isinstance(data['response'], str):
+                result = data['response']
+        except (json.JSONDecodeError, ValueError):
+            pass
+
+    # Fallback: if result still contains fence markers with embedded JSON
+    if result and '```' in result and '"response"' in result:
+        inner_match = re.search(r'```\s*(?:json)?\s*(.*?)\s*```', result, re.DOTALL)
+        if inner_match:
+            try:
+                data = json.loads(inner_match.group(1).strip())
+                if 'response' in data and isinstance(data['response'], str):
+                    result = data['response']
+            except (json.JSONDecodeError, ValueError):
+                pass
+
     return result if result else "[PARSE_ERROR]"
+
+
+def _run_with_pty(cmd, timeout=120):
+    """Run a command attached to a PTY, capturing all terminal output.
+
+    This handles programs that write to /dev/tty or require a terminal
+    (like llama-cli in conversation mode). Creates a new session so the
+    PTY becomes the child's controlling terminal.
+    """
+    import os, pty, select, threading, time
+
+    master, slave = pty.openpty()
+
+    try:
+        proc = subprocess.Popen(
+            cmd,
+            stdin=subprocess.DEVNULL,
+            stdout=slave,
+            stderr=slave,
+            preexec_fn=os.setsid,
+            close_fds=True,
+        )
+    except Exception:
+        os.close(master)
+        os.close(slave)
+        return ""
+
+    os.close(slave)
+
+    chunks = []
+    done = threading.Event()
+
+    def reader():
+        while not done.is_set():
+            try:
+                r, _, _ = select.select([master], [], [], 0.5)
+                if r:
+                    data = os.read(master, 65536)
+                    if not data:
+                        break
+                    chunks.append(data)
+            except (OSError, ValueError):
+                break
+
+    t = threading.Thread(target=reader, daemon=True)
+    t.start()
+
+    try:
+        proc.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.wait()
+
+    # Let reader drain remaining buffered output
+    time.sleep(0.3)
+    done.set()
+
+    try:
+        os.close(master)
+    except OSError:
+        pass
+
+    t.join(timeout=5)
+
+    return b"".join(chunks).decode("utf-8", errors="replace")
 
 
 def run_prompt_gguf(model_path: str, prompt: str, llama_cli: str) -> str:
     """Run prompt via llama.cpp CLI (GGUF model) with Gemma 3n chat template.
 
-    Uses script(1) to capture output via a pseudo-terminal, because
-    llama-cli in conversation mode writes to /dev/tty directly,
-    bypassing normal stdout/stderr capture.
+    Uses Python's pty module to create a pseudo-terminal for capturing
+    output, because llama-cli may write to /dev/tty directly in some modes.
     """
-    import tempfile, os, shlex
+    import tempfile, os
 
     # Gemma 3n format: native system role supported
     formatted = (
@@ -466,7 +588,6 @@ def run_prompt_gguf(model_path: str, prompt: str, llama_cli: str) -> str:
     )
 
     prompt_file = None
-    output_file = None
 
     try:
         # Write prompt to temp file (avoids shell escaping issues)
@@ -474,39 +595,22 @@ def run_prompt_gguf(model_path: str, prompt: str, llama_cli: str) -> str:
         with os.fdopen(fd, 'w') as f:
             f.write(formatted)
 
-        fd2, output_file = tempfile.mkstemp(suffix='.txt', prefix='josi_o_')
-        os.close(fd2)
+        cmd = [
+            llama_cli, "-m", model_path,
+            "-f", prompt_file,
+            "-n", "150", "--temp", "0.45",
+            "--single-turn",
+        ]
 
-        inner_cmd = (
-            f'{shlex.quote(llama_cli)} -m {shlex.quote(model_path)} '
-            f'-f {shlex.quote(prompt_file)} -n 150 --temp 0.45 --single-turn'
-        )
-
-        # Strategy 1: Use script(1) to capture PTY output.
-        # llama-cli in conversation mode writes to the terminal directly;
-        # script creates a pseudo-terminal so all output is captured.
-        script_cmd = (
-            f'script -q -c {shlex.quote(inner_cmd)} {shlex.quote(output_file)}'
-        )
-        subprocess.run(
-            script_cmd, shell=True, timeout=120,
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-
-        with open(output_file) as f:
-            raw = f.read()
-
+        # Strategy 1: PTY-based capture (handles /dev/tty writes)
+        raw = _run_with_pty(cmd, timeout=120)
         if raw.strip():
             return _parse_gguf_output(raw)
 
-        # Strategy 2: Fall back to standard subprocess capture
-        # (in case script is unavailable or failed silently)
+        # Strategy 2: Direct subprocess capture (simpler programs)
         result = subprocess.run(
-            [llama_cli, "-m", model_path, "-f", prompt_file,
-             "-n", "150", "--temp", "0.45", "--single-turn"],
-            capture_output=True, text=True, timeout=120,
+            cmd, capture_output=True, text=True, timeout=120,
+            stdin=subprocess.DEVNULL,
         )
         combined = (result.stdout or "") + (result.stderr or "")
         if combined.strip():
@@ -518,12 +622,11 @@ def run_prompt_gguf(model_path: str, prompt: str, llama_cli: str) -> str:
     except Exception as e:
         return f"[ERROR: {e}]"
     finally:
-        for f in [prompt_file, output_file]:
-            if f:
-                try:
-                    os.unlink(f)
-                except OSError:
-                    pass
+        if prompt_file:
+            try:
+                os.unlink(prompt_file)
+            except OSError:
+                pass
 
 
 def run_prompt_hf(model, processor, prompt: str, device: str) -> str:

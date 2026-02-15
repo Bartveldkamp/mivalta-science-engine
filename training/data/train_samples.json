@@ -1,0 +1,77 @@
+{
+  "interpreter_samples": [
+    {
+      "user": "That was tough but I did it\n\nCONTEXT:\n- Readiness: Green (Recovered)\n- Sport: running\n- Level: inter",
+      "gatc_request": {
+        "action": "answer_question",
+        "free_text": "That was tough but I did it",
+        "question": "That was tough but I did it"
+      }
+    },
+    {
+      "user": "Ok, tell me about periodization then\n\nCONTEXT:\n- Readiness: Green (Recovered)\n- Sport: running\n- Lev",
+      "gatc_request": {
+        "action": "answer_question",
+        "free_text": "Ok, tell me about periodization then",
+        "question": "Ok, tell me about periodization then"
+      }
+    },
+    {
+      "user": "Let me train through fatigue\n\nCONTEXT:\n- Readiness: Green (Recovered)\n- Sport: running\n- Level: inte",
+      "gatc_request": {
+        "action": "create_workout",
+        "free_text": "Let me train through fatigue",
+        "sport": "run",
+        "constraints": {
+          "fatigue_hint": "tired"
+        }
+      }
+    },
+    {
+      "user": "Something fun for 30 minutes\n\nCONTEXT:\n- Readiness: Green (Recovered)\n- Sport: running\n- Level: inte",
+      "gatc_request": {
+        "action": "create_workout",
+        "free_text": "Something fun for 30 minutes",
+        "sport": "run",
+        "time_available_min": 30,
+        "constraints": {
+          "fatigue_hint": "fresh"
+        }
+      }
+    },
+    {
+      "user": "Change my zone from Z2 to Z5\n\nCONTEXT:\n- Readiness: Green (Recovered)\n- Sport: running\n- Level: inte",
+      "gatc_request": {
+        "action": "create_workout",
+        "free_text": "Change my zone from Z2 to Z5",
+        "sport": "run",
+        "goal": "recovery",
+        "constraints": {
+          "fatigue_hint": "fresh"
+        }
+      }
+    }
+  ],
+  "explainer_samples": [
+    {
+      "user": "That was tough but I did it\n\nCONTEXT:\n- Readiness: Green (Recovered)\n- Sport: running\n- Level: inter",
+      "coaching_text": "Great work today! That session is in the bank. Your consistency is building something strong."
+    },
+    {
+      "user": "Ok, tell me about periodization then\n\nCONTEXT:\n- Readiness: Green (Recovered)\n- Sport: running\n- Lev",
+      "coaching_text": "Great question! Think of it like a wave — you build up, push a bit harder, then recover and come back stronger! Each cycle takes you to a new level."
+    },
+    {
+      "user": "Let me train through fatigue\n\nCONTEXT:\n- Readiness: Green (Recovered)\n- Sport: running\n- Level: inte",
+      "coaching_text": "Modifying training parameters falls outside my scope. The engine uses your biometric data and training history to optimize load. Would you like me to elaborate on today's prescription?"
+    },
+    {
+      "user": "Something fun for 30 minutes\n\nCONTEXT:\n- Readiness: Green (Recovered)\n- Sport: running\n- Level: inte",
+      "coaching_text": "Generating a 30-minute varied-structure session optimized for engagement rather than pure load."
+    },
+    {
+      "user": "Change my zone from Z2 to Z5\n\nCONTEXT:\n- Readiness: Green (Recovered)\n- Sport: running\n- Level: inte",
+      "coaching_text": "Modifying training parameters falls outside my scope. The engine uses your biometric data and training history to optimize load. Would you like me to elaborate on today's prescription?"
+    }
+  ]
+}

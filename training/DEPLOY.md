@@ -113,35 +113,71 @@ Key metrics:
 - Pushback rate 5/5 on unrealistic goals
 - **Governor compliance > 90%** (answer-first, max 1 question)
 
-### Step 6: Upload to Hetzner Object Storage
+### Step 6: Publish Models (Merge → GGUF → Upload)
+
+v4 uses a **dual-model architecture** — interpreter + explainer as separate GGUF files:
+
+| Model | File | Purpose |
+|-------|------|---------|
+| Interpreter | `josi-v4-interpreter-q4_k_m.gguf` | GATCRequest JSON structured output |
+| Explainer | `josi-v4-explainer-q4_k_m.gguf` | Plain coaching text output |
+
+**Automated publish (recommended):**
 
 ```bash
-# Upload to Hetzner Object Storage for app download
-# (configure s3cmd or rclone with Hetzner credentials first)
-s3cmd put ./models/gguf/merged-q4_k_m.gguf \
-  s3://mivalta-models/josi-v4-gemma3n-q4_k_m.gguf \
-  --acl-public
+# Full pipeline: merge LoRA → GGUF Q4_K_M → upload to Hetzner Object Storage
+python scripts/publish_models.py \
+  --interpreter models/josi-v4-gemma3n-<timestamp>/final \
+  --explainer models/josi-v4-gemma3n-<timestamp>/final
 
-# Verify
-curl -I https://objects.mivalta.com/models/josi-v4-gemma3n-q4_k_m.gguf
+# Run in background (persists after terminal close)
+nohup python scripts/publish_models.py \
+  --interpreter models/josi-v4-gemma3n-<timestamp>/final \
+  --explainer models/josi-v4-gemma3n-<timestamp>/final \
+  > publish.log 2>&1 &
+
+# Merge + convert only (skip upload)
+python scripts/publish_models.py \
+  --interpreter models/josi-v4-gemma3n-<timestamp>/final \
+  --explainer models/josi-v4-gemma3n-<timestamp>/final \
+  --no-upload
 ```
 
-For development (share with developer):
+**Manual upload (if needed):**
 
 ```bash
-# Option A: Developer has SSH access
-scp cockpit2@136.243.73.100:~/mivalta-science-engine/training/models/gguf/merged-q4_k_m.gguf .
+s3cmd put ./models/gguf/josi-v4-interpreter-q4_k_m.gguf \
+  s3://mivalta-models/josi-v4-interpreter-q4_k_m.gguf --acl-public
+s3cmd put ./models/gguf/josi-v4-explainer-q4_k_m.gguf \
+  s3://mivalta-models/josi-v4-explainer-q4_k_m.gguf --acl-public
 
-# Option B: Temporary HTTP download
-cd ~/mivalta-science-engine/training/models/gguf
-nohup python3 -m http.server 8888 > /dev/null 2>&1 &
-# Kill when done: kill $(lsof -t -i:8888)
+# Verify
+curl -I https://objects.mivalta.com/models/josi-v4-interpreter-q4_k_m.gguf
+curl -I https://objects.mivalta.com/models/josi-v4-explainer-q4_k_m.gguf
+```
+
+**Developer download:**
+
+```bash
+# Automated download with checksum verification
+python training/scripts/download_models.py
+
+# Download to custom directory
+python training/scripts/download_models.py --output-dir /path/to/models
+
+# Download only one model
+python training/scripts/download_models.py --interpreter-only
+python training/scripts/download_models.py --explainer-only
+
+# Direct download (no script needed)
+curl -LO https://objects.mivalta.com/models/josi-v4-interpreter-q4_k_m.gguf
+curl -LO https://objects.mivalta.com/models/josi-v4-explainer-q4_k_m.gguf
 ```
 
 **App download flow:**
-1. User installs app (~50 MB, no model bundled)
+1. User installs app (~50 MB, no models bundled)
 2. First launch: "Setting up your coach..." progress bar
-3. Model downloads from Hetzner Object Storage (~2.8 GB)
+3. Both models download from Hetzner Object Storage (~5.6 GB total)
 4. Cached locally, never re-downloaded unless model version updates
 5. All inference runs on-device via llama.cpp — **NO network calls during chat**
 
@@ -169,6 +205,8 @@ training/
     finetune_gemma3n.py        # QLoRA fine-tuning (Gemma 3n E2B)
     evaluate_gemma3n.py        # Validation suite (with dialogue governor checks)
     convert_gemma3n.py         # GGUF conversion & quantization
+    publish_models.py          # End-to-end: merge → GGUF → upload to Hetzner
+    download_models.py         # Developer model download with checksum verify
     finetune_smollm2.py        # Legacy: SmolLM2 fine-tuning (360M and 1.7B)
     evaluate_smollm2.py        # Legacy: SmolLM2 validation
     export_gguf.py             # Legacy: GGUF conversion
