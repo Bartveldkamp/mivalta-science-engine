@@ -304,6 +304,39 @@ INTERPRETER_AUGMENTATION = [
     {"user": "Help me",
      "response": {"action": "clarify", "missing": ["intent"], "clarify_message": "Of course! What do you need help with? A workout, your plan, or a training question?", "free_text": "Help me"}},
 
+    # --- ANSWER_QUESTION: general knowledge questions WITHOUT context (15 examples) ---
+    # These reinforce that general training questions → answer_question, NOT clarify
+    {"user": "How does recovery work?",
+     "response": {"action": "answer_question", "question": "How does recovery work?", "free_text": "How does recovery work?"}},
+    {"user": "What is Zone 2 training?",
+     "response": {"action": "answer_question", "question": "What is Zone 2 training?", "free_text": "What is Zone 2 training?"}},
+    {"user": "Why are easy days important?",
+     "response": {"action": "answer_question", "question": "Why are easy days important?", "free_text": "Why are easy days important?"}},
+    {"user": "What's the difference between tempo and threshold?",
+     "response": {"action": "answer_question", "question": "What's the difference between tempo and threshold?", "free_text": "What's the difference between tempo and threshold?"}},
+    {"user": "How often should a beginner run per week?",
+     "response": {"action": "answer_question", "question": "How often should a beginner run per week?", "free_text": "How often should a beginner run per week?"}},
+    {"user": "What is periodization?",
+     "response": {"action": "answer_question", "question": "What is periodization?", "free_text": "What is periodization?"}},
+    {"user": "How do I prevent injuries?",
+     "response": {"action": "answer_question", "question": "How do I prevent injuries?", "free_text": "How do I prevent injuries?"}},
+    {"user": "What's a taper?",
+     "response": {"action": "answer_question", "question": "What's a taper?", "free_text": "What's a taper?"}},
+    {"user": "How long does it take to build an aerobic base?",
+     "response": {"action": "answer_question", "question": "How long does it take to build an aerobic base?", "free_text": "How long does it take to build an aerobic base?"}},
+    {"user": "What's the best way to warm up before a run?",
+     "response": {"action": "answer_question", "question": "What's the best way to warm up before a run?", "free_text": "What's the best way to warm up before a run?"}},
+    {"user": "Should I stretch before or after training?",
+     "response": {"action": "answer_question", "question": "Should I stretch before or after training?", "free_text": "Should I stretch before or after training?"}},
+    {"user": "How does overtraining happen?",
+     "response": {"action": "answer_question", "question": "How does overtraining happen?", "free_text": "How does overtraining happen?"}},
+    {"user": "What is active recovery?",
+     "response": {"action": "answer_question", "question": "What is active recovery?", "free_text": "What is active recovery?"}},
+    {"user": "Why is sleep important for athletes?",
+     "response": {"action": "answer_question", "question": "Why is sleep important for athletes?", "free_text": "Why is sleep important for athletes?"}},
+    {"user": "How do rest days help performance?",
+     "response": {"action": "answer_question", "question": "How do rest days help performance?", "free_text": "How do rest days help performance?"}},
+
     # --- CLARIFY: medical (8 examples) ---
     {"user": "I have chest pain and I feel dizzy\n\nCONTEXT:\n- Sport: running\n- Readiness: Green",
      "response": {"action": "clarify", "missing": ["medical_clearance"], "clarify_message": "Please stop training and consult a medical professional immediately.", "free_text": "I have chest pain and I feel dizzy"}},
@@ -321,6 +354,29 @@ INTERPRETER_AUGMENTATION = [
      "response": {"action": "clarify", "missing": ["medical_clearance"], "clarify_message": "Please stop training and consult a medical professional immediately.", "free_text": "My back has been really sore for a week"}},
     {"user": "I blacked out briefly during my last workout\n\nCONTEXT:\n- Sport: running\n- Readiness: Green",
      "response": {"action": "clarify", "missing": ["medical_clearance"], "clarify_message": "Please stop training and consult a medical professional immediately.", "free_text": "I blacked out briefly during my last workout"}},
+
+    # --- CLARIFY: more medical — persistent pain/injury (10 examples) ---
+    # These reinforce that PERSISTENT PAIN and INJURY → clarify, NOT replan:illness
+    {"user": "My knee has been hurting for 3 days\n\nCONTEXT:\n- Sport: running\n- Readiness: Green",
+     "response": {"action": "clarify", "missing": ["medical_clearance"], "clarify_message": "Please stop training and consult a medical professional immediately.", "free_text": "My knee has been hurting for 3 days"}},
+    {"user": "I have pain in my shin that won't go away\n\nCONTEXT:\n- Sport: running\n- Readiness: Yellow",
+     "response": {"action": "clarify", "missing": ["medical_clearance"], "clarify_message": "Please stop training and consult a medical professional immediately.", "free_text": "I have pain in my shin that won't go away"}},
+    {"user": "My ankle has been swollen for days\n\nCONTEXT:\n- Sport: running\n- Readiness: Green",
+     "response": {"action": "clarify", "missing": ["medical_clearance"], "clarify_message": "Please stop training and consult a medical professional immediately.", "free_text": "My ankle has been swollen for days"}},
+    {"user": "I feel a sharp pain in my hip when I run\n\nCONTEXT:\n- Sport: running\n- Readiness: Green",
+     "response": {"action": "clarify", "missing": ["medical_clearance"], "clarify_message": "Please stop training and consult a medical professional immediately.", "free_text": "I feel a sharp pain in my hip when I run"}},
+    {"user": "My shoulder hurts when I do strength exercises\n\nCONTEXT:\n- Sport: strength\n- Readiness: Green",
+     "response": {"action": "clarify", "missing": ["medical_clearance"], "clarify_message": "Please stop training and consult a medical professional immediately.", "free_text": "My shoulder hurts when I do strength exercises"}},
+    {"user": "I get chest tightness during intervals\n\nCONTEXT:\n- Sport: running\n- Readiness: Green",
+     "response": {"action": "clarify", "missing": ["medical_clearance"], "clarify_message": "Please stop training and consult a medical professional immediately.", "free_text": "I get chest tightness during intervals"}},
+    {"user": "I've been having numbness in my legs after cycling\n\nCONTEXT:\n- Sport: cycling\n- Readiness: Green",
+     "response": {"action": "clarify", "missing": ["medical_clearance"], "clarify_message": "Please stop training and consult a medical professional immediately.", "free_text": "I've been having numbness in my legs after cycling"}},
+    {"user": "My back pain has been getting worse every day\n\nCONTEXT:\n- Sport: strength\n- Readiness: Yellow",
+     "response": {"action": "clarify", "missing": ["medical_clearance"], "clarify_message": "Please stop training and consult a medical professional immediately.", "free_text": "My back pain has been getting worse every day"}},
+    {"user": "I feel light-headed when I stand up after exercise\n\nCONTEXT:\n- Sport: running\n- Readiness: Green",
+     "response": {"action": "clarify", "missing": ["medical_clearance"], "clarify_message": "Please stop training and consult a medical professional immediately.", "free_text": "I feel light-headed when I stand up after exercise"}},
+    {"user": "I can't put weight on my foot after yesterday's run\n\nCONTEXT:\n- Sport: running\n- Readiness: Green",
+     "response": {"action": "clarify", "missing": ["medical_clearance"], "clarify_message": "Please stop training and consult a medical professional immediately.", "free_text": "I can't put weight on my foot after yesterday's run"}},
 
     # --- CREATE_WORKOUT: all sports, always with free_text (15 examples) ---
     {"user": "I want to do a 45 minute run today\n\nCONTEXT:\n- Sport: running\n- Readiness: Green",
@@ -420,6 +476,16 @@ EXPLAINER_AUGMENTATION = [
     # --- ZONES: educational, 0 questions ---
     {"user": "My zones feel wrong. Zone 2 feels too easy.\n\nCONTEXT:\n- Readiness: Green\n- Sport: running\n- Level: intermediate",
      "response": "Zone 2 is supposed to feel easy — that's the whole point. It should be conversational pace where you feel like you could keep going forever. The magic is that this easy effort builds your aerobic engine, which is the foundation for everything else. Trust the process."},
+
+    # --- ZONES: educational, strict 0 questions ---
+    {"user": "How do I know what zone I'm in without a heart rate monitor?\n\nCONTEXT:\n- Readiness: Green\n- Sport: running\n- Level: intermediate",
+     "response": "The simplest way is the talk test. In Zone 1-2, you can hold a full conversation. In Zone 3, you can speak in short sentences. In Zone 4, only a few words at a time. Zone 5, you can barely talk at all. Breathing and perceived effort are reliable guides even without a monitor."},
+    {"user": "How do I know what zone I'm in without a heart rate monitor?\n\nCONTEXT:\n- Readiness: Green\n- Sport: cycling\n- Level: beginner",
+     "response": "Use the talk test — it's surprisingly accurate. If you can chat freely, you're in Zone 1-2. Short sentences mean Zone 3. Only a few words means Zone 4. And if you can't talk at all, that's Zone 5. Pay attention to your breathing rhythm and how your legs feel."},
+    {"user": "What are training zones?\n\nCONTEXT:\n- Readiness: Green\n- Sport: running\n- Level: beginner",
+     "response": "Training zones are intensity levels based on your heart rate or perceived effort. Zone 1-2 is easy and conversational — this builds your aerobic base. Zone 3 is comfortably hard. Zone 4 is threshold work where it gets tough. Zone 5 is all-out effort. Each zone trains a different energy system."},
+    {"user": "Why can't I just run at whatever pace I feel like?\n\nCONTEXT:\n- Readiness: Green\n- Sport: running\n- Level: intermediate",
+     "response": "Running by feel often leads to the same moderate intensity every day. That's too hard to recover from and too easy to improve. Structured zones ensure your easy days are truly easy for recovery, and your hard days are hard enough to trigger adaptation. This mix is what drives real progress."},
 
     # --- GENERAL: practical, 0 questions ---
     {"user": "How do I balance training with a busy work schedule?\n\nCONTEXT:\n- Readiness: Green\n- Sport: running\n- Level: intermediate",

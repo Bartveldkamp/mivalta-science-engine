@@ -83,7 +83,43 @@ def _has_any_context(user_message: str) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# 3. Strip markdown fences
+# 3. Medical red-flag detection
+# ---------------------------------------------------------------------------
+
+# These indicate potential medical emergencies — NOT common illness.
+# Common illness (cold, flu, sick, stomach bug) should stay as replan:illness.
+_MEDICAL_RED_FLAGS = [
+    r'\bchest\s+pain\b',
+    r'\bheart\s+(?:pain|feels?\s+weird|racing|pounding)\b',
+    r'\bdizz(?:y|iness)\b',
+    r'\blight[- ]?headed\b',
+    r'\bblacked?\s+out\b',
+    r'\bfainted?\b',
+    r'\blost\s+consciousness\b',
+    r'\bcan\'?t\s+breathe\b',
+    r'\bbreathing\s+(?:problem|difficult|trouble)\b',
+    r'\bnumb(?:ness)?\b',
+    r'\btingling\b',
+    # Persistent pain / injury patterns (multi-day or specific body part pain)
+    r'\b(?:hurt|pain)\w*\s+for\s+\d+\s+day',
+    r'\bbeen\s+(?:hurt|pain)ing\b',
+    r'\bsharp\s+pain\b',
+    r'\bshooting\s+pain\b',
+    r'\bpain\s+in\s+my\s+(?:chest|heart|shin|knee|back|shoulder|hip|ankle)\b',
+    r'\b(?:knee|back|shin|shoulder|hip|ankle)\s+(?:has\s+been|been)\s+(?:hurt|pain)ing\b',
+    r'\b(?:knee|back|shin|shoulder|hip|ankle)\b.{0,20}\bhurt(?:s|ing)\b.{0,20}\b\d+\s+day',
+]
+
+_MEDICAL_RED_FLAG_RES = [re.compile(p, re.IGNORECASE) for p in _MEDICAL_RED_FLAGS]
+
+
+def _has_medical_red_flag(user_message: str) -> bool:
+    """Return True if the user message contains medical red-flag symptoms."""
+    return any(r.search(user_message) for r in _MEDICAL_RED_FLAG_RES)
+
+
+# ---------------------------------------------------------------------------
+# 4. Strip markdown fences
 # ---------------------------------------------------------------------------
 
 def strip_markdown_fences(raw: str) -> str:
@@ -193,5 +229,26 @@ def postprocess_gatc_request(parsed: dict, user_message: str) -> dict:
                 "A workout, explaining your plan, or a training question?"
             )
             result.pop("question", None)
+
+    # --- Fix 5: Medical red-flag override ---
+    # Persistent pain, cardiac symptoms, dizziness → clarify with medical safety
+    # Distinct from common illness (cold, flu, sick) which stays as replan:illness
+    if _has_medical_red_flag(user_message):
+        result["action"] = "clarify"
+        result["missing"] = ["medical_clearance"]
+        result["clarify_message"] = (
+            "Please stop training and consult a medical professional immediately."
+        )
+        # Remove fields that don't belong on a medical clarify
+        result.pop("replan_type", None)
+        result.pop("sport", None)
+        result.pop("question", None)
+
+    # --- Fix 6: Ensure free_text is always present ---
+    if "free_text" not in result or not result.get("free_text"):
+        # Extract from user message (strip CONTEXT block)
+        msg = user_message.split("\n\nCONTEXT:")[0].strip()
+        if msg:
+            result["free_text"] = msg
 
     return result
