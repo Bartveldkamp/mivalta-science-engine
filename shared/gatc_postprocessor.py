@@ -136,10 +136,45 @@ def strip_markdown_fences(raw: str) -> str:
 # 4. Parse raw model output into dict
 # ---------------------------------------------------------------------------
 
+def _repair_truncated_json(text: str) -> Optional[dict]:
+    """Attempt to repair JSON truncated mid-value (e.g. by token limit).
+
+    Common case: the model ran out of tokens while writing a long free_text
+    string, so the JSON has an unclosed string/object. Strategy:
+      1. Find complete key-value pairs already present
+      2. Truncate at the last complete pair
+      3. Close the object
+    """
+    # Find the opening brace
+    start = text.find("{")
+    if start < 0:
+        return None
+
+    fragment = text[start:]
+
+    # Try progressively truncating from the end to find valid JSON
+    # Look for the last complete "key": value pair
+    # Strategy: find last comma that gives valid JSON when we close after it
+    for i in range(len(fragment) - 1, 0, -1):
+        ch = fragment[i]
+        if ch in (',', '{'):
+            candidate = fragment[:i] + ('' if ch == '{' else '') + '}'
+            if ch == '{':
+                candidate = fragment[:i + 1] + '}'
+            else:
+                candidate = fragment[:i] + '}'
+            try:
+                return json.loads(candidate)
+            except json.JSONDecodeError:
+                continue
+
+    return None
+
+
 def parse_gatc_response(raw: str) -> Optional[dict]:
     """Parse raw model output string into a GATCRequest dict.
 
-    Handles markdown fences and noisy output.
+    Handles markdown fences, noisy output, and truncated JSON.
     """
     cleaned = strip_markdown_fences(raw)
 
@@ -158,6 +193,11 @@ def parse_gatc_response(raw: str) -> Optional[dict]:
                 return json.loads(cleaned[start:end + 1])
             except json.JSONDecodeError:
                 pass
+
+    # Last resort: repair truncated JSON (model ran out of tokens)
+    repaired = _repair_truncated_json(cleaned)
+    if repaired is not None:
+        return repaired
 
     return None
 
@@ -218,9 +258,10 @@ def postprocess_gatc_request(parsed: dict, user_message: str) -> dict:
 
     # --- Fix 4: Enforce clarify for ambiguous intent without context ---
     if action in ("explain", "answer_question") and not _has_any_context(user_message):
-        free = result.get("free_text", "").lower().strip()
-        # Very short, ambiguous messages that aren't real questions
-        ambiguous = len(free.split()) <= 4 and "?" not in free
+        # Use user message (sans CONTEXT) for ambiguity check — the model's
+        # free_text can be wrong (e.g. "answer_question" instead of the message)
+        msg = user_message.split("\n\nCONTEXT:")[0].strip().lower()
+        ambiguous = len(msg.split()) <= 4 and "?" not in msg
         if ambiguous:
             result["action"] = "clarify"
             result["missing"] = ["intent"]

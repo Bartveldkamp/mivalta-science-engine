@@ -49,11 +49,11 @@ except ImportError:
     HAS_GOVERNOR = False
 
 try:
-    from gatc_postprocessor import postprocess_gatc_request
+    from gatc_postprocessor import postprocess_gatc_request, parse_gatc_response
     HAS_POSTPROCESSOR = True
 except ImportError:
     HAS_POSTPROCESSOR = False
-    print("Warning: dialogue_governor not found — skipping governor checks")
+    print("Warning: gatc_postprocessor not found — skipping post-processing")
 
 # =============================================================================
 # SYSTEM PROMPTS
@@ -532,30 +532,33 @@ class InterpreterResult:
 def evaluate_interpreter(category: str, test: dict, response: str) -> InterpreterResult:
     failures = []
 
-    # Try to parse JSON
-    cleaned = response.strip()
-    # Strip markdown fences
-    if cleaned.startswith("```"):
-        lines = cleaned.split("\n")
-        lines = [l for l in lines if not l.strip().startswith("```")]
-        cleaned = "\n".join(lines).strip()
-
+    # Try to parse JSON (use shared parser with truncation repair if available)
     valid_json = False
     parsed = {}
-    try:
-        parsed = json.loads(cleaned)
-        valid_json = True
-    except json.JSONDecodeError:
-        # Try to extract first JSON object
-        start = cleaned.find("{")
-        if start >= 0:
-            end = cleaned.rfind("}")
-            if end > start:
-                try:
-                    parsed = json.loads(cleaned[start:end+1])
-                    valid_json = True
-                except json.JSONDecodeError:
-                    pass
+    if HAS_POSTPROCESSOR:
+        result = parse_gatc_response(response)
+        if result is not None:
+            parsed = result
+            valid_json = True
+    else:
+        cleaned = response.strip()
+        if cleaned.startswith("```"):
+            lines = cleaned.split("\n")
+            lines = [l for l in lines if not l.strip().startswith("```")]
+            cleaned = "\n".join(lines).strip()
+        try:
+            parsed = json.loads(cleaned)
+            valid_json = True
+        except json.JSONDecodeError:
+            start = cleaned.find("{")
+            if start >= 0:
+                end = cleaned.rfind("}")
+                if end > start:
+                    try:
+                        parsed = json.loads(cleaned[start:end+1])
+                        valid_json = True
+                    except json.JSONDecodeError:
+                        pass
 
     if not valid_json:
         failures.append("Invalid JSON")
