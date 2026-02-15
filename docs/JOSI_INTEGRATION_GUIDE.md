@@ -6,37 +6,51 @@
 
 ## Overview
 
-Josi is a fine-tuned **Gemma 3n E2B** model (GGUF Q4_K_M, ~2.8 GB) that runs **100% on-device** via llama.cpp / llama.android. It produces structured JSON (LLMIntent) that the Rust engine validates and acts on. **No network calls during chat.**
+Josi v4 uses a **dual-model architecture** — two fine-tuned **Gemma 3n E2B** models (GGUF Q4_K_M, ~2.6 GB each) that run **100% on-device** via llama.cpp / llama.android. **No network calls during chat.**
 
-**Model:** `google/gemma-3n-E2B-it` — 6B params (2B effective via MatFormer)
+| Model | File | Size | Purpose |
+|-------|------|------|---------|
+| **Interpreter** | `josi-v4-interpreter-q4_k_m.gguf` | ~2.6 GB | Translates user messages into structured GATCRequest JSON for the engine |
+| **Explainer** | `josi-v4-explainer-q4_k_m.gguf` | ~2.6 GB | Generates friendly coaching text the user sees |
+
+From the user's perspective, this is **one Josi AI coach**. Behind the scenes:
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                      KOTLIN APP                               │
+│                                                               │
+│  1. Build ChatContext (user message + athlete state)          │
+│  2. Format prompts (Gemma template, same context for both)   │
+│                                                               │
+│  3a. INTERPRETER model → GATCRequest JSON                    │
+│      (action, sport, replan_type, question, etc.)            │
+│                                                               │
+│  3b. EXPLAINER model → plain coaching text                   │
+│      (the message the user reads)                            │
+│                                                               │
+│  4. Parse GATCRequest → dispatch to Rust engine if needed    │
+│  5. Apply dialogue governor to explainer text                │
+│  6. Render coaching text + engine results to user            │
+└──────────────────────────────────────────────────────────────┘
+```
+
+Both models receive the **same user message + context**. They can run in parallel. The interpreter tells the engine what to do; the explainer tells the user what's happening.
+
+**Base model:** `google/gemma-3n-E2B-it` — 6B params (2B effective via MatFormer)
 **Quantization:** Q4_K_M (4-bit)
-**HF class:** `Gemma3nForConditionalGeneration` + `AutoProcessor` (requires `transformers>=4.53.0`)
 **Chat template:** Gemma (`<start_of_turn>` / `<end_of_turn>`, native system role supported)
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                    KOTLIN APP                            │
-│                                                          │
-│  1. Build ChatContext (JSON)                              │
-│  2. Format system prompt + user message (Gemma template) │
-│  3. Run inference (llama.android)                         │
-│  4. Parse raw output → LLMIntent (JSON post-processor)   │
-│  5. Apply dialogue governor (answer-first, max 1 question)│
-│  6. If tool_call: dispatch to Rust engine via FFI         │
-│  7. Render message to user                               │
-└─────────────────────────────────────────────────────────┘
-```
 
 ### Runtime Constraints (on-device)
 
 | Parameter | Value |
 |-----------|-------|
 | Context cap | 1024 tokens |
-| Output cap | 150 tokens |
+| Output cap (interpreter) | 150 tokens |
+| Output cap (explainer) | 150 tokens |
 | Temperature | 0.45 (range: 0.4-0.5) |
 | Top-p | 0.9 |
-| Model size | ~2.8 GB (Q4_K_M) |
-| Effective RAM | ~2 GB |
+| Total model size | ~5.2 GB (two GGUF files) |
+| Effective RAM per model | ~2 GB |
 
 ### Tier Architecture
 
@@ -50,24 +64,56 @@ Josi is a fine-tuned **Gemma 3n E2B** model (GGUF Q4_K_M, ~2.8 GB) that runs **1
 
 ---
 
-## Step 1: Download the Model
+## Step 1: Download the Models
 
 **Hosting:** Hetzner Object Storage
-**Size:** ~2.8 GB
+**Total size:** ~5.2 GB (two files)
 **Format:** GGUF Q4_K_M (4-bit quantized)
 
 ```kotlin
-// Download on first launch, store in app internal storage
-val modelUrl = "https://objects.mivalta.com/models/josi-v4-gemma3n-q4_k_m.gguf"
-val modelFile = File(context.filesDir, "josi-v4-gemma3n-q4_k_m.gguf")
+// Model URLs
+val interpreterUrl = "https://objects.mivalta.com/models/josi-v4-interpreter-q4_k_m.gguf"
+val explainerUrl   = "https://objects.mivalta.com/models/josi-v4-explainer-q4_k_m.gguf"
+
+// Local storage
+val interpreterFile = File(context.filesDir, "josi-v4-interpreter-q4_k_m.gguf")
+val explainerFile   = File(context.filesDir, "josi-v4-explainer-q4_k_m.gguf")
 ```
 
+**Checksums (SHA-256):**
+```
+josi-v4-interpreter-q4_k_m.gguf: 6d345bc65da986b40c7aa2eb402c5aafe9e26b54daeea37883e7cdca639ca70f
+josi-v4-explainer-q4_k_m.gguf:   86716b28d24df7fcb849ffff59f7947ff9ef8127f1b66c19e82a5fe494039637
+```
+
+**Manifest URL:** `https://objects.mivalta.com/models/josi-v4-manifest.json`
+The manifest contains current file names, sizes, and SHA-256 checksums. Use it to check for updates.
+
 **App download flow:**
-1. User installs app (~50 MB, no model bundled)
+1. User installs app (~50 MB, no models bundled)
 2. First launch: "Setting up your coach..." progress bar
-3. Model downloads from Hetzner Object Storage (~2.8 GB)
-4. Cached locally, never re-downloaded unless model version updates
-5. All inference runs on-device via llama.cpp — no network calls
+3. Both models download from Hetzner Object Storage (~5.2 GB total)
+4. Downloads can run in parallel
+5. Verify SHA-256 checksums after download
+6. Cached locally, never re-downloaded unless model version updates (check manifest)
+7. All inference runs on-device via llama.cpp — no network calls
+
+**Developer download (from training server):**
+```bash
+# Automated download with checksum verification
+python training/scripts/download_models.py
+
+# Download to custom directory
+python training/scripts/download_models.py --output-dir /path/to/models
+
+# Download only one model
+python training/scripts/download_models.py --interpreter-only
+python training/scripts/download_models.py --explainer-only
+
+# Direct download (no script needed)
+curl -LO https://objects.mivalta.com/models/josi-v4-interpreter-q4_k_m.gguf
+curl -LO https://objects.mivalta.com/models/josi-v4-explainer-q4_k_m.gguf
+```
 
 Load with [llama.android](https://github.com/ggerganov/llama.cpp/tree/master/examples/llama.android) or equivalent llama.cpp Kotlin/JNI bindings.
 
@@ -75,7 +121,7 @@ Load with [llama.android](https://github.com/ggerganov/llama.cpp/tree/master/exa
 
 ## Step 2: Build the ChatContext
 
-Before each inference call, build the context from app state. This follows `shared/schemas/chat_context.schema.json`.
+Before each inference call, build the context from app state. Both models receive the same context.
 
 ```kotlin
 data class ChatContext(
@@ -108,11 +154,37 @@ data class PlannedSession(
 )
 ```
 
+### Context String Builder
+
+Format the context block appended to the user message for both models:
+
+```kotlin
+fun buildContextString(ctx: ChatContext): String {
+    val sb = StringBuilder("CONTEXT:\n")
+    sb.append("- Readiness: ${ctx.readiness.level} (${ctx.readiness.state})\n")
+
+    if (ctx.hasSessionContext && ctx.plannedSession != null) {
+        val s = ctx.plannedSession
+        sb.append("- Session: ${s.targetZone} ${s.targetDurationMin}min ")
+        sb.append("\"${s.structureLabel}\"")
+        s.phase?.let { sb.append(" ($it phase)") }
+        sb.append("\n")
+    }
+
+    ctx.profileSummary?.let {
+        sb.append("- Sport: ${it.sport}\n")
+        sb.append("- Level: ${it.level}\n")
+    }
+
+    return sb.toString()
+}
+```
+
 ---
 
-## Step 3: Format the Prompt (Gemma 3n Template)
+## Step 3: Format Prompts (Gemma 3n Template)
 
-Gemma 3n **does** support a native system role. Content uses array format with `{"type": "text", "text": "..."}` objects.
+Both models use the same Gemma 3n chat template but with **different system prompts**.
 
 ### Gemma 3n Chat Template
 
@@ -122,26 +194,56 @@ Gemma 3n **does** support a native system role. Content uses array format with `
 <start_of_turn>user
 {user_message}
 
-CONTEXT:
-- Readiness: {level} ({state})
-- Session: {target_zone} {target_duration_min}min "{structure_label}" ({phase} phase)
-- Sport: {sport}
-- Level: {level}<end_of_turn>
+{context_string}<end_of_turn>
 <start_of_turn>model
 ```
 
-Only include the Session line if `hasSessionContext = true`.
+### Interpreter System Prompt
 
-> **Note:** When using HuggingFace transformers, messages use array-format content:
-> ```python
-> messages = [
->     {"role": "system", "content": [{"type": "text", "text": system_prompt}]},
->     {"role": "user", "content": [{"type": "text", "text": user_message}]},
-> ]
-> ```
-> The model role is `"model"` (not `"assistant"`).
+The interpreter classifies intent and extracts structured data for the engine:
 
-### System Prompt
+```
+You are Josi's Interpreter — you translate athlete messages into structured GATC requests.
+
+TASK: Read the user message and athlete state, then output ONLY valid JSON matching the GATCRequest schema. No markdown fences. No explanation. Just JSON.
+
+ACTIONS (action field):
+- create_workout: user wants a new workout → extract sport, time, goal, constraints
+- replan: user wants to change/skip/swap a planned session → extract replan_type
+- explain: user asks about THEIR specific session, readiness, week, or plan shown in CONTEXT → extract question
+- answer_question: general coaching or education question with NO specific session/readiness context → extract question
+- clarify: you cannot determine the action or required fields are missing → ask ONE question
+
+HOW TO CHOOSE explain vs answer_question:
+- If CONTEXT contains Session, Readiness, or Week info AND the user asks about it → "explain"
+- If the user asks a general knowledge question (zones, recovery, training concepts) → "answer_question"
+
+ENUMS — use these exact values only:
+- sport: "run", "bike", "ski", "skate", "strength", "other"
+- replan_type: "skip_today", "swap_days", "reschedule", "reduce_intensity", "illness", "travel", "goal_change"
+- goal: "endurance", "threshold", "vo2", "recovery", "strength", "race_prep"
+- fatigue_hint: "fresh", "ok", "tired", "very_tired"
+
+REQUIRED FIELDS BY ACTION:
+- create_workout: action, sport, free_text (+ time_available_min if mentioned)
+- replan: action, replan_type, free_text (+ sport if in context)
+- explain: action, question, free_text
+- answer_question: action, question, free_text
+- clarify: action, missing, clarify_message, free_text
+
+RULES:
+- ALWAYS include free_text with the original user message
+- NEVER output markdown fences — raw JSON only
+- NEVER invent workouts, zones, durations, paces, or power numbers
+- NEVER output coaching text — only structured JSON
+- If the user mentions pain, chest pain, dizziness, or medical symptoms: action="clarify", missing=["medical_clearance"]
+- Infer sport from CONTEXT block when available (e.g., "Sport: running" → sport="run")
+- Infer fatigue_hint from user language (e.g., "I'm exhausted" → "very_tired")
+```
+
+### Explainer System Prompt
+
+The explainer generates the friendly coaching text the user reads:
 
 ```
 You are Josi, MiValta's AI coaching assistant.
@@ -153,41 +255,22 @@ PERSONALITY:
 
 DIALOGUE RULES:
 - Answer first, always. Lead with the substance of your response.
-- Maximum 1 follow-up question per turn.
-- Keep responses under 100 words.
+- Maximum 1 question per response. Most responses need zero questions.
+- Keep responses under 100 words. Be concise, not verbose.
+- Use simple language. Explain like a trusted friend who happens to be a coach.
+- Do NOT end with a question unless absolutely necessary.
 
-MODE: {Advisor|Coach}
-{mode_rules}
+SAFETY:
+- If the athlete mentions pain, chest pain, dizziness, or medical red flags: tell them to stop and seek medical attention immediately.
 
-I6 CONSTRAINTS (always active):
+BOUNDARIES:
 - NEVER prescribe, create, or modify training yourself
 - Explain decisions made by the coaching engine only
 - NEVER invent zones, durations, paces, or power numbers
 - NEVER reference internal systems (algorithm, viterbi, hmm, acwr, gatc, ewma, tss, ctl, atl, tsb)
+- NEVER use technical jargon: periodization, mesocycle, microcycle, macrocycle, supercompensation, vo2max, lactate threshold, ftp
 
-OUTPUT: Valid LLMIntent JSON.
-```
-
-### Mode Rules
-
-**Advisor:**
-```
-MODE: Advisor
-- Explain workouts and zones, answer education questions
-- Help create TODAY's workout only via tool_call to create_today_workout
-- STRICTLY today only — NEVER discuss future sessions
-- NEVER create training plans (Decline with tier upgrade)
-- NEVER modify or replan training (Decline with tier upgrade)
-```
-
-**Coach:**
-```
-MODE: Coach
-- Full coaching access: explain, plan, replan, review
-- May suggest replans via replan_request when readiness changes
-- May reference future sessions and weekly/meso structure
-- Create plans via tool_call to create_plan
-- Replan types: skip_today, swap_days, reschedule, reduce_intensity, illness, travel, goal_change
+OUTPUT: Plain coaching text only. No JSON. No markdown fences.
 ```
 
 ### Kotlin Prompt Builder
@@ -228,83 +311,139 @@ fun buildGemmaPrompt(
 
 ---
 
-## Step 4: Inference Parameters
+## Step 4: Run Dual Inference
+
+Both models receive the same user message + context. They can run in parallel or sequentially.
+
+### Inference Parameters
 
 ```kotlin
-val params = LlamaParams(
+val interpreterParams = LlamaParams(
     nPredict = 150,       // Output cap: 150 tokens
     temperature = 0.45f,  // Range: 0.4-0.5
     topP = 0.9f,
     nCtx = 1024,          // Context cap: 1024 tokens
 )
+
+val explainerParams = LlamaParams(
+    nPredict = 150,       // Output cap: 150 tokens
+    temperature = 0.45f,
+    topP = 0.9f,
+    nCtx = 1024,
+)
+```
+
+### Parallel Inference (recommended if RAM allows)
+
+If the device has enough RAM (~4 GB free), run both models in parallel:
+
+```kotlin
+suspend fun runJosi(userMessage: String, ctx: ChatContext): JosiResult {
+    val contextStr = buildContextString(ctx)
+
+    val interpreterPrompt = buildGemmaPrompt(
+        INTERPRETER_SYSTEM_PROMPT, ctx.history, userMessage, contextStr)
+    val explainerPrompt = buildGemmaPrompt(
+        EXPLAINER_SYSTEM_PROMPT, ctx.history, userMessage, contextStr)
+
+    // Run both in parallel
+    val (interpreterRaw, explainerRaw) = coroutineScope {
+        val i = async { interpreterModel.generate(interpreterPrompt, interpreterParams) }
+        val e = async { explainerModel.generate(explainerPrompt, explainerParams) }
+        i.await() to e.await()
+    }
+
+    val gatcRequest = parseGATCRequest(interpreterRaw)
+    val coachingText = governDialogue(explainerRaw.trim())
+
+    return JosiResult(gatcRequest, coachingText)
+}
+```
+
+### Sequential Inference (lower RAM devices)
+
+If RAM is tight, load one model at a time:
+
+```kotlin
+suspend fun runJosiSequential(userMessage: String, ctx: ChatContext): JosiResult {
+    val contextStr = buildContextString(ctx)
+
+    // Run interpreter first (need structured intent for engine)
+    val interpreterPrompt = buildGemmaPrompt(
+        INTERPRETER_SYSTEM_PROMPT, ctx.history, userMessage, contextStr)
+    val interpreterRaw = withModel(interpreterFile) { model ->
+        model.generate(interpreterPrompt, interpreterParams)
+    }
+
+    // Then run explainer
+    val explainerPrompt = buildGemmaPrompt(
+        EXPLAINER_SYSTEM_PROMPT, ctx.history, userMessage, contextStr)
+    val explainerRaw = withModel(explainerFile) { model ->
+        model.generate(explainerPrompt, explainerParams)
+    }
+
+    val gatcRequest = parseGATCRequest(interpreterRaw)
+    val coachingText = governDialogue(explainerRaw.trim())
+
+    return JosiResult(gatcRequest, coachingText)
+}
 ```
 
 ---
 
-## Step 5: Parse Model Output → LLMIntent
+## Step 5: Parse Interpreter Output → GATCRequest
 
-The model outputs JSON. Gemma 3n E2B (6B raw, 2B effective) has significantly better JSON compliance than SmolLM2-360M, but the post-processor is still needed for edge cases.
+The interpreter outputs raw JSON. Parse it into a structured GATCRequest.
 
-### LLMIntent Schema
+### GATCRequest Schema
 
 ```kotlin
-data class LLMIntent(
-    val intent: String,            // "question" | "replan" | "encouragement" | "feedback" | "compliance" | "general" | "blocked" | "medical_red_flag"
-    val responseType: String,      // "DailyBrief" | "ExplainWorkout" | "ExplainZone" | "WeeklyReview" | "Encouragement" | "SafetyWarning" | "ReadinessSummary" | "QuestionAnswer" | "Decline"
-    val message: String,           // The text to display to the user
-    val sourceCards: List<String>, // Knowledge cards that informed the response
-    val guardrailTriggered: Boolean,
-    val guardrailReason: String?,  // e.g. "i6_violation", "tier_violation"
-    val replanRequest: ReplanRequest?,  // Non-null only for coach replan intents
-    val toolCall: ToolCall?,       // Non-null when an engine action is needed
-)
-
-data class ToolCall(
-    val tool: String,   // "get_user_status" | "explain_workout" | "create_today_workout" | "create_plan" | "replan" | "log_workout" | "get_recent_workouts"
-    val args: Map<String, Any>,
-)
-
-data class ReplanRequest(
-    val type: String,              // "skip_today" | "swap_days" | "reschedule" | "reduce_intensity" | "illness" | "travel" | "goal_change"
-    val reason: String,
-    val mode: String,              // always "coach"
-    val readinessAtRequest: String, // "Green" | "Yellow" | "Orange" | "Red"
-    val newGoalDate: String?,      // only for goal_change
+data class GATCRequest(
+    val action: String,             // "create_workout" | "replan" | "explain" | "answer_question" | "clarify"
+    val freeText: String,           // Original user message (always present)
+    val sport: String?,             // "run" | "bike" | "ski" | "skate" | "strength" | "other"
+    val timeAvailableMin: Int?,     // Duration in minutes (if user mentioned)
+    val goal: String?,              // "endurance" | "threshold" | "vo2" | "recovery" | "strength" | "race_prep"
+    val fatigueHint: String?,       // "fresh" | "ok" | "tired" | "very_tired"
+    val replanType: String?,        // "skip_today" | "swap_days" | "reschedule" | ... (replan only)
+    val question: String?,          // User's question text (explain/answer_question)
+    val missing: List<String>?,     // Missing fields (clarify only)
+    val clarifyMessage: String?,    // Clarification question (clarify only)
 )
 ```
 
-### Kotlin Parser (port of `shared/llm_intent_parser.py`)
+### Kotlin Parser
 
 ```kotlin
-fun parseLLMIntent(raw: String): LLMIntent? {
+fun parseGATCRequest(raw: String): GATCRequest? {
     val text = raw.trim()
     if (text.isEmpty()) return null
 
-    // Step 1: Try direct parse
-    tryParseJson(text)?.let { return it }
+    // Extract first JSON object (handles any preamble text)
+    val jsonStr = extractFirstJsonObject(text) ?: return null
 
-    // Step 2: Fix string concatenation ("a" + "b" → "ab")
-    var fixed = fixStringConcatenation(text)
+    return try {
+        val obj = JSONObject(jsonStr)
+        val action = obj.getString("action")
+        val freeText = obj.getString("free_text")
 
-    // Step 3: Extract first JSON object via brace matching
-    val candidate = extractFirstJsonObject(fixed) ?: return null
-
-    tryParseJson(candidate)?.let { return it }
-
-    // Step 4: Try fixing concatenation on extracted candidate
-    fixed = fixStringConcatenation(candidate)
-    return tryParseJson(fixed)
-}
-
-private fun fixStringConcatenation(text: String): String {
-    val pattern = Regex(""""([^"]*?)"\s*\+\s*"([^"]*?)"""")
-    var result = text
-    var prev: String? = null
-    while (result != prev) {
-        prev = result
-        result = pattern.replace(result) { "\"${it.groupValues[1]}${it.groupValues[2]}\"" }
+        GATCRequest(
+            action = action,
+            freeText = freeText,
+            sport = obj.optString("sport", null),
+            timeAvailableMin = if (obj.has("time_available_min")) obj.getInt("time_available_min") else null,
+            goal = obj.optString("goal", null),
+            fatigueHint = obj.optString("fatigue_hint", null),
+            replanType = obj.optString("replan_type", null),
+            question = obj.optString("question", null),
+            missing = obj.optJSONArray("missing")?.let { arr ->
+                (0 until arr.length()).map { arr.getString(it) }
+            },
+            clarifyMessage = obj.optString("clarify_message", null),
+        )
+    } catch (e: Exception) {
+        null
     }
-    return result
 }
 
 private fun extractFirstJsonObject(text: String): String? {
@@ -328,60 +467,40 @@ private fun extractFirstJsonObject(text: String): String? {
     // Try closing unclosed braces
     if (depth > 0) {
         val candidate = text.substring(start) + "}".repeat(depth)
-        tryParseJson(candidate)?.let { return candidate }
+        try { JSONObject(candidate); return candidate } catch (_: Exception) {}
     }
     return null
 }
-
-private fun tryParseJson(text: String): LLMIntent? {
-    return try {
-        val obj = JSONObject(text)
-        val intent = obj.getString("intent")
-        val responseType = obj.getString("response_type")
-        val message = obj.getString("message")
-        val sourceCards = obj.getJSONArray("source_cards").let { arr ->
-            (0 until arr.length()).map { arr.getString(it) }
-        }
-        val guardrailTriggered = obj.getBoolean("guardrail_triggered")
-
-        // Validate required fields
-        if (message.isEmpty() || sourceCards.isEmpty()) return null
-
-        LLMIntent(
-            intent = intent,
-            responseType = responseType,
-            message = message,
-            sourceCards = sourceCards,
-            guardrailTriggered = guardrailTriggered,
-            guardrailReason = obj.optString("guardrail_reason", null),
-            replanRequest = null,  // parse if needed
-            toolCall = parseToolCall(obj),
-        )
-    } catch (e: Exception) {
-        null
-    }
-}
-
-private fun parseToolCall(obj: JSONObject): ToolCall? {
-    if (obj.isNull("tool_call")) return null
-    val tc = obj.getJSONObject("tool_call")
-    return ToolCall(
-        tool = tc.getString("tool"),
-        args = tc.getJSONObject("args").toMap(),
-    )
-}
 ```
 
-### Dialogue Governor (post-parse)
+### Fallback on Parse Failure
 
-After parsing the LLMIntent, apply the dialogue governor to enforce answer-first and max 1 question:
+If `parseGATCRequest()` returns `null`, treat as `answer_question`:
 
 ```kotlin
-fun governDialogue(intent: LLMIntent): LLMIntent {
-    // Don't govern safety warnings or declines
-    if (intent.responseType in listOf("SafetyWarning", "Decline")) return intent
+val FALLBACK_REQUEST = GATCRequest(
+    action = "answer_question",
+    freeText = userMessage,
+    sport = null,
+    timeAvailableMin = null,
+    goal = null,
+    fatigueHint = null,
+    replanType = null,
+    question = userMessage,
+    missing = null,
+    clarifyMessage = null,
+)
+```
 
-    var message = intent.message
+---
+
+## Step 6: Dialogue Governor (Explainer Output)
+
+Apply the dialogue governor to the explainer's coaching text to enforce answer-first and max 1 question:
+
+```kotlin
+fun governDialogue(text: String): String {
+    var message = text.trim()
 
     // Count questions
     val questionCount = message.count { it == '?' }
@@ -393,95 +512,115 @@ fun governDialogue(intent: LLMIntent): LLMIntent {
         message = (nonQuestions + questions.takeLast(1)).joinToString(" ")
     }
 
-    return intent.copy(message = message)
+    return message
 }
 ```
 
-### Fallback on Parse Failure
+### Explainer Fallback
 
-If `parseLLMIntent()` returns `null`, use a deterministic fallback:
+If the explainer produces empty or garbled output:
 
 ```kotlin
-val FALLBACK = LLMIntent(
-    intent = "blocked",
-    responseType = "Decline",
-    message = "I couldn't process that response. Let me try a different approach.",
-    sourceCards = listOf("josi_explanations"),
-    guardrailTriggered = false,
-    guardrailReason = null,
-    replanRequest = null,
-    toolCall = null,
-)
+val FALLBACK_MESSAGE = "I'm here to help with your training. What would you like to know?"
 ```
 
 ---
 
-## Step 6: Tool Dispatch → Rust FFI
+## Step 7: Dispatch GATCRequest → Engine
 
-When Josi returns a `tool_call`, dispatch it to the Rust engine. The Rust `ToolDispatcher` validates the tool against the tier allowlist before executing.
+Map the interpreter's GATCRequest action to the appropriate engine call.
+
+### Action → Engine Dispatch Map
+
+| Action | Engine Call | Tier Required |
+|--------|-----------|---------------|
+| `create_workout` | `rustEngine.createTodayWorkout(sport, time, goal, ...)` | Advisor+ |
+| `replan` | `rustEngine.replan(replanType, reason, ...)` | Coach |
+| `explain` | `rustEngine.explainWorkout(question)` | Advisor+ |
+| `answer_question` | No engine call — use explainer text only | Advisor+ |
+| `clarify` | No engine call — use `clarifyMessage` as response | Advisor+ |
+
+### Kotlin Dispatch
+
+```kotlin
+data class JosiResult(
+    val gatcRequest: GATCRequest?,
+    val coachingText: String,
+)
+
+fun handleJosiResult(result: JosiResult, tier: String) {
+    val req = result.gatcRequest
+
+    if (req == null) {
+        // Interpreter failed — show explainer text only
+        showMessage(result.coachingText)
+        return
+    }
+
+    when (req.action) {
+        "clarify" -> {
+            // Use interpreter's clarify message (more specific) or explainer text
+            showMessage(req.clarifyMessage ?: result.coachingText)
+        }
+
+        "answer_question" -> {
+            // No engine call needed — explainer text is the response
+            showMessage(result.coachingText)
+        }
+
+        "explain" -> {
+            // Explainer text is the response; optionally call engine for extra data
+            showMessage(result.coachingText)
+        }
+
+        "create_workout" -> {
+            // Check tier
+            if (tier == "monitor") {
+                showMessage("Workout creation requires an Advisor or Coach subscription.")
+                return
+            }
+            // Show coaching text while engine works
+            showMessage(result.coachingText)
+            // Dispatch to Rust engine
+            val engineResult = rustEngine.createTodayWorkout(
+                sport = req.sport ?: return,
+                timeMin = req.timeAvailableMin,
+                goal = req.goal,
+                fatigueHint = req.fatigueHint,
+            )
+            showWorkoutResult(engineResult)
+        }
+
+        "replan" -> {
+            // Coach only
+            if (tier != "coach") {
+                showMessage("Replanning requires a Coach subscription.")
+                return
+            }
+            showMessage(result.coachingText)
+            val engineResult = rustEngine.replan(
+                type = req.replanType ?: "skip_today",
+                reason = req.freeText,
+            )
+            showReplanResult(engineResult)
+        }
+    }
+}
+```
 
 ### Tier Tool Allowlists (must match Rust `tool_dispatcher.rs`)
 
-| Tool | Monitor | Advisor | Coach |
-|------|---------|---------|-------|
-| `get_user_status` | app-direct | yes | yes |
-| `log_workout` | app-direct | yes | yes |
-| `get_recent_workouts` | app-direct | yes | yes |
-| `explain_workout` | - | yes | yes |
-| `create_today_workout` | - | yes | yes |
-| `create_plan` | - | - | yes |
+| Action | Monitor | Advisor | Coach |
+|--------|---------|---------|-------|
+| `answer_question` | - | yes | yes |
+| `explain` | - | yes | yes |
+| `clarify` | - | yes | yes |
+| `create_workout` | - | yes | yes |
 | `replan` | - | - | yes |
-
-"app-direct" = the app calls this tool directly without Josi. Monitor has no chat.
-
-### Dispatch Flow
-
-```kotlin
-fun handleLLMIntent(intent: LLMIntent, tier: String) {
-    // 1. Apply dialogue governor
-    val governed = governDialogue(intent)
-
-    // 2. Display message to user
-    showMessage(governed.message)
-
-    // 3. If tool_call present, dispatch to Rust
-    governed.toolCall?.let { tc ->
-        // Rust ToolDispatcher validates tier access
-        val result = rustEngine.dispatchTool(tier, tc.tool, tc.args)
-
-        when (tc.tool) {
-            "create_today_workout" -> showWorkoutOptions(result)
-            "replan"              -> showReplanResult(result)
-            "get_user_status"     -> showReadiness(result)
-            "log_workout"         -> showConfirmation(result)
-            "get_recent_workouts" -> showHistory(result)
-            "explain_workout"     -> showExplanation(result)
-            "create_plan"         -> showPlan(result)
-        }
-    }
-
-    // 4. If guardrail triggered, show decline UI
-    if (governed.guardrailTriggered) {
-        showDeclineUI(governed.guardrailReason)
-    }
-}
-```
-
-### Replan Dispatch (Coach Only)
-
-When `intent = "replan"` and `replanRequest != null`:
-
-```kotlin
-if (intent.intent == "replan" && intent.replanRequest != null) {
-    // Pass to ReplanExecutor::from_josi() via FFI
-    val result = rustEngine.replanFromJosi(intent.replanRequest)
-    showReplanResult(result)
-}
-```
 
 ---
 
-## Step 7: Zone Gating (Enforced by Rust)
+## Step 8: Zone Gating (Enforced by Rust)
 
 The Rust engine caps workout zones based on readiness. Josi is trained to respect these, but the engine enforces them as a hard guard:
 
@@ -502,114 +641,169 @@ All schemas live in `shared/schemas/` in the `mivalta-science-engine` repo:
 
 | File | Purpose |
 |------|---------|
-| `llm_intent.schema.json` | Output schema — what Josi produces |
-| `chat_context.schema.json` | Input schema — what the app sends to Josi |
-| `tool_dispatch.json` | Maps intents to engine calls, tier allowlists, fallbacks |
+| `chat_context.schema.json` | Input schema — what the app sends to both models |
+| `tool_dispatch.json` | Maps actions to engine calls, tier allowlists, fallbacks |
 
 These are the **contracts** between the Kotlin app, Josi, and the Rust engine.
 
 ---
 
-## Quick Reference: Example Flow
+## Quick Reference: Example Flows
 
-**User (Advisor tier, Green readiness) asks:** "What's my workout today?"
+### Example 1: "What's my workout today?" (Advisor, Green)
 
-**1. App builds Gemma 3n prompt:**
+**User message:** "What's my workout today?"
+
+**Context:**
 ```
-<start_of_turn>system
-You are Josi, MiValta's AI coaching assistant...
-MODE: Advisor...<end_of_turn>
-<start_of_turn>user
-What's my workout today?
-
 CONTEXT:
 - Readiness: Green (Recovered)
 - Session: Z2 60min "Continuous Z2 60min" (base phase)
 - Sport: running
-- Level: intermediate<end_of_turn>
-<start_of_turn>model
+- Level: intermediate
 ```
 
-**2. Model outputs:**
+**Interpreter outputs:**
 ```json
-{
-  "intent": "question",
-  "response_type": "ExplainWorkout",
-  "message": "Today you have a 60-minute easy aerobic session in Zone 2. The goal is to build your base endurance at a comfortable pace — you should be able to hold a conversation throughout. How are you feeling?",
-  "source_cards": ["session_rules", "zone_physiology"],
-  "guardrail_triggered": false,
-  "guardrail_reason": null,
-  "replan_request": null,
-  "tool_call": null
-}
+{"action": "explain", "question": "What's my workout today?", "free_text": "What's my workout today?"}
 ```
 
-**3. App displays:** the `message` field to the user.
+**Explainer outputs:**
+```
+Today you have a 60-minute easy aerobic session in Zone 2. The goal is to build your base endurance at a comfortable pace — you should be able to hold a conversation throughout.
+```
+
+**App action:** Show explainer text to user. No engine call needed.
 
 ---
 
-**User (Advisor tier) asks:** "Can you create a training plan for next month?"
+### Example 2: "Give me a 45-minute run" (Advisor, Green)
 
-**Model outputs:**
+**User message:** "Give me a 45-minute run"
+
+**Interpreter outputs:**
 ```json
-{
-  "intent": "blocked",
-  "response_type": "Decline",
-  "message": "I can't create training plans in Advisor mode. Plans are available with the Coach tier. I can help you with today's workout — would you like me to explain your session?",
-  "source_cards": ["josi_explanations"],
-  "guardrail_triggered": true,
-  "guardrail_reason": "tier_violation",
-  "replan_request": null,
-  "tool_call": null
+{"action": "create_workout", "sport": "run", "time_available_min": 45, "free_text": "Give me a 45-minute run"}
+```
+
+**Explainer outputs:**
+```
+Sure! Let me set up a 45-minute run for you. Based on your green readiness, this is a great day to get some quality work in.
+```
+
+**App action:**
+1. Show explainer text
+2. Call `rustEngine.createTodayWorkout(sport="run", timeMin=45)`
+3. Show workout result
+
+---
+
+### Example 3: "I'm feeling tired, can we skip today?" (Coach, Yellow)
+
+**Interpreter outputs:**
+```json
+{"action": "replan", "replan_type": "skip_today", "free_text": "I'm feeling tired, can we skip today?", "fatigue_hint": "tired"}
+```
+
+**Explainer outputs:**
+```
+I understand — your body is telling you something. Skipping today is the smart call. I'll adjust your schedule so nothing gets lost.
+```
+
+**App action:**
+1. Show explainer text
+2. Call `rustEngine.replan(type="skip_today", reason="...")`
+3. Show rescheduled plan
+
+---
+
+### Example 4: "I want a workout" (no sport in context)
+
+**Interpreter outputs:**
+```json
+{"action": "clarify", "missing": ["sport"], "clarify_message": "Which sport are you training for today?", "free_text": "I want a workout"}
+```
+
+**Explainer outputs:**
+```
+I'd love to help! Which sport are you training for today — running, cycling, skating, skiing, or strength?
+```
+
+**App action:** Show explainer text (or interpreter's `clarify_message`). Wait for user response.
+
+---
+
+### Example 5: "Create a training plan" (Advisor — blocked)
+
+**Interpreter outputs:**
+```json
+{"action": "clarify", "missing": ["tier_upgrade"], "clarify_message": "Training plans require a Coach subscription.", "free_text": "Create a training plan"}
+```
+
+**Explainer outputs:**
+```
+Training plans are available with the Coach tier. I can help you with today's workout or answer questions about your training. What would you like to do?
+```
+
+**App action:** Show explainer text. No engine call.
+
+---
+
+## Memory Management
+
+Since both models are ~2.6 GB each, memory management on mobile is critical:
+
+```kotlin
+class JosiModelManager(private val context: Context) {
+    private var interpreterModel: LlamaModel? = null
+    private var explainerModel: LlamaModel? = null
+
+    // Option A: Keep both loaded (devices with 8+ GB RAM)
+    fun loadBoth() {
+        interpreterModel = LlamaModel(interpreterFile.absolutePath, interpreterParams)
+        explainerModel = LlamaModel(explainerFile.absolutePath, explainerParams)
+    }
+
+    // Option B: Load one at a time (devices with 4-6 GB RAM)
+    suspend fun runSequential(prompt: String, isInterpreter: Boolean): String {
+        val file = if (isInterpreter) interpreterFile else explainerFile
+        val params = if (isInterpreter) interpreterParams else explainerParams
+        return withContext(Dispatchers.IO) {
+            val model = LlamaModel(file.absolutePath, params)
+            try {
+                model.generate(prompt, params)
+            } finally {
+                model.close()
+            }
+        }
+    }
+
+    fun release() {
+        interpreterModel?.close()
+        explainerModel?.close()
+        interpreterModel = null
+        explainerModel = null
+    }
 }
 ```
 
 ---
 
-**User (Coach tier, Yellow readiness) asks:** "I'm feeling tired, can we skip today?"
+## Migration from v3 (Single Model → Dual Model)
 
-**Model outputs:**
-```json
-{
-  "intent": "replan",
-  "response_type": "QuestionAnswer",
-  "message": "I understand — your readiness is Yellow today. I'll request a skip for today's session and the engine will adjust your upcoming schedule.",
-  "source_cards": ["fatigue_policy", "josi_explanations"],
-  "guardrail_triggered": false,
-  "guardrail_reason": null,
-  "replan_request": {
-    "type": "skip_today",
-    "reason": "Athlete reports fatigue, readiness Yellow",
-    "mode": "coach",
-    "readiness_at_request": "Yellow"
-  },
-  "tool_call": {
-    "tool": "replan",
-    "args": {"type": "skip_today"}
-  }
-}
-```
-
-**App dispatches** `replan` to Rust `ReplanExecutor::from_josi()`.
-
----
-
-## Migration from SmolLM2 (v3 → v4)
-
-| Change | v3 (SmolLM2) | v4 (Gemma 3n E2B) |
-|--------|-------------|-------------------|
-| Model | SmolLM2-360M | Gemma 3n E2B-it |
-| Size | ~250 MB | ~2.8 GB |
-| Chat template | ChatML (`<\|im_start\|>`) | Gemma (`<start_of_turn>`) |
-| System role | Native system message | Native system role (Gemma 3n) |
-| Temperature | 0.7 | 0.45 |
-| Max output tokens | 120 | 150 |
-| Dialogue governor | No | Yes (answer-first, max 1 question) |
-| JSON reliability | Needs heavy post-processing | Much better, still use post-processor |
-| Reasoning quality | Basic pattern matching | Genuine reasoning about context |
+| Change | v3 (single model) | v4 (dual model) |
+|--------|-------------------|-----------------|
+| Models | 1 GGUF file | 2 GGUF files (interpreter + explainer) |
+| Download size | ~2.8 GB | ~5.2 GB |
+| Model output | LLMIntent JSON (combined) | Interpreter: GATCRequest JSON, Explainer: plain text |
+| Parsing | Parse one JSON output | Parse interpreter JSON + use explainer text directly |
+| Engine dispatch | From `tool_call` in LLMIntent | From `action` in GATCRequest |
+| Chat template | Gemma (`<start_of_turn>`) | Same (both models) |
+| Temperature | 0.45 | 0.45 (both models) |
 
 **Key integration changes:**
-1. Update model download URL and file size
-2. Switch from ChatML to Gemma prompt template
-3. Add dialogue governor after JSON parsing
-4. Update inference params (temp 0.45, max_tokens 150)
+1. Download and store **two** model files instead of one
+2. Run **two** inference calls per user message (parallel or sequential)
+3. Parse **GATCRequest** from interpreter (replaces LLMIntent)
+4. Use **explainer text directly** as user-facing message (no more `message` field in JSON)
+5. Map GATCRequest `action` to engine calls (replaces `tool_call` dispatch)
