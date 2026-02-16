@@ -504,6 +504,37 @@ def train(
 # MERGE
 # =============================================================================
 
+def _ensure_spm_tokenizer(model_id: str, output_path: str):
+    """Copy tokenizer.model from the base model if missing from the merge output.
+
+    AutoProcessor.save_pretrained() may skip the SentencePiece binary when the
+    tokenizer uses backend="tokenizers" (HuggingFace Rust).  llama.cpp needs
+    tokenizer.model for correct GGUF conversion — without it the converter falls
+    back to the BPE path which corrupts the ▁ space marker.
+    """
+    import shutil
+    target = Path(output_path) / "tokenizer.model"
+    if target.exists():
+        return
+
+    # Try local base model first
+    local = LOCAL_MODEL_PATH / "tokenizer.model"
+    if local.exists():
+        shutil.copy2(str(local), str(target))
+        print(f"  Copied tokenizer.model from local base model")
+        return
+
+    # Try HuggingFace cache
+    try:
+        from huggingface_hub import hf_hub_download
+        cached = hf_hub_download(repo_id=model_id, filename="tokenizer.model")
+        shutil.copy2(cached, str(target))
+        print(f"  Copied tokenizer.model from HuggingFace cache")
+    except Exception:
+        print(f"  WARNING: Could not copy tokenizer.model — GGUF conversion may fail.")
+        print(f"  Copy it manually from {model_id} into {output_path}/")
+
+
 def merge(
     lora_path: str,
     output_path: str = None,
@@ -539,6 +570,12 @@ def merge(
 
     processor = AutoProcessor.from_pretrained(model_id)
     processor.save_pretrained(output_path)
+
+    # Ensure tokenizer.model (SentencePiece binary) is copied.
+    # AutoProcessor.save_pretrained() may only save tokenizer.json (BPE format)
+    # when backend="tokenizers". llama.cpp needs tokenizer.model for correct
+    # GGUF conversion via the SentencePiece path.
+    _ensure_spm_tokenizer(model_id, output_path)
 
     print(f"Merge complete! Ready for GGUF export:")
     print(f"  python convert_gemma3n.py --model_path {output_path}")

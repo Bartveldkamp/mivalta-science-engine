@@ -36,6 +36,11 @@ import subprocess
 import os
 from pathlib import Path
 
+try:
+    from huggingface_hub import hf_hub_download
+except ImportError:
+    hf_hub_download = None
+
 
 # Quantization options with Gemma 3n E2B size estimates
 QUANT_LEVELS = {
@@ -63,6 +68,57 @@ def find_llama_cpp():
         if (loc / "convert_hf_to_gguf.py").exists():
             return loc
     return None
+
+
+BASE_MODEL_ID = "google/gemma-3n-E2B-it"
+
+# Local base model path (matches finetune_gemma3n.py)
+_SCRIPT_DIR = Path(__file__).resolve().parent
+_LOCAL_BASE_MODEL = _SCRIPT_DIR.parent / "models" / "gemma-3n-E2B-it"
+
+
+def _ensure_tokenizer_model(model_path: str) -> bool:
+    """Ensure tokenizer.model (SentencePiece binary) exists in the model directory.
+
+    llama.cpp's convert_hf_to_gguf.py uses _set_vocab_sentencepiece() for Gemma 3n,
+    which requires tokenizer.model. Without it, the converter falls back to the BPE
+    path (tokenizer.json), which mishandles the SentencePiece space marker (▁) and
+    produces [UNK_BYTE_0xe29681] in the output.
+
+    If tokenizer.model is missing from the merged model, we copy it from:
+      1. The local base model download (training/models/gemma-3n-E2B-it/)
+      2. The HuggingFace cache (via huggingface_hub)
+    """
+    model_dir = Path(model_path)
+    target = model_dir / "tokenizer.model"
+
+    if target.exists():
+        return True
+
+    print("WARNING: tokenizer.model missing from merged model directory.")
+    print("  Without it, GGUF conversion uses BPE path which corrupts the tokenizer.")
+    print("  Attempting to copy from base model...")
+
+    # Try 1: local base model
+    local_source = _LOCAL_BASE_MODEL / "tokenizer.model"
+    if local_source.exists():
+        shutil.copy2(str(local_source), str(target))
+        print(f"  Copied tokenizer.model from {local_source}")
+        return True
+
+    # Try 2: HuggingFace cache / download
+    if hf_hub_download is not None:
+        try:
+            cached = hf_hub_download(repo_id=BASE_MODEL_ID, filename="tokenizer.model")
+            shutil.copy2(cached, str(target))
+            print(f"  Copied tokenizer.model from HuggingFace cache")
+            return True
+        except Exception as e:
+            print(f"  Could not download tokenizer.model from HuggingFace: {e}")
+
+    print("  ERROR: Could not find tokenizer.model for base model.")
+    print(f"  Please copy it manually from {BASE_MODEL_ID} to {target}")
+    return False
 
 
 def _extract_pretokenizer_hash(stderr: str):
@@ -152,6 +208,15 @@ def convert_to_gguf(model_path: str, output_path: str, llama_cpp_path: str = Non
     if stale_backup.exists():
         print("Restoring convert_hf_to_gguf.py from leftover backup...")
         shutil.move(str(stale_backup), str(convert_script))
+
+    # Ensure tokenizer.model (SentencePiece) is present — required for correct
+    # GGUF tokenizer encoding.  Without it, llama.cpp falls back to the BPE path
+    # which corrupts the ▁ space marker into [UNK_BYTE_0xe29681].
+    if not _ensure_tokenizer_model(model_path):
+        raise RuntimeError(
+            "tokenizer.model not found. Copy it from the base Gemma 3n model "
+            f"({BASE_MODEL_ID}) into {model_path}/"
+        )
 
     print(f"Converting {model_path} to GGUF (Gemma architecture)...")
     print(f"Output: {output_path}")
@@ -303,7 +368,7 @@ def full_pipeline(
     print(f"\n{'='*60}")
     print(f"  Gemma 3n E2B GGUF Export Complete")
     print(f"{'='*60}")
-    print(f"\n  Model: {MODEL_ID}")
+    print(f"\n  Model: {BASE_MODEL_ID}")
     print(f"  Source: {model_path}")
     print(f"\n  Created models:")
     for quant, path in results.items():
@@ -320,12 +385,9 @@ def full_pipeline(
     return results
 
 
-MODEL_ID = "google/gemma-3n-E2B-it"
-
-
 def print_quant_options():
     """Print available quantization options."""
-    print(f"\nGemma 3n E2B ({MODEL_ID}) — Quantization Options")
+    print(f"\nGemma 3n E2B ({BASE_MODEL_ID}) — Quantization Options")
     print("-" * 80)
     print(f"{'Type':<10} {'Bits':<6} {'Est. Size':<12} {'Quality':<14} {'Mobile'}")
     print("-" * 80)
