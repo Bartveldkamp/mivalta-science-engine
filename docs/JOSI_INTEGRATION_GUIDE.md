@@ -66,30 +66,46 @@ Both models receive the **same user message + context**. They can run in paralle
 
 ## Step 1: Download the Models
 
-**Hosting:** Hetzner Object Storage
 **Total size:** ~5.2 GB (two files)
-**Format:** GGUF Q4_K_M (4-bit quantized)
+**Format:** GGUF Q4_K_M (4-bit quantized, for llama.cpp / llama.android)
 
+### Download Links
+
+Download both files to your development machine:
+
+| Model | File | Size |
+|-------|------|------|
+| Interpreter | `josi-v4-interpreter-q4_k_m.gguf` | ~2.6 GB |
+| Explainer | `josi-v4-explainer-q4_k_m.gguf` | ~2.6 GB |
+
+**Option A — Direct HTTP download from training server:**
+```bash
+# Replace <SERVER_IP> with the IP provided by Bart
+curl -LO http://<SERVER_IP>:8079/josi-v4-interpreter-q4_k_m.gguf
+curl -LO http://<SERVER_IP>:8079/josi-v4-explainer-q4_k_m.gguf
+```
+
+**Option B — Hetzner Object Storage (when available):**
+```bash
+curl -LO https://objects.mivalta.com/models/josi-v4-interpreter-q4_k_m.gguf
+curl -LO https://objects.mivalta.com/models/josi-v4-explainer-q4_k_m.gguf
+```
+
+**In the Kotlin app:**
 ```kotlin
-// Model URLs
+// Model URLs (use Object Storage URLs for production app)
 val interpreterUrl = "https://objects.mivalta.com/models/josi-v4-interpreter-q4_k_m.gguf"
 val explainerUrl   = "https://objects.mivalta.com/models/josi-v4-explainer-q4_k_m.gguf"
 
-// Local storage
+// Local storage on device
 val interpreterFile = File(context.filesDir, "josi-v4-interpreter-q4_k_m.gguf")
 val explainerFile   = File(context.filesDir, "josi-v4-explainer-q4_k_m.gguf")
-```
-
-**Checksums (SHA-256):**
-```
-josi-v4-interpreter-q4_k_m.gguf: 6d345bc65da986b40c7aa2eb402c5aafe9e26b54daeea37883e7cdca639ca70f
-josi-v4-explainer-q4_k_m.gguf:   86716b28d24df7fcb849ffff59f7947ff9ef8127f1b66c19e82a5fe494039637
 ```
 
 **Manifest URL:** `https://objects.mivalta.com/models/josi-v4-manifest.json`
 The manifest contains current file names, sizes, and SHA-256 checksums. Use it to check for updates.
 
-**App download flow:**
+**App download flow (end user):**
 1. User installs app (~50 MB, no models bundled)
 2. First launch: "Setting up your coach..." progress bar
 3. Both models download from Hetzner Object Storage (~5.2 GB total)
@@ -97,23 +113,6 @@ The manifest contains current file names, sizes, and SHA-256 checksums. Use it t
 5. Verify SHA-256 checksums after download
 6. Cached locally, never re-downloaded unless model version updates (check manifest)
 7. All inference runs on-device via llama.cpp — no network calls
-
-**Developer download (from training server):**
-```bash
-# Automated download with checksum verification
-python training/scripts/download_models.py
-
-# Download to custom directory
-python training/scripts/download_models.py --output-dir /path/to/models
-
-# Download only one model
-python training/scripts/download_models.py --interpreter-only
-python training/scripts/download_models.py --explainer-only
-
-# Direct download (no script needed)
-curl -LO https://objects.mivalta.com/models/josi-v4-interpreter-q4_k_m.gguf
-curl -LO https://objects.mivalta.com/models/josi-v4-explainer-q4_k_m.gguf
-```
 
 Load with [llama.android](https://github.com/ggerganov/llama.cpp/tree/master/examples/llama.android) or equivalent llama.cpp Kotlin/JNI bindings.
 
