@@ -260,6 +260,7 @@ def full_pipeline(
     quant_types: list = None,
     llama_cpp_path: str = None,
     keep_fp16: bool = False,
+    output_name: str = None,
 ):
     """Run full conversion: HF Gemma → GGUF F16 → Quantized."""
 
@@ -269,7 +270,7 @@ def full_pipeline(
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    model_name = Path(model_path).name
+    model_name = output_name or Path(model_path).name
 
     # Step 1: Convert to GGUF F16
     fp16_path = output_dir / f"{model_name}-f16.gguf"
@@ -351,6 +352,8 @@ def main():
                         help="Quantization types (e.g., q4_k_m q5_k_m)")
     parser.add_argument("--llama_cpp_path", type=str, default=None,
                         help="Path to llama.cpp directory")
+    parser.add_argument("--output_name", type=str, default=None,
+                        help="Base name for output files (default: model directory name)")
     parser.add_argument("--keep_fp16", action="store_true",
                         help="Keep the F16 intermediate file")
     parser.add_argument("--list_quant", action="store_true",
@@ -371,6 +374,7 @@ def main():
         quant_types=args.quant,
         llama_cpp_path=args.llama_cpp_path,
         keep_fp16=args.keep_fp16,
+        output_name=args.output_name,
     )
 
 

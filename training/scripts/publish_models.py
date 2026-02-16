@@ -108,24 +108,10 @@ def convert_to_gguf(merged_path: str, output_name: str, quant: str = "q4_k_m") -
         [sys.executable, str(SCRIPT_DIR / "convert_gemma3n.py"),
          "--model_path", merged_path,
          "--output_dir", str(GGUF_DIR),
+         "--output_name", output_name,
          "--quant", quant],
         f"Converting to GGUF {quant}",
     )
-
-    # convert_gemma3n.py names output as <dirname>-<quant>.gguf
-    # Rename to our standard name
-    model_dirname = Path(merged_path).name
-    generated_path = GGUF_DIR / f"{model_dirname}-{quant}.gguf"
-    if generated_path.exists() and generated_path != output_path:
-        shutil.move(str(generated_path), str(output_path))
-        print(f"  Renamed → {output_path}")
-
-    if not output_path.exists():
-        # Check if it ended up with a different name
-        gguf_files = list(GGUF_DIR.glob(f"*{quant}.gguf"))
-        if gguf_files:
-            shutil.move(str(gguf_files[0]), str(output_path))
-            print(f"  Renamed {gguf_files[0].name} → {output_path.name}")
 
     if not output_path.exists():
         raise RuntimeError(f"GGUF conversion did not produce expected output: {output_path}")
@@ -139,7 +125,7 @@ def upload_to_s3(local_path: str, s3_key: str) -> str:
     """Upload file to Hetzner Object Storage. Returns public URL."""
     if not shutil.which("s3cmd"):
         raise RuntimeError(
-            "s3cmd not found. Install: pip install s3cmd\n"
+            "s3cmd not found. Install: apt install s3cmd (or brew install s3cmd)\n"
             "Configure: s3cmd --configure (use Hetzner Object Storage credentials)"
         )
 
