@@ -190,6 +190,19 @@ EXPLAINER_PROMPTS = {
         "How do I balance training with a busy work schedule?",
         "What mistakes do most beginners make?",
     ],
+    # --- Memory personalization: should weave memory facts naturally ---
+    "memory_personalization": [
+        "I'm feeling tired today but I want to train.\n\nCONTEXT:\n- Readiness: Orange\n- Sport: running\nMEMORY:\n- Facts: primary sport: running | prefers morning sessions | typical duration: 45 min\n- Patterns: consistent weekday runner\n- Notes: responds well to encouragement",
+        "What should I do today?\n\nCONTEXT:\n- Sport: running\n- Session: Z2 45min Continuous\n- Readiness: Green\nMEMORY:\n- Facts: primary sport: running | has recurring knee issue | level: intermediate\n- Notes: appreciates when knee is acknowledged proactively",
+        "Am I going too slow? Everyone else seems faster.\n\nCONTEXT:\n- Sport: running\n- Session: Z1 25min Recovery\n- Readiness: Green\nMEMORY:\n- Facts: primary sport: running | level: beginner | started 3 months ago | goal: complete first 10k\n- Patterns: tends to run too fast on easy days\n- Notes: needs reassurance about slow pace being okay",
+        "I only have 20 minutes, is that worth it?\n\nCONTEXT:\n- Sport: running\n- Readiness: Green\nMEMORY:\n- Facts: primary sport: running | works long hours | prefers short sessions (30 min) | has two young kids\n- Notes: values efficiency, dislikes long explanations",
+    ],
+    # --- No memory: should still give quality responses without assumptions ---
+    "memory_absent": [
+        "I'm feeling tired today but I want to train.\n\nCONTEXT:\n- Readiness: Orange\n- Sport: running",
+        "Am I going too slow?\n\nCONTEXT:\n- Sport: running\n- Session: Z1 25min Recovery\n- Readiness: Green",
+        "I only have 20 minutes, is that worth it?\n\nCONTEXT:\n- Sport: running\n- Readiness: Green",
+    ],
 }
 
 
@@ -324,6 +337,76 @@ INTERPRETER_PROMPTS = {
             "user": "My knee has been hurting for 3 days\n\nCONTEXT:\n- Sport: running\n- Readiness: Green",
             "expected_action": "clarify",
             "note": "Should flag injury concern",
+        },
+    ],
+    # --- Memory utilization: model should USE memory to skip clarification ---
+    "memory_use": [
+        {
+            "user": "Give me a workout\n\nCONTEXT:\n- Readiness: Green\nMEMORY:\n- Facts: primary sport: running | prefers morning sessions | typical duration: 45 min\n- Patterns: consistent weekday runner\n- Notes: responds well to encouragement",
+            "expected_action": "create_workout",
+            "expected_sport": "run",
+            "note": "Memory provides sport — should NOT clarify",
+        },
+        {
+            "user": "I want to train today\n\nCONTEXT:\n- Readiness: Green\nMEMORY:\n- Facts: primary sport: cycling | prefers evening rides | typical duration: 60 min",
+            "expected_action": "create_workout",
+            "expected_sport": "bike",
+            "note": "Memory provides sport=cycling — should NOT clarify",
+        },
+        {
+            "user": "Build me something for today\n\nCONTEXT:\n- Readiness: Yellow\nMEMORY:\n- Facts: primary sport: running | has recurring knee issue | level: intermediate\n- Patterns: backs off intensity when knee flares",
+            "expected_action": "create_workout",
+            "expected_sport": "run",
+            "note": "Memory provides sport + knee constraint — should create_workout with injury constraint",
+        },
+        {
+            "user": "The usual\n\nCONTEXT:\n- Readiness: Green\nMEMORY:\n- Facts: primary sport: running | prefers morning sessions | typical duration: 45 min\n- Notes: responds well to encouragement",
+            "expected_action": "create_workout",
+            "expected_sport": "run",
+            "expected_time": 45,
+            "note": "Memory provides sport + typical duration",
+        },
+    ],
+    # --- Anti-hallucination: model must NOT assume facts when memory is absent ---
+    "memory_anti_halluc": [
+        {
+            "user": "Give me a workout",
+            "expected_action": "clarify",
+            "note": "No memory, no context — must ask for sport",
+        },
+        {
+            "user": "I want to train today",
+            "expected_action": "clarify",
+            "note": "No memory, no context — must clarify, not assume a sport",
+        },
+        {
+            "user": "The usual",
+            "expected_action": "clarify",
+            "note": "No memory — 'the usual' is meaningless without memory context",
+        },
+    ],
+    # --- Memory override: current message takes priority over memory ---
+    "memory_override": [
+        {
+            "user": "I want to cycle today, not run\n\nCONTEXT:\n- Readiness: Green\nMEMORY:\n- Facts: primary sport: running | prefers morning sessions",
+            "expected_action": "create_workout",
+            "expected_sport": "bike",
+            "note": "User explicitly says 'cycle' — overrides memory sport=running",
+        },
+        {
+            "user": "Let me try a 90 minute long run\n\nCONTEXT:\n- Readiness: Green\nMEMORY:\n- Facts: primary sport: running | typical duration: 30 min | has two young kids",
+            "expected_action": "create_workout",
+            "expected_sport": "run",
+            "expected_time": 90,
+            "note": "User says 90 min — overrides memory typical duration of 30 min",
+        },
+    ],
+    # --- Memory + medical: medical red flags still override everything ---
+    "memory_medical": [
+        {
+            "user": "I have chest pain\n\nCONTEXT:\n- Readiness: Green\nMEMORY:\n- Facts: primary sport: running | level: advanced",
+            "expected_action": "clarify",
+            "note": "Medical red flag overrides memory — should NOT create_workout",
         },
     ],
 }

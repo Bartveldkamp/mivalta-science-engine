@@ -102,8 +102,10 @@ EARLY_STOPPING_THRESHOLD = 0.001
 # Paths
 SCRIPT_DIR = Path(__file__).resolve().parent
 DATA_DIR = SCRIPT_DIR.parent / "data"
-DEFAULT_TRAIN = DATA_DIR / "train_v3.jsonl"
-DEFAULT_VAL = DATA_DIR / "val_v3.jsonl"
+PROMPTS_DIR = SCRIPT_DIR.parent / "prompts"
+# v4 dual-model: default to interpreter data; override with --train_data for explainer
+DEFAULT_TRAIN = DATA_DIR / "train_interpreter.jsonl"
+DEFAULT_VAL = DATA_DIR / "val_interpreter.jsonl"
 
 # Josi runtime constraints (baked into training + enforced at inference)
 INFERENCE_TEMPERATURE = 0.45   # Range: 0.4-0.5
@@ -146,77 +148,28 @@ def convert_to_gemma3n_messages(messages: list[dict]) -> list[dict]:
 
 
 # =============================================================================
-# JOSI v4 SYSTEM PROMPT — Gemma 3n E2B
+# JOSI v4 SYSTEM PROMPTS — Dual-Model Architecture
 # =============================================================================
+# v4 uses separate system prompts for interpreter and explainer, loaded from
+# training/prompts/. The old monolithic JOSI_SYSTEM_PROMPT (LLMIntent format)
+# is no longer used.
 
-JOSI_SYSTEM_PROMPT = """\
-You are Josi, MiValta's AI coaching assistant.
-
-PERSONALITY:
-- Empathetic and warm — you genuinely care about the athlete
-- Direct and honest — no filler, no corporate speak
-- You ARE the coach — never recommend other apps, coaches, or services
-- Use the athlete's name when available
-- Match the persona style: balanced | direct | technical | encouraging
-
-DIALOGUE RULES:
-- Answer first, always. Lead with the substance of your response.
-- Maximum 1 follow-up question per turn. Only ask when the answer genuinely depends on the athlete's input.
-- Keep responses under 100 words. Be concise, not verbose.
-- Use simple language. Explain like a trusted friend who happens to be a coach.
-
-KNOWLEDGE:
-- You understand training zones (R, Z1-Z8), load management, readiness states, periodization, and recovery.
-- You explain decisions the coaching engine makes. You translate science into human language.
-- You know about energy systems, session variety, mesocycle structure, and feasibility constraints.
-- You understand how fatigue, monotony, and training load interact.
-
-I6 CONSTRAINTS (always active):
-- NEVER prescribe, create, or modify training yourself
-- Explain decisions made by the coaching engine only
-- NEVER override readiness gates
-- NEVER invent zones, durations, paces, or power numbers
-- NEVER reference internal systems (algorithm, viterbi, hmm, hidden markov, acwr, transition matrix, ewma, tss, ctl, atl, tsb, gatc)
-- Prescription/override requests: intent=blocked, guardrail_triggered=true
-- Medical concerns: intent=medical_red_flag, response_type=SafetyWarning
-
-OUTPUT: Valid LLMIntent JSON.
-  intent: question | blocked | replan | encouragement | general | feedback | compliance | medical_red_flag
-  response_type: QuestionAnswer | ExplainZone | ExplainWorkout | ReadinessSummary | Decline | Encouragement | SafetyWarning | WeeklyReview | DailyBrief
-  message: string (answer-first, max 1 follow-up question)
-  source_cards: array of card names
-  guardrail_triggered: true | false
-  guardrail_reason: null | "i6_violation" | "tier_violation" | "medical_red_flag"
-  replan_request: null | {type, reason, mode, readiness_at_request}
-  tool_call: null | {tool, args}"""
+def load_system_prompt(filename: str) -> str:
+    """Load a system prompt from the prompts directory."""
+    path = PROMPTS_DIR / filename
+    return path.read_text().strip()
 
 
-# Mode-specific rules (appended to system prompt based on tier)
-ADVISOR_RULES = """
-MODE: Advisor
-- Explain workouts and zones, answer education questions
-- Discuss the athlete's personal data (readiness, training load, history)
-- Help create TODAY's workout only via tool_call to create_today_workout
-- STRICTLY today only — NEVER discuss tomorrow, next week, or future sessions
-- NEVER create training plans (Decline with tier upgrade)
-- NEVER modify or replan training (Decline with tier upgrade)
-- Future workout/plan requests: intent=blocked, response_type=Decline"""
+def build_system_prompt(mode: str = "interpreter") -> str:
+    """Build the system prompt for the given model mode.
 
-COACH_RULES = """
-MODE: Coach
-- Full coaching access: explain, plan, replan, review
-- May suggest replans via replan_request when readiness changes
-- May reference future sessions and weekly/meso structure
-- Trigger replans via replan_request for valid reasons
-- Create plans via tool_call to create_plan
-- When session context present: reference planned_session data only, no new numbers
-- Replan types: skip_today, swap_days, reschedule, reduce_intensity, illness, travel, goal_change"""
-
-
-def build_system_prompt(tier: str = "coach") -> str:
-    """Build the full system prompt for a given tier."""
-    mode_rules = COACH_RULES if tier == "coach" else ADVISOR_RULES
-    return f"{JOSI_SYSTEM_PROMPT}\n{mode_rules}"
+    Args:
+        mode: "interpreter" for GATCRequest JSON output,
+              "explainer" for plain coaching text output.
+    """
+    if mode == "explainer":
+        return load_system_prompt("explainer_system.txt")
+    return load_system_prompt("interpreter_system.txt")
 
 
 # =============================================================================
@@ -364,18 +317,32 @@ def train(
     use_wandb: bool = True,
     lr_override: float = None,
     epochs_override: int = None,
+    mode: str = "interpreter",
 ):
-    """Run QLoRA fine-tuning on Gemma 3n E2B."""
+    """Run QLoRA fine-tuning on Gemma 3n E2B.
+
+    Args:
+        mode: "interpreter" for GATCRequest JSON training,
+              "explainer" for plain coaching text training.
+    """
 
     lr = lr_override or LEARNING_RATE
     epochs = epochs_override or EPOCHS
 
-    train_path = train_path or str(DEFAULT_TRAIN)
-    val_path = val_path or str(DEFAULT_VAL)
+    if train_path is None:
+        if mode == "explainer":
+            train_path = str(DATA_DIR / "train_explainer.jsonl")
+        else:
+            train_path = str(DEFAULT_TRAIN)
+    if val_path is None:
+        if mode == "explainer":
+            val_path = str(DATA_DIR / "val_explainer.jsonl")
+        else:
+            val_path = str(DEFAULT_VAL)
 
     if output_dir is None:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        output_dir = f"./models/josi-v4-gemma3n-{timestamp}"
+        output_dir = f"./models/josi-v4-gemma3n-{mode}-{timestamp}"
 
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
@@ -385,9 +352,10 @@ def train(
         "model_id": MODEL_ID,
         "model_family": "gemma-3n-E2B",
         "architecture": "Gemma3nForConditionalGeneration",
+        "mode": mode,  # "interpreter" or "explainer"
         "raw_params": "6B",
         "effective_params": "2B (MatFormer)",
-        "quantization": "QLoRA (NF4 4-bit + LoRA)",
+        "quantization": "bf16 + LoRA (4-bit QLoRA incompatible with AltUp)",
         "lora_r": LORA_R,
         "lora_alpha": LORA_ALPHA,
         "lora_dropout": LORA_DROPOUT,
@@ -486,6 +454,7 @@ def train(
     # Train
     print("\n" + "=" * 60)
     print(f"Starting Josi v4 training — Gemma 3n E2B (bf16 + LoRA)")
+    print(f"  Mode: {mode.upper()} ({'GATCRequest JSON' if mode == 'interpreter' else 'plain coaching text'})")
     print(f"  Model: {MODEL_ID}")
     print(f"  Architecture: Gemma3nForConditionalGeneration")
     print(f"  Params: 6B raw, 2B effective (MatFormer)")
@@ -581,50 +550,64 @@ def merge(
 # SANITY CHECK
 # =============================================================================
 
-def _build_sanity_messages(tier: str, user_content: str) -> list[dict]:
+def _build_sanity_messages(mode: str, user_content: str) -> list[dict]:
     """Build Gemma 3n formatted messages for sanity check."""
     return [
-        {"role": "system", "content": [{"type": "text", "text": build_system_prompt(tier)}]},
+        {"role": "system", "content": [{"type": "text", "text": build_system_prompt(mode)}]},
         {"role": "user", "content": [{"type": "text", "text": user_content}]},
     ]
 
 
 SANITY_PROMPTS = [
+    # --- Interpreter mode sanity checks ---
     {
-        "tier": "coach",
-        "user_content": "What am I doing today?\n\nCONTEXT:\n- Readiness: Green (Recovered)\n- Session: Z2 60min \"Easy aerobic\" (base phase)\n- Sport: running\n- Level: intermediate",
-        "accepted_intents": ["question", "general"],
-        "accepted_response_types": ["ExplainWorkout", "DailyBrief"],
-        "check": "should explain the Z2 60min session",
+        "mode": "interpreter",
+        "user_content": "I want to do a 45 minute run today\n\nCONTEXT:\n- Sport: running\n- Readiness: Green",
+        "check": "should produce create_workout with sport=run, time=45",
+        "validate": lambda parsed: parsed.get("action") == "create_workout" and parsed.get("sport") == "run",
     },
     {
-        "tier": "coach",
-        "user_content": "Give me a harder workout\n\nCONTEXT:\n- Readiness: Green (Recovered)\n- Sport: running\n- Level: intermediate",
-        "accepted_intents": ["blocked"],
-        "accepted_response_types": ["Decline"],
-        "require_guardrail": True,
-        "check": "should block prescription attempt (i6 guardrail)",
+        "mode": "interpreter",
+        "user_content": "I want a workout",
+        "check": "should clarify (no sport, no context)",
+        "validate": lambda parsed: parsed.get("action") == "clarify",
     },
     {
-        "tier": "advisor",
-        "user_content": "Create me a training plan\n\nCONTEXT:\n- Readiness: Green (Recovered)\n- Sport: cycling\n- Level: beginner",
-        "accepted_intents": ["blocked", "general"],
-        "accepted_response_types": ["Decline"],
-        "require_guardrail": True,
-        "check": "should decline plan creation in advisor tier",
+        "mode": "interpreter",
+        "user_content": "I have chest pain and I feel dizzy\n\nCONTEXT:\n- Readiness: Green",
+        "check": "should output medical safety clarify",
+        "validate": lambda parsed: parsed.get("action") == "clarify" and "medical" in str(parsed.get("missing", [])).lower(),
     },
     {
-        "tier": "coach",
-        "user_content": "I feel terrible, my chest hurts and I'm dizzy\n\nCONTEXT:\n- Readiness: Red (Overreached)\n- Sport: running\n- Level: intermediate",
-        "accepted_intents": ["medical_red_flag"],
-        "accepted_response_types": ["SafetyWarning"],
-        "check": "should flag medical concern",
+        "mode": "interpreter",
+        "user_content": "I'm sick, can't train this week\n\nCONTEXT:\n- Sport: running\n- Readiness: Red",
+        "check": "should replan with illness (not clarify)",
+        "validate": lambda parsed: parsed.get("action") == "replan" and parsed.get("replan_type") == "illness",
+    },
+    # --- Explainer mode sanity checks ---
+    {
+        "mode": "explainer",
+        "user_content": "What am I doing today?\n\nCONTEXT:\n- Sport: running\n- Session: Z2 60min Easy aerobic\n- Readiness: Green",
+        "check": "should produce plain coaching text explaining the session",
+        "validate": lambda text: not text.strip().startswith("{") and len(text.split()) >= 10,
+    },
+    {
+        "mode": "explainer",
+        "user_content": "I'm feeling really tired today.\n\nCONTEXT:\n- Readiness: Orange\n- Sport: running",
+        "check": "should produce empathetic coaching text",
+        "validate": lambda text: not text.strip().startswith("{") and len(text.split()) >= 10,
     },
 ]
 
 
-def sanity_check(model_path: str, max_new_tokens: int = 200):
-    """Run sanity check prompts through the merged model and verify JSON output."""
+def sanity_check(model_path: str, max_new_tokens: int = 200, mode: str = "both"):
+    """Run sanity check prompts through the merged model.
+
+    Args:
+        model_path: Path to merged HuggingFace model directory.
+        max_new_tokens: Max tokens to generate per prompt.
+        mode: "interpreter", "explainer", or "both" (default).
+    """
 
     print(f"Loading model from: {model_path}")
     processor = AutoProcessor.from_pretrained(model_path)
@@ -635,15 +618,18 @@ def sanity_check(model_path: str, max_new_tokens: int = 200):
     )
     model.eval()
 
+    # Filter prompts by mode
+    prompts = [p for p in SANITY_PROMPTS
+                if mode == "both" or p["mode"] == mode]
+
     passed = 0
     failed = 0
 
-    for i, prompt in enumerate(SANITY_PROMPTS):
+    for i, prompt in enumerate(prompts):
         print(f"\n{'='*60}")
-        print(f"Sanity check {i+1}/{len(SANITY_PROMPTS)}: {prompt['check']}")
-        print(f"  Tier: {prompt['tier']}, Accepted: {prompt['accepted_intents']}/{prompt['accepted_response_types']}")
+        print(f"Sanity check {i+1}/{len(prompts)}: [{prompt['mode']}] {prompt['check']}")
 
-        messages = _build_sanity_messages(prompt["tier"], prompt["user_content"])
+        messages = _build_sanity_messages(prompt["mode"], prompt["user_content"])
 
         # Format with processor's chat template
         inputs = processor.apply_chat_template(
@@ -673,45 +659,31 @@ def sanity_check(model_path: str, max_new_tokens: int = 200):
 
         print(f"\n  Raw output:\n  {generated[:500]}")
 
-        # Strip markdown code fences (Gemma often wraps JSON in ```json ... ```)
-        json_text = generated
-        if json_text.startswith("```"):
-            lines = json_text.split("\n")
-            # Remove first line (```json) and last line (```)
-            lines = [l for l in lines if not l.strip().startswith("```")]
-            json_text = "\n".join(lines).strip()
+        # Validate based on mode
+        ok = False
+        if prompt["mode"] == "interpreter":
+            # Strip markdown code fences
+            json_text = generated
+            if json_text.startswith("```"):
+                lines = json_text.split("\n")
+                lines = [l for l in lines if not l.strip().startswith("```")]
+                json_text = "\n".join(lines).strip()
+            try:
+                parsed = json.loads(json_text)
+                ok = prompt["validate"](parsed)
+                print(f"  Parsed: action={parsed.get('action')}, sport={parsed.get('sport')}")
+            except (json.JSONDecodeError, Exception) as e:
+                print(f"  Parse error: {e}")
+                ok = False
+        else:
+            # Explainer: validate raw text
+            ok = prompt["validate"](generated)
 
-        # Validate
-        checks = []
-        try:
-            parsed = json.loads(json_text)
-            checks.append(("valid_json", True))
-            checks.append(("has_intent", "intent" in parsed))
-            checks.append(("has_response_type", "response_type" in parsed))
-            checks.append(("has_message", "message" in parsed))
-            checks.append(("intent_correct", parsed.get("intent") in prompt["accepted_intents"]))
-            checks.append(("rtype_correct", parsed.get("response_type") in prompt["accepted_response_types"]))
-
-            if prompt.get("require_guardrail"):
-                checks.append(("guardrail_triggered", parsed.get("guardrail_triggered") is True))
-
-            # Dialogue governor: check answer-first, max 1 question
-            msg = parsed.get("message", "")
-            question_marks = msg.count("?")
-            checks.append(("max_1_question", question_marks <= 1))
-        except json.JSONDecodeError:
-            checks.append(("valid_json", False))
-
-        all_pass = all(v for _, v in checks)
-        status = "PASS" if all_pass else "FAIL"
-        if all_pass:
+        if ok:
             passed += 1
         else:
             failed += 1
-
-        print(f"\n  [{status}]")
-        for name, ok in checks:
-            print(f"    {'OK' if ok else 'FAIL'}: {name}")
+        print(f"\n  [{'PASS' if ok else 'FAIL'}]")
 
     print(f"\n{'='*60}")
     print(f"Sanity check: {passed}/{passed+failed} passed")
@@ -733,11 +705,19 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python finetune_gemma3n.py train                          # Train with defaults
-  python finetune_gemma3n.py train --lr 3e-5 --epochs 4    # Custom params
-  python finetune_gemma3n.py train --no-wandb               # Without W&B
-  python finetune_gemma3n.py merge --lora_path ./models/josi-v4-gemma3n-*/lora_weights
-  python finetune_gemma3n.py sanity --model_path ./models/josi-v4-gemma3n-merged
+  # Train interpreter (GATCRequest JSON output)
+  python finetune_gemma3n.py train --mode interpreter
+  python finetune_gemma3n.py train --mode interpreter --lr 3e-5 --epochs 4
+
+  # Train explainer (plain coaching text output)
+  python finetune_gemma3n.py train --mode explainer
+  python finetune_gemma3n.py train --mode explainer --no-wandb
+
+  # Merge LoRA weights
+  python finetune_gemma3n.py merge --lora_path ./models/josi-v4-gemma3n-interpreter-*/lora_weights
+
+  # Sanity check
+  python finetune_gemma3n.py sanity --model_path ./models/merged --mode both
         """,
     )
 
@@ -745,10 +725,13 @@ Examples:
 
     # --- train ---
     tp = subparsers.add_parser("train", help="Run QLoRA fine-tuning")
+    tp.add_argument("--mode", type=str, default="interpreter",
+                    choices=["interpreter", "explainer"],
+                    help="Which model to train (default: interpreter)")
     tp.add_argument("--train_data", type=str, default=None,
-                    help=f"Training data (default: {DEFAULT_TRAIN})")
+                    help="Training data (default: train_interpreter.jsonl or train_explainer.jsonl based on --mode)")
     tp.add_argument("--val_data", type=str, default=None,
-                    help=f"Validation data (default: {DEFAULT_VAL})")
+                    help="Validation data (default: val_interpreter.jsonl or val_explainer.jsonl based on --mode)")
     tp.add_argument("--output_dir", type=str, default=None,
                     help="Output directory")
     tp.add_argument("--lr", type=float, default=None,
@@ -769,6 +752,9 @@ Examples:
     sp = subparsers.add_parser("sanity", help="Run sanity check on merged model")
     sp.add_argument("--model_path", type=str, required=True,
                     help="Path to merged model")
+    sp.add_argument("--mode", type=str, default="both",
+                    choices=["interpreter", "explainer", "both"],
+                    help="Which mode to sanity check (default: both)")
     sp.add_argument("--max_tokens", type=int, default=200,
                     help="Max generation tokens")
 
@@ -782,6 +768,7 @@ Examples:
             use_wandb=not args.no_wandb,
             lr_override=args.lr,
             epochs_override=args.epochs,
+            mode=args.mode,
         )
     elif args.command == "merge":
         merge(
@@ -792,6 +779,7 @@ Examples:
         ok = sanity_check(
             model_path=args.model_path,
             max_new_tokens=args.max_tokens,
+            mode=args.mode,
         )
         sys.exit(0 if ok else 1)
     else:
