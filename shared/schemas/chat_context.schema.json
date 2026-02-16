@@ -156,6 +156,52 @@
         "explain_more": { "type": "boolean" },
         "show_more_options": { "type": "boolean" }
       }
+    },
+    "athlete_memory": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Persistent coaching memory — key facts learned across sessions. Populated by Rust engine from Vault. Compact format (~174 tokens max).",
+      "properties": {
+        "key_facts": {
+          "type": "array",
+          "maxItems": 15,
+          "description": "Known facts about the athlete: preferences, constraints, history. Max 15.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["fact", "source", "confidence"],
+            "properties": {
+              "fact": {
+                "type": "string",
+                "description": "A single known fact, e.g. 'prefers morning runs', 'has recurring knee issue'"
+              },
+              "source": {
+                "type": "string",
+                "enum": ["conversation", "behavior", "profile_change"],
+                "description": "How this fact was learned"
+              },
+              "confidence": {
+                "type": "number",
+                "minimum": 0.0,
+                "maximum": 1.0,
+                "description": "Confidence score. Higher = more reliable."
+              }
+            }
+          }
+        },
+        "patterns": {
+          "type": "array",
+          "maxItems": 5,
+          "description": "Recurring behavioral patterns, e.g. 'skips Mondays frequently'. Max 5.",
+          "items": { "type": "string" }
+        },
+        "coaching_notes": {
+          "type": "array",
+          "maxItems": 5,
+          "description": "Coaching style notes, e.g. 'responds well to encouragement'. Max 5.",
+          "items": { "type": "string" }
+        }
+      }
     }
   },
   "allOf": [

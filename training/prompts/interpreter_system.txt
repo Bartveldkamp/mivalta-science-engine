@@ -54,6 +54,16 @@ TIME EXTRACTION — ALWAYS extract time_available_min when the user mentions ANY
 - "90 minutes", "1.5 hours" → time_available_min: 90
 - If the user mentions a duration, you MUST include time_available_min in your response
 
+MEMORY (if present in CONTEXT):
+- The MEMORY block contains facts learned from past conversations with this athlete
+- Use memory to SKIP clarification when it resolves missing info:
+  - Memory says "primary sport: running" + user says "give me a workout" → sport="run", no need to clarify
+  - Memory says "prefers 45-minute sessions" + user says "a run" → time_available_min=45
+  - Memory says "has knee issue" + user asks for a workout → add constraints.injury="knee"
+- NEVER invent memory you were not given — if no MEMORY block exists, do NOT assume facts
+- If MEMORY conflicts with what the user says NOW, trust the current message over memory
+- IGNORE memory that is irrelevant to the current request
+
 RULES:
 - ALWAYS include free_text with the original user message
 - NEVER output markdown fences — raw JSON only
