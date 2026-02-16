@@ -57,6 +57,63 @@ MANIFEST_PATH = GGUF_DIR / "manifest.json"
 S3_BUCKET = "s3://mivalta-models"
 S3_PUBLIC_URL = "https://objects.mivalta.com/models"
 
+# Hetzner Object Storage defaults
+HETZNER_S3_HOST = "fsn1.your-objectstorage.com"
+HETZNER_S3_HOST_BUCKET = "%(bucket)s.fsn1.your-objectstorage.com"
+
+
+def ensure_s3cfg():
+    """Create ~/.s3cfg from env vars or CLI args if it doesn't exist.
+
+    Supports:
+        S3_ACCESS_KEY / S3_SECRET_KEY env vars
+        --s3-access-key / --s3-secret-key CLI args (parsed before this call)
+
+    This avoids the need for interactive `s3cmd --configure`.
+    """
+    s3cfg_path = Path.home() / ".s3cfg"
+    if s3cfg_path.exists():
+        return  # already configured
+
+    access_key = os.environ.get("S3_ACCESS_KEY", "")
+    secret_key = os.environ.get("S3_SECRET_KEY", "")
+    host = os.environ.get("S3_ENDPOINT", HETZNER_S3_HOST)
+    host_bucket = os.environ.get("S3_HOST_BUCKET", HETZNER_S3_HOST_BUCKET)
+
+    if not access_key or not secret_key:
+        print("\n  ERROR: s3cmd is not configured and no credentials provided.")
+        print()
+        print("  Option 1 — Environment variables (easiest):")
+        print("    export S3_ACCESS_KEY='your-access-key'")
+        print("    export S3_SECRET_KEY='your-secret-key'")
+        print("    python scripts/publish_models.py ...")
+        print()
+        print("  Option 2 — CLI arguments:")
+        print("    python scripts/publish_models.py --s3-access-key KEY --s3-secret-key SECRET ...")
+        print()
+        print("  Option 3 — Interactive config:")
+        print("    s3cmd --configure")
+        print()
+        print("  Where to get credentials:")
+        print("    1. Go to https://console.hetzner.cloud")
+        print("    2. Select your project")
+        print("    3. Click 'Object Storage' in the left sidebar")
+        print("    4. Click 'Manage credentials'")
+        print("    5. Generate or copy your Access Key and Secret Key")
+        raise SystemExit(1)
+
+    config = f"""[default]
+access_key = {access_key}
+secret_key = {secret_key}
+host_base = {host}
+host_bucket = {host_bucket}
+use_https = True
+signature_v2 = False
+"""
+    s3cfg_path.write_text(config)
+    print(f"\n  Auto-configured s3cmd: {s3cfg_path}")
+    print(f"    Endpoint: {host}")
+
 
 def sha256_file(path: str) -> str:
     """Compute SHA-256 hash of a file."""
@@ -125,9 +182,9 @@ def upload_to_s3(local_path: str, s3_key: str) -> str:
     """Upload file to Hetzner Object Storage. Returns public URL."""
     if not shutil.which("s3cmd"):
         raise RuntimeError(
-            "s3cmd not found. Install: apt install s3cmd (or brew install s3cmd)\n"
-            "Configure: s3cmd --configure (use Hetzner Object Storage credentials)"
+            "s3cmd not found. Install: apt install s3cmd (or brew install s3cmd)"
         )
+    ensure_s3cfg()
 
     s3_dest = f"{S3_BUCKET}/{s3_key}"
     public_url = f"{S3_PUBLIC_URL}/{s3_key}"
@@ -193,7 +250,23 @@ def main():
     parser.add_argument("--skip-merge", action="store_true",
                         help="Skip merge step (use existing merged models)")
 
+    # S3 credentials (alternative to s3cmd --configure)
+    parser.add_argument("--s3-access-key", type=str,
+                        help="Hetzner Object Storage access key (or set S3_ACCESS_KEY env var)")
+    parser.add_argument("--s3-secret-key", type=str,
+                        help="Hetzner Object Storage secret key (or set S3_SECRET_KEY env var)")
+    parser.add_argument("--s3-endpoint", type=str,
+                        help="S3 endpoint (default: fsn1.your-objectstorage.com)")
+
     args = parser.parse_args()
+
+    # Copy CLI credential args into env vars so ensure_s3cfg() picks them up
+    if args.s3_access_key:
+        os.environ["S3_ACCESS_KEY"] = args.s3_access_key
+    if args.s3_secret_key:
+        os.environ["S3_SECRET_KEY"] = args.s3_secret_key
+    if args.s3_endpoint:
+        os.environ["S3_ENDPOINT"] = args.s3_endpoint
 
     # Validate inputs
     if args.upload_only:
