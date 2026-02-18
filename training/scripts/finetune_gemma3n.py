@@ -57,7 +57,7 @@ from peft import (
     TaskType,
     get_peft_model,
 )
-from trl import SFTTrainer, SFTConfig
+from trl import SFTTrainer, SFTConfig, DataCollatorForCompletionOnlyLM
 
 
 # =============================================================================
@@ -187,6 +187,16 @@ def load_jsonl(path: str) -> list[dict]:
     return rows
 
 
+def validate_single_turn(messages: list[dict]) -> bool:
+    """Validate that the conversation has exactly one assistant/model response at the end."""
+    assistant_count = sum(1 for m in messages if m["role"] in ("assistant", "model"))
+    if assistant_count != 1:
+        return False
+    if messages[-1]["role"] not in ("assistant", "model"):
+        return False
+    return True
+
+
 def prepare_dataset(path: str, processor, max_seq_length: int = 1024) -> Dataset:
     """Load JSONL and format with Gemma 3n chat template, with truncation.
 
@@ -195,6 +205,9 @@ def prepare_dataset(path: str, processor, max_seq_length: int = 1024) -> Dataset
       - "assistant" role -> "model" role
       - Plain string content -> [{"type": "text", "text": "..."}] arrays
       - Apply processor's chat template
+
+    Validates that all examples are single-turn (one model response) so the
+    model learns to produce exactly one response and then stop with <end_of_turn>.
     """
     raw = load_jsonl(path)
     print(f"  Loaded {len(raw)} examples from {path}")
@@ -203,14 +216,24 @@ def prepare_dataset(path: str, processor, max_seq_length: int = 1024) -> Dataset
     texts = []
     truncated = 0
     skipped = 0
+    multi_turn = 0
 
     for ex in raw:
         messages = ex["messages"]
 
+        # Validate single-turn: model must learn to output ONE response then stop
+        if not validate_single_turn(messages):
+            multi_turn += 1
+            if multi_turn <= 3:
+                roles = [m["role"] for m in messages]
+                print(f"  WARNING: Multi-turn example skipped (roles: {roles})")
+            continue
+
         # Convert to Gemma 3n format
         gemma_messages = convert_to_gemma3n_messages(messages)
 
-        # Apply chat template via processor
+        # Apply chat template via processor — this adds <end_of_turn> after the
+        # model's response, which is the stop token the model must learn to emit
         try:
             text = processor.apply_chat_template(
                 gemma_messages,
@@ -231,10 +254,19 @@ def prepare_dataset(path: str, processor, max_seq_length: int = 1024) -> Dataset
             text = tokenizer.decode(tokens["input_ids"], skip_special_tokens=False)
         texts.append({"text": text})
 
+    if multi_turn:
+        print(f"  WARNING: {multi_turn}/{len(raw)} multi-turn examples skipped (single-turn only)")
     if truncated:
         print(f"  WARNING: {truncated}/{len(raw)} examples truncated to {max_seq_length} tokens")
     if skipped:
         print(f"  WARNING: {skipped}/{len(raw)} examples skipped (template errors)")
+
+    # Verify stop token is present in formatted training data
+    eos_token = tokenizer.eos_token or "<end_of_turn>"
+    eos_count = sum(1 for t in texts if eos_token in t["text"])
+    print(f"  Stop token ('{eos_token}') present in {eos_count}/{len(texts)} examples")
+    if eos_count < len(texts):
+        print(f"  WARNING: {len(texts) - eos_count} examples missing stop token!")
 
     ds = Dataset.from_list(texts)
     return ds
@@ -260,10 +292,16 @@ def load_model_and_processor(model_id: str = None):
     print(f"Loading processor: {model_id}")
     processor = AutoProcessor.from_pretrained(model_id)
 
-    # Ensure pad token is set on the tokenizer
-    if processor.tokenizer.pad_token is None:
-        processor.tokenizer.pad_token = processor.tokenizer.eos_token
-    processor.tokenizer.padding_side = "right"
+    # CRITICAL: pad_token must NOT equal eos_token.
+    # When pad_token_id == eos_token_id, the DataCollator masks ALL occurrences
+    # of that token ID to -100 in labels — including the real <end_of_turn> at
+    # the end of the model's response. This means the model NEVER trains on the
+    # stop token and won't learn to stop generating at inference time.
+    tokenizer = processor.tokenizer
+    if tokenizer.pad_token is None or tokenizer.pad_token_id == tokenizer.eos_token_id:
+        tokenizer.add_special_tokens({"pad_token": "[PAD]"})
+        print(f"  Added dedicated [PAD] token (id={tokenizer.pad_token_id}) — separate from EOS (id={tokenizer.eos_token_id})")
+    tokenizer.padding_side = "right"
 
     print(f"Loading model: {model_id} (bf16, LoRA fine-tuning)")
     print(f"  Architecture: Gemma3nForConditionalGeneration")
@@ -275,6 +313,11 @@ def load_model_and_processor(model_id: str = None):
         low_cpu_mem_usage=True,
         torch_dtype=torch.bfloat16,
     )
+
+    # Resize embeddings if we added a pad token
+    if len(tokenizer) > model.get_input_embeddings().weight.shape[0]:
+        model.resize_token_embeddings(len(tokenizer))
+        print(f"  Resized embeddings to {len(tokenizer)} (added [PAD] token)")
 
     # Freeze all base model parameters
     for param in model.parameters():
@@ -441,12 +484,24 @@ def train(
         ),
     ]
 
+    # Completion-only loss: only train on the model's response (including
+    # the <end_of_turn> stop token), not on the system prompt or user message.
+    # This focuses the model on learning to generate responses and STOP.
+    response_template = "<start_of_turn>model\n"
+    response_template_ids = processor.tokenizer.encode(response_template, add_special_tokens=False)
+    print(f"  Response template: '{response_template.strip()}' -> token IDs: {response_template_ids}")
+    data_collator = DataCollatorForCompletionOnlyLM(
+        response_template=response_template_ids,
+        tokenizer=processor.tokenizer,
+    )
+
     # Trainer — use the tokenizer component from processor for SFT
     trainer = SFTTrainer(
         model=model,
         train_dataset=train_dataset,
         eval_dataset=val_dataset,
         processing_class=processor.tokenizer,
+        data_collator=data_collator,
         args=training_args,
         callbacks=callbacks,
     )
@@ -686,6 +741,8 @@ def sanity_check(model_path: str, max_new_tokens: int = 200, mode: str = "both")
                 do_sample=True,
                 temperature=INFERENCE_TEMPERATURE,
                 top_p=0.9,
+                eos_token_id=processor.tokenizer.eos_token_id,
+                pad_token_id=processor.tokenizer.pad_token_id,
             )
 
         # Decode only the generated part

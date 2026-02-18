@@ -368,7 +368,8 @@ def run_prompt_hf(model, tokenizer, prompt: str, device: str) -> str:
             temperature=0.7,
             do_sample=True,
             top_p=0.9,
-            pad_token_id=tokenizer.eos_token_id,
+            eos_token_id=tokenizer.eos_token_id,
+            pad_token_id=tokenizer.pad_token_id,
         )
 
     # Decode only the generated tokens (skip input)

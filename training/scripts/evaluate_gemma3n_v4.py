@@ -906,6 +906,8 @@ def run_prompt_hf(model, processor, prompt: str, system_prompt: str, device: str
         outputs = model.generate(
             **inputs, max_new_tokens=max_tokens,
             temperature=0.45, do_sample=True, top_p=0.9,
+            eos_token_id=processor.tokenizer.eos_token_id,
+            pad_token_id=processor.tokenizer.pad_token_id,
         )
 
     input_len = inputs["input_ids"].shape[-1]

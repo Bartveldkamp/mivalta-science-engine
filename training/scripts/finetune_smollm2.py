@@ -47,7 +47,7 @@ from peft import (
     TaskType,
     get_peft_model,
 )
-from trl import SFTTrainer, SFTConfig
+from trl import SFTTrainer, SFTConfig, DataCollatorForCompletionOnlyLM
 
 
 # =============================================================================
@@ -109,16 +109,41 @@ def load_jsonl(path: str) -> list[dict]:
     return rows
 
 
+def validate_single_turn(messages: list[dict]) -> bool:
+    """Validate that the conversation has exactly one assistant response at the end."""
+    assistant_count = sum(1 for m in messages if m["role"] == "assistant")
+    if assistant_count != 1:
+        return False
+    if messages[-1]["role"] != "assistant":
+        return False
+    return True
+
+
 def prepare_dataset(path: str, tokenizer, max_seq_length: int = 1024) -> Dataset:
-    """Load JSONL and format with tokenizer's chat template, with truncation."""
+    """Load JSONL and format with tokenizer's chat template, with truncation.
+
+    Validates that all examples are single-turn (one assistant response) so the
+    model learns to produce exactly one response and then stop.
+    """
     raw = load_jsonl(path)
     print(f"  Loaded {len(raw)} examples from {path}")
 
     texts = []
     truncated = 0
+    multi_turn = 0
     for ex in raw:
         messages = ex["messages"]
+
+        # Validate single-turn: model must learn to output ONE response then stop
+        if not validate_single_turn(messages):
+            multi_turn += 1
+            if multi_turn <= 3:
+                roles = [m["role"] for m in messages]
+                print(f"  WARNING: Multi-turn example skipped (roles: {roles})")
+            continue
+
         # apply_chat_template returns the full formatted string with ChatML tokens
+        # including the <|im_end|> stop token after the assistant's response
         text = tokenizer.apply_chat_template(
             messages,
             tokenize=False,
@@ -131,8 +156,17 @@ def prepare_dataset(path: str, tokenizer, max_seq_length: int = 1024) -> Dataset
             text = tokenizer.decode(tokens["input_ids"], skip_special_tokens=False)
         texts.append({"text": text})
 
+    if multi_turn:
+        print(f"  WARNING: {multi_turn}/{len(raw)} multi-turn examples skipped (single-turn only)")
     if truncated:
         print(f"  WARNING: {truncated}/{len(raw)} examples truncated to {max_seq_length} tokens")
+
+    # Verify EOS token is present in formatted training data
+    eos_token = tokenizer.eos_token
+    eos_count = sum(1 for t in texts if eos_token in t["text"])
+    print(f"  EOS token ('{eos_token}') present in {eos_count}/{len(texts)} examples")
+    if eos_count < len(texts):
+        print(f"  WARNING: {len(texts) - eos_count} examples missing EOS token!")
 
     ds = Dataset.from_list(texts)
     return ds
@@ -148,9 +182,14 @@ def load_model_and_tokenizer(model_name: str, lora_r: int, lora_alpha: int):
     print(f"Loading tokenizer: {model_name}")
     tokenizer = AutoTokenizer.from_pretrained(model_name)
 
-    # Ensure pad token is set (SmolLM2 may not have one)
-    if tokenizer.pad_token is None:
-        tokenizer.pad_token = tokenizer.eos_token
+    # CRITICAL: pad_token must NOT equal eos_token.
+    # When pad_token_id == eos_token_id, the DataCollator masks ALL occurrences
+    # of that token ID to -100 in labels — including the real EOS at the end of
+    # the assistant's response. This means the model NEVER trains on the stop
+    # token and won't learn to stop generating at inference time.
+    if tokenizer.pad_token is None or tokenizer.pad_token_id == tokenizer.eos_token_id:
+        tokenizer.add_special_tokens({"pad_token": "[PAD]"})
+        print(f"  Added dedicated [PAD] token (id={tokenizer.pad_token_id}) — separate from EOS (id={tokenizer.eos_token_id})")
     tokenizer.padding_side = "right"
 
     print(f"Loading model: {model_name}")
@@ -160,6 +199,11 @@ def load_model_and_tokenizer(model_name: str, lora_r: int, lora_alpha: int):
         device_map="auto",
         low_cpu_mem_usage=True,
     )
+
+    # Resize embeddings if we added a pad token
+    if len(tokenizer) > model.get_input_embeddings().weight.shape[0]:
+        model.resize_token_embeddings(len(tokenizer))
+        print(f"  Resized embeddings to {len(tokenizer)} (added [PAD] token)")
 
     # LoRA
     lora_config = LoraConfig(
@@ -297,12 +341,24 @@ def train(
         ),
     ]
 
+    # Completion-only loss: only train on the assistant's response (including
+    # the <|im_end|> stop token), not on the system prompt or user message.
+    # This focuses the model on learning to generate responses and STOP.
+    response_template = "<|im_start|>assistant\n"
+    response_template_ids = tokenizer.encode(response_template, add_special_tokens=False)
+    print(f"  Response template: '{response_template.strip()}' -> token IDs: {response_template_ids}")
+    data_collator = DataCollatorForCompletionOnlyLM(
+        response_template=response_template_ids,
+        tokenizer=tokenizer,
+    )
+
     # Trainer
     trainer = SFTTrainer(
         model=model,
         train_dataset=train_dataset,
         eval_dataset=val_dataset,
         processing_class=tokenizer,
+        data_collator=data_collator,
         args=training_args,
         callbacks=callbacks,
     )
@@ -513,7 +569,8 @@ def sanity_check(model_path: str, max_new_tokens: int = 256):
                 max_new_tokens=max_new_tokens,
                 do_sample=False,
                 temperature=1.0,
-                pad_token_id=tokenizer.pad_token_id or tokenizer.eos_token_id,
+                eos_token_id=tokenizer.eos_token_id,
+                pad_token_id=tokenizer.pad_token_id,
             )
 
         # Decode only the generated part
