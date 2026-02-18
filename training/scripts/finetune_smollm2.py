@@ -47,7 +47,7 @@ from peft import (
     TaskType,
     get_peft_model,
 )
-from trl import SFTTrainer, SFTConfig, DataCollatorForCompletionOnlyLM
+from trl import SFTTrainer, SFTConfig
 
 
 # =============================================================================
@@ -120,7 +120,15 @@ def validate_single_turn(messages: list[dict]) -> bool:
 
 
 def prepare_dataset(path: str, tokenizer, max_seq_length: int = 1024) -> Dataset:
-    """Load JSONL and format with tokenizer's chat template, with truncation.
+    """Load JSONL and split into prompt/completion format for completion-only loss.
+
+    Each example is split into:
+      prompt:     system + user turns + generation marker (everything BEFORE the response)
+      completion: assistant response content + EOS token (what the model must learn)
+
+    TRL's SFTTrainer auto-detects prompt/completion format and creates a
+    completion_mask, so the model only trains on the completion (including the
+    stop token) — not the system prompt or user message.
 
     Validates that all examples are single-turn (one assistant response) so the
     model learns to produce exactly one response and then stop.
@@ -128,9 +136,11 @@ def prepare_dataset(path: str, tokenizer, max_seq_length: int = 1024) -> Dataset
     raw = load_jsonl(path)
     print(f"  Loaded {len(raw)} examples from {path}")
 
-    texts = []
+    examples = []
     truncated = 0
     multi_turn = 0
+    eos_token = tokenizer.eos_token
+
     for ex in raw:
         messages = ex["messages"]
 
@@ -142,33 +152,51 @@ def prepare_dataset(path: str, tokenizer, max_seq_length: int = 1024) -> Dataset
                 print(f"  WARNING: Multi-turn example skipped (roles: {roles})")
             continue
 
-        # apply_chat_template returns the full formatted string with ChatML tokens
-        # including the <|im_end|> stop token after the assistant's response
-        text = tokenizer.apply_chat_template(
-            messages,
+        # Split into prompt (system+user) and completion (assistant response)
+        # Prompt: apply_chat_template to system+user with generation prompt marker
+        prompt_messages = messages[:-1]  # system + user
+        prompt = tokenizer.apply_chat_template(
+            prompt_messages,
             tokenize=False,
-            add_generation_prompt=False,
+            add_generation_prompt=True,  # adds <|im_start|>assistant\n
         )
-        # Truncate to max_seq_length tokens (decode back to text)
-        tokens = tokenizer(text, truncation=True, max_length=max_seq_length)
+
+        # Completion: assistant content + EOS stop token
+        assistant_content = messages[-1]["content"]
+        completion = assistant_content + eos_token
+
+        # Truncation check on the full sequence
+        full_text = prompt + completion
+        tokens = tokenizer(full_text, truncation=True, max_length=max_seq_length)
         if len(tokens["input_ids"]) >= max_seq_length:
             truncated += 1
-            text = tokenizer.decode(tokens["input_ids"], skip_special_tokens=False)
-        texts.append({"text": text})
+            # Truncate completion to fit within budget
+            prompt_tokens = tokenizer(prompt, add_special_tokens=False)
+            remaining = max_seq_length - len(prompt_tokens["input_ids"])
+            if remaining <= 10:
+                continue  # Prompt alone exceeds limit, skip
+            completion_tokens = tokenizer(completion, truncation=True, max_length=remaining)
+            completion = tokenizer.decode(completion_tokens["input_ids"], skip_special_tokens=False)
+
+        examples.append({"prompt": prompt, "completion": completion})
 
     if multi_turn:
         print(f"  WARNING: {multi_turn}/{len(raw)} multi-turn examples skipped (single-turn only)")
     if truncated:
         print(f"  WARNING: {truncated}/{len(raw)} examples truncated to {max_seq_length} tokens")
 
-    # Verify EOS token is present in formatted training data
-    eos_token = tokenizer.eos_token
-    eos_count = sum(1 for t in texts if eos_token in t["text"])
-    print(f"  EOS token ('{eos_token}') present in {eos_count}/{len(texts)} examples")
-    if eos_count < len(texts):
-        print(f"  WARNING: {len(texts) - eos_count} examples missing EOS token!")
+    # Verify EOS token is present in completions
+    eos_count = sum(1 for e in examples if eos_token in e["completion"])
+    print(f"  EOS token ('{eos_token}') present in {eos_count}/{len(examples)} completions")
+    if eos_count < len(examples):
+        print(f"  WARNING: {len(examples) - eos_count} completions missing EOS token!")
 
-    ds = Dataset.from_list(texts)
+    # Show a sample
+    if examples:
+        print(f"  Sample prompt  (last 80 chars): ...{examples[0]['prompt'][-80:]}")
+        print(f"  Sample completion (first 80 chars): {examples[0]['completion'][:80]}...")
+
+    ds = Dataset.from_list(examples)
     return ds
 
 
@@ -302,8 +330,9 @@ def train(
     val_dataset = prepare_dataset(val_path, tokenizer, max_seq)
 
     # Verify a sample
-    print(f"\n  Sample formatted text (first 300 chars):")
-    print(f"  {train_dataset[0]['text'][:300]}...")
+    sample = train_dataset[0]
+    print(f"\n  Sample prompt  (last 100 chars): ...{sample['prompt'][-100:]}")
+    print(f"  Sample completion (first 100 chars): {sample['completion'][:100]}...")
 
     # Training arguments
     eval_steps = max(1, len(train_dataset) // (cfg["batch_size"] * cfg["grad_accum"] * 4))
@@ -331,6 +360,10 @@ def train(
         gradient_checkpointing=True,
         max_grad_norm=1.0,
         report_to=report_to,
+        # Completion-only loss: only train on the assistant's response (including
+        # the <|im_end|> stop token), not on the system prompt or user message.
+        # TRL auto-detects prompt/completion format and creates a completion_mask.
+        completion_only_loss=True,
     )
 
     # Callbacks
@@ -341,24 +374,12 @@ def train(
         ),
     ]
 
-    # Completion-only loss: only train on the assistant's response (including
-    # the <|im_end|> stop token), not on the system prompt or user message.
-    # This focuses the model on learning to generate responses and STOP.
-    response_template = "<|im_start|>assistant\n"
-    response_template_ids = tokenizer.encode(response_template, add_special_tokens=False)
-    print(f"  Response template: '{response_template.strip()}' -> token IDs: {response_template_ids}")
-    data_collator = DataCollatorForCompletionOnlyLM(
-        response_template=response_template_ids,
-        tokenizer=tokenizer,
-    )
-
     # Trainer
     trainer = SFTTrainer(
         model=model,
         train_dataset=train_dataset,
         eval_dataset=val_dataset,
         processing_class=tokenizer,
-        data_collator=data_collator,
         args=training_args,
         callbacks=callbacks,
     )
