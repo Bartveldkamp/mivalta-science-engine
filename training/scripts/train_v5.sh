@@ -19,6 +19,9 @@ set -e
 # characters and will crash on servers with ASCII-only locale (no LC_ALL set).
 export PYTHONUTF8=1
 
+# Reduce CUDA memory fragmentation — critical for 20GB GPUs with large-vocab models
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TRAINING_DIR="$(dirname "$SCRIPT_DIR")"
 cd "$TRAINING_DIR"

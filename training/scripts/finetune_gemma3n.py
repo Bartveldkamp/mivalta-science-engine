@@ -16,7 +16,7 @@ Architecture notes:
   - Merged + GGUF Q4_K_M for on-device deployment (~2-3GB)
 
 Runtime constraints (on-device):
-  - Context cap: 2048 tokens (system prompt ~900 tok + user input + response)
+  - Context cap: 1024 tokens (trimmed system prompt ~500 tok + user input + response)
   - Output cap: 150 tokens
   - Temperature: 0.4-0.5
   - 100% on-device via llama.cpp on Android — NO network calls
@@ -76,9 +76,9 @@ def resolve_model_id():
         return str(LOCAL_MODEL_PATH)
     return MODEL_ID
 
-# QLoRA config: smaller rank since effective 2B — less adaptation needed
-LORA_R = 8
-LORA_ALPHA = 16
+# LoRA config: r=16 gives enough capacity for structured JSON output
+LORA_R = 16
+LORA_ALPHA = 32
 LORA_DROPOUT = 0.05
 
 # LoRA targets on the language model backbone
@@ -91,7 +91,7 @@ LORA_TARGET_MODULES = [
 LEARNING_RATE = 2e-5       # Conservative for fine-tuning
 BATCH_SIZE = 1             # Micro-batch=1 to fit bf16 model in 20GB VRAM
 GRAD_ACCUM = 16            # Effective batch = 16
-MAX_SEQ_LENGTH = 2048      # System prompt (~900 tok) + user + completion; 1024 too small
+MAX_SEQ_LENGTH = 1024      # Trimmed prompt (~500 tok) + user + completion fits comfortably
 EPOCHS = 3                 # Gemma converges faster than SmolLM2-360M
 WARMUP_RATIO = 0.05
 
@@ -347,8 +347,8 @@ def load_model_and_processor(model_id: str = None):
     for param in model.parameters():
         param.requires_grad = False
 
-    # Enable gradient checkpointing to save VRAM
-    model.gradient_checkpointing_enable()
+    # Gradient checkpointing is enabled via SFTConfig (gradient_checkpointing=True)
+    # — no need to call model.gradient_checkpointing_enable() separately.
 
     # LoRA adapters — target the language model backbone
     lora_config = LoraConfig(
@@ -499,6 +499,7 @@ def train(
         greater_is_better=False,
         bf16=True,
         gradient_checkpointing=True,
+        gradient_checkpointing_kwargs={"use_reentrant": False},
         max_grad_norm=1.0,
         report_to=report_to,
         optim="adamw_torch_fused",  # Built-in fused optimizer (no bitsandbytes needed)
