@@ -175,9 +175,17 @@ echo ""
 echo "--- Setting up llama.cpp for GGUF export ---"
 
 LLAMA_DIR="$HOME/llama.cpp"
-if [ ! -d "$LLAMA_DIR" ]; then
-    echo "Cloning llama.cpp..."
-    git clone https://github.com/ggerganov/llama.cpp.git "$LLAMA_DIR"
+if [ ! -d "$LLAMA_DIR" ] || [ ! -f "$LLAMA_DIR/build/bin/llama-quantize" ]; then
+    # Install build dependencies if missing
+    if ! command -v cmake &> /dev/null; then
+        echo "Installing cmake and build tools..."
+        apt-get update && apt-get install -y cmake build-essential
+    fi
+
+    if [ ! -d "$LLAMA_DIR" ]; then
+        echo "Cloning llama.cpp..."
+        git clone https://github.com/ggerganov/llama.cpp.git "$LLAMA_DIR"
+    fi
     cd "$LLAMA_DIR"
     cmake -B build -DGGML_CUDA=ON
     cmake --build build --config Release -j$(nproc)
