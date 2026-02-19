@@ -100,17 +100,39 @@ echo "--- Downloading base model ---"
 MODEL_DIR="$(dirname "$(realpath "$0")")/../models"
 mkdir -p "$MODEL_DIR"
 
+# Check HuggingFace authentication (required for gated models like Gemma)
+if [ -z "$HF_TOKEN" ]; then
+    # Check if already logged in via huggingface-cli
+    if ! python3 -c "from huggingface_hub import HfFolder; assert HfFolder.get_token()" 2>/dev/null; then
+        echo ""
+        echo "WARNING: HuggingFace authentication required for gated models (e.g. Gemma)."
+        echo "  Option 1: export HF_TOKEN=hf_your_token_here"
+        echo "  Option 2: huggingface-cli login"
+        echo ""
+        echo "Get your token at: https://huggingface.co/settings/tokens"
+        echo "Accept the model license at: https://huggingface.co/google/gemma-3n-E2B-it"
+        echo ""
+        read -rp "Enter your HuggingFace token (or press Enter to skip model download): " HF_TOKEN_INPUT
+        if [ -n "$HF_TOKEN_INPUT" ]; then
+            export HF_TOKEN="$HF_TOKEN_INPUT"
+        fi
+    fi
+fi
+
 if [ "$VRAM_MB" -ge 20000 ]; then
     MODEL_CHOICE="gemma3n"
     echo "VRAM >= 20GB: Using Gemma 3n E2B (2B effective, best quality)"
     if [ ! -d "$MODEL_DIR/gemma-3n-E2B-it" ]; then
-        echo "Downloading google/gemma-3n-E2B-it..."
-        pip install huggingface_hub
-        python3 -c "
+        if [ -z "$HF_TOKEN" ] && ! python3 -c "from huggingface_hub import HfFolder; assert HfFolder.get_token()" 2>/dev/null; then
+            echo "Skipping Gemma download (no HF token). Run again after authenticating."
+        else
+            echo "Downloading google/gemma-3n-E2B-it..."
+            python3 -c "
 from huggingface_hub import snapshot_download
 snapshot_download('google/gemma-3n-E2B-it', local_dir='$MODEL_DIR/gemma-3n-E2B-it')
 print('Download complete')
 "
+        fi
     else
         echo "Model already downloaded"
     fi
