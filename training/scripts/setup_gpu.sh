@@ -187,10 +187,17 @@ if [ ! -d "$LLAMA_DIR" ] || [ ! -f "$LLAMA_DIR/build/bin/llama-quantize" ]; then
         git clone https://github.com/ggerganov/llama.cpp.git "$LLAMA_DIR"
     fi
     cd "$LLAMA_DIR"
-    cmake -B build -DGGML_CUDA=ON
+    # Try CUDA build first; fall back to CPU-only (sufficient for quantization)
+    if command -v nvcc &> /dev/null; then
+        echo "Building llama.cpp with CUDA support..."
+        cmake -B build -DGGML_CUDA=ON
+    else
+        echo "CUDA Toolkit (nvcc) not found — building CPU-only (fine for GGUF quantization)"
+        cmake -B build
+    fi
     cmake --build build --config Release -j$(nproc)
     cd -
-    echo "llama.cpp built with CUDA"
+    echo "llama.cpp built successfully"
 else
     echo "llama.cpp already exists at $LLAMA_DIR"
 fi
