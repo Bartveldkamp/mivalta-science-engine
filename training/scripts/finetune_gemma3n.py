@@ -502,6 +502,7 @@ def train(
         max_grad_norm=1.0,
         report_to=report_to,
         optim="adamw_torch_fused",  # Built-in fused optimizer (no bitsandbytes needed)
+        max_seq_length=MAX_SEQ_LENGTH,  # Must match prepare_dataset; TRL default is 1024
         # Completion-only loss: only train on the model's response (including
         # the <end_of_turn> stop token), not on the system prompt or user message.
         # TRL auto-detects prompt/completion format and creates a completion_mask.
