@@ -2,22 +2,21 @@
 """
 Fix interpreter training data — v5 quality cleanup.
 
-Addresses two issues found during review:
+Addresses issues found during review:
 
-  1. System prompt drift: Training examples contain an older version of
-     the system prompt that lacks TIME EXTRACTION, MEMORY, and
-     ILLNESS vs MEDICAL sections. Updates all examples to use the
-     current prompt from training/prompts/interpreter_system.txt.
+  1. System prompt drift: Updates all examples to use the current prompt.
 
-  2. Zone-change mislabels: 15 examples where "change my zone" or
-     "change the zones" are labeled create_workout but should be
-     replan (the user wants to modify an existing session's intensity).
+  2. Zone-change mislabels: "Change my zone from Z2 to Z5" was labeled
+     reduce_intensity — but Z2→Z5 is an INCREASE. Fixed to action=explain
+     so the explainer can handle the boundary response.
+
+  3. Greeting mislabels: "Thanks!" labeled as answer_question with
+     question="Thanks!" — fixed question field.
 
 Usage:
     python fix_interpreter_v5.py
     # Reads:  training/data/train_interpreter.jsonl
     # Writes: training/data/train_interpreter.jsonl (in-place backup at .bak)
-    # Also fixes: training/data/val_interpreter.jsonl
 """
 
 import json
@@ -47,25 +46,36 @@ def is_zone_change_message(user_msg: str) -> bool:
 
 
 def fix_zone_change_label(response: dict, user_msg: str) -> dict:
-    """Relabel zone-change create_workout → replan with reduce_intensity."""
-    if response.get("action") != "create_workout":
-        return response
+    """Relabel zone-change requests correctly.
 
-    if not is_zone_change_message(user_msg):
-        return response
+    "Change my zone from Z2 to Z5" is not reduce_intensity — it's the user
+    trying to override the training plan. Map to explain so the explainer
+    can explain why zones are set the way they are (readiness gating).
+    """
+    msg = user_msg.split("\nCONTEXT:")[0].strip().lower()
 
-    # Extract sport from the original response (keep it)
-    sport = response.get("sport")
+    # Fix replan/reduce_intensity where user actually wants MORE intensity
+    if response.get("action") == "replan" and response.get("replan_type") == "reduce_intensity":
+        zones = re.findall(r'z(\d)', msg)
+        if len(zones) >= 2:
+            from_z, to_z = int(zones[0]), int(zones[1])
+            if to_z > from_z:
+                # User wants to go UP in zone → this is an override attempt, not a reduction
+                return {
+                    "action": "explain",
+                    "question": response.get("free_text", msg),
+                    "free_text": response.get("free_text", msg),
+                }
 
-    fixed = {
-        "action": "replan",
-        "replan_type": "reduce_intensity",
-        "free_text": response.get("free_text", ""),
-    }
-    if sport:
-        fixed["sport"] = sport
+    # Fix create_workout for zone-change messages
+    if response.get("action") == "create_workout" and is_zone_change_message(user_msg):
+        return {
+            "action": "explain",
+            "question": response.get("free_text", msg),
+            "free_text": response.get("free_text", msg),
+        }
 
-    return fixed
+    return response
 
 
 def process_file(filepath: Path, current_prompt: str) -> dict:
@@ -99,6 +109,20 @@ def process_file(filepath: Path, current_prompt: str) -> dict:
         if new_response != old_response:
             msgs[-1]["content"] = json.dumps(new_response, ensure_ascii=False)
             stats["labels_fixed"] += 1
+
+        # Fix 3: Fix greeting/thanks question fields
+        core = user_msg.split("\nCONTEXT:")[0].strip().lower()
+        resp = json.loads(msgs[-1]["content"])
+        if core in ("thanks!", "thanks", "thank you", "thank you!"):
+            if resp.get("action") == "answer_question" and resp.get("question", "").lower().startswith("thank"):
+                resp["question"] = "Athlete expressing gratitude"
+                msgs[-1]["content"] = json.dumps(resp, ensure_ascii=False)
+                stats["greetings_fixed"] = stats.get("greetings_fixed", 0) + 1
+        elif core in ("good morning", "morning", "hello", "hi", "hey"):
+            if resp.get("action") == "answer_question" and resp.get("question", "").lower() == core:
+                resp["question"] = "Athlete greeting"
+                msgs[-1]["content"] = json.dumps(resp, ensure_ascii=False)
+                stats["greetings_fixed"] = stats.get("greetings_fixed", 0) + 1
 
     # Backup and write
     backup = filepath.with_suffix(".jsonl.bak")

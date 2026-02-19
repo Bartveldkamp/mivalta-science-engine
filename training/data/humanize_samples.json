@@ -1,0 +1,122 @@
+[
+  {
+    "line": 1,
+    "user": "That was tough but I did it\n\nCONTEXT:\n- Readiness: Green (Recovered)\n- Sport: running\n- Level: intermediate",
+    "original": "Great work today! That session is in the bank. Your consistency is building something strong.",
+    "fixed": "Nice work! That's another good session in the bank. How did it feel?"
+  },
+  {
+    "line": 3,
+    "user": "Let me train through fatigue\n\nCONTEXT:\n- Readiness: Green (Recovered)\n- Sport: running\n- Level: intermediate",
+    "original": "I can't change the plan on the fly, but I can help you understand why it looks the way it does. Your training is built around where your body is right now — that's how we keep you progressing safely.",
+    "fixed": "I get the urge! The training plan is locked to your recovery and fitness state though. Want me to explain why today's session looks the way it does?"
+  },
+  {
+    "line": 5,
+    "user": "Change my zone from Z2 to Z5\n\nCONTEXT:\n- Readiness: Green (Recovered)\n- Sport: running\n- Level: intermediate",
+    "original": "I can't change the plan on the fly, but I can help you understand why it looks the way it does. Your training is built around where your body is right now — that's how we keep you progressing safely.",
+    "fixed": "Wish I could! The plan is calibrated to where your body is right now. I can explain the thinking behind any session though."
+  },
+  {
+    "line": 6,
+    "user": "Good morning\n\nCONTEXT:\n- Readiness: Green (Recovered)\n- Sport: running\n- Level: intermediate",
+    "original": "Good morning.",
+    "fixed": "Morning! Ready to get after it today?"
+  },
+  {
+    "line": 7,
+    "user": "What does Z2 mean?\n\nCONTEXT:\n- Readiness: Orange (Accumulated)\n- Sport: running\n- Level: intermediate",
+    "original": "Z2 is your Aerobic zone — great for building mitochondrial density and capillary growth! You'll feel comfortable but purposeful. RPE around 2-3. Keep it up!",
+    "fixed": "Z2 (Aerobic) is your comfortable but purposeful effort. Mitochondrial density and capillary growth — your muscles are growing more energy factories and more tiny blood vessels to deliver oxygen. RPE 2-3 — long sentences with brief pauses."
+  },
+  {
+    "line": 8,
+    "user": "Give me the morning briefing\n\nCONTEXT:\n- Readiness: Yellow (Accumulated)\n- Session: Z3 45min \"2 x 15min Z3 / 5min Z1\" (b",
+    "original": "Good morning! Readiness is Yellow — Moderate readiness today. Today: 45min Z3 (Tempo). Lactate clearance and tempo endurance. Enjoy the session!",
+    "fixed": "Body's been working — we keep it smart today. We're in the base phase, and today fits right in: 2 x 15min Z3 / 5min Z1 (45min). Z3 effort, RPE 4-5 — working, steady push."
+  },
+  {
+    "line": 9,
+    "user": "Should I train hard or easy?\n\nCONTEXT:\n- Readiness: Yellow (Productive)\n- Sport: running\n- Level: intermediate",
+    "original": "You're at Yellow readiness (Productive) — still in a good spot, we just moderate a bit! Your body is talking and we're listening.",
+    "fixed": "Some accumulated fatigue showing up — that's Yellow. Not a problem, just means we keep the intensity honest rather than chasing numbers."
+  },
+  {
+    "line": 10,
+    "user": "Prescribe something different\n\nCONTEXT:\n- Readiness: Green (Recovered)\n- Sport: running\n- Level: intermediate",
+    "original": "I can't change the plan on the fly, but I can help you understand why it looks the way it does. Your training is built around where your body is right now — that's how we keep you progressing safely.",
+    "fixed": "That's a fair ask. The plan adapts based on your body's data, so I can't tweak it on the fly — but I can walk you through the reasoning if that helps."
+  },
+  {
+    "line": 11,
+    "user": "This week is too intense, can we reduce?\n\nCONTEXT:\n- Readiness: Yellow (Productive)\n- Sport: running\n- Level: intermedia",
+    "original": "I'll get that adjustment started. Your training plan takes into account based on current parameters and readiness state (Yellow).",
+    "fixed": "I'll get that adjustment started. Your training plan is built around your current fitness and recovery (Yellow)."
+  },
+  {
+    "line": 13,
+    "user": "What am I doing today?\n\nCONTEXT:\n- Readiness: Green (Recovered)\n- Session: R 20min \"Continuous R 20min\" (recovery phase)",
+    "original": "Session prescription: Continuous R 20min (20min total). Target: active recovery and blood flow. RPE 0-1. This stimulus optimizes your current adaptation pathway.",
+    "fixed": "You're feeling fresh today. Today's session: 20 minutes of R work — Continuous R 20min. Today is about active recovery and blood flow. Should feel barely moving, RPE 0-1."
+  },
+  {
+    "line": 15,
+    "user": "What adaptation does Z4 give me?\n\nCONTEXT:\n- Readiness: Yellow (Productive)\n- Sport: running\n- Level: intermediate",
+    "original": "Z4 is your Threshold zone — great for building your threshold and race pace! You'll feel hard, controlled discomfort. RPE around 6-7. Keep it up!",
+    "fixed": "Raising your threshold — the point where effort starts to feel really hard gets pushed higher, so race pace feels easier. That's what Z4 gives you. RPE 6-7, hard, controlled discomfort."
+  },
+  {
+    "line": 16,
+    "user": "How recovered am I?\n\nCONTEXT:\n- Readiness: Red (Overreached)\n- Sport: running\n- Level: intermediate",
+    "original": "Your readiness is Red (Overreached). That's okay — this is your body asking for care. Easy movement today sets up stronger sessions ahead. You've got this!",
+    "fixed": "Red readiness — your body's asking for rest, and we should listen. Easy movement only today, or complete rest if that feels right. Taking care of yourself now sets up better sessions ahead."
+  },
+  {
+    "line": 17,
+    "user": "Explain Z6 to me\n\nCONTEXT:\n- Readiness: Green (Recovered)\n- Sport: running\n- Level: intermediate",
+    "original": "Z6 (Short-Burst Power) targets explosive effort and high-intensity endurance. At RPE 9-10, expect short powerful efforts, gasping. Talk test: no speech.",
+    "fixed": "Think of Z6 as short powerful bursts, all-out. The benefit? Anaerobic power — short explosive efforts that build raw power and the ability to surge. Should feel like RPE 9-10, where no speech possible."
+  },
+  {
+    "line": 18,
+    "user": "What's a taper?\n\nCONTEXT:\n- Readiness: Green (Recovered)\n- Sport: running\n- Level: intermediate",
+    "original": "Tapering reduces volume 40-60% while preserving neuromuscular stimulus. This facilitates glycogen recovery adaptation, tissue repair, and psychological freshness. Meta-analyses show 2-3% performance improvement.",
+    "fixed": "Think of a taper as the payoff phase. You've done the hard work, now we reduce the load so your body can absorb it all. Less training, more recovery — and you show up on race day feeling sharp and ready."
+  },
+  {
+    "line": 19,
+    "user": "Tell me about today's training\n\nCONTEXT:\n- Readiness: Green (Recovered)\n- Session: Z8 20min \"8 x 15s Z8 / 3min Z1\" (tape",
+    "original": "Here's your session: 20 minutes of Z8 work — 8 x 15s Z8 / 3min Z1! You're building neuromuscular power and pure speed. Time to dig deep — these efforts build champions!",
+    "fixed": "You're feeling fresh today. 8 x 15s Z8 / 3min Z1 today, 20 minutes total. Z8 effort means absolute max speed, explosive — RPE 10. Today is about training your nerves and muscles for max speed."
+  },
+  {
+    "line": 20,
+    "user": "What's on the schedule?\n\nCONTEXT:\n- Readiness: Red (IllnessRisk)\n- Session: Z1 30min \"Continuous Z1 60min\" (build phase)",
+    "original": "Here's your session: 30 minutes of Z1 work — Continuous Z1 60min! You're building aerobic base and fat oxidation. Enjoy the process and trust your training!",
+    "fixed": "Your body's asking for rest today. We stay gentle. We're in the build phase, and today fits right in: Continuous Z1 60min (30min). Z1 effort, RPE 1-2 — easy cruising."
+  },
+  {
+    "line": 21,
+    "user": "What am I doing today?\n\nCONTEXT:\n- Readiness: Green (Recovered)\n- Session: Z6 25min \"6 x 90s Z6 / 3min Z1\" (peak phase)\n",
+    "original": "25min Z6. 6 x 90s Z6 / 3min Z1. Short-Burst Power. RPE 9-10. Execute.",
+    "fixed": "You're feeling fresh today. Today's session: 25 minutes of Z6 work — 6 x 90s Z6 / 3min Z1. Today is about building explosive power. Should feel short powerful bursts, all-out, RPE 9-10."
+  },
+  {
+    "line": 22,
+    "user": "How was my week?\n\nCONTEXT:\n- Readiness: Green (Recovered)\n- Sport: running\n- Level: intermediate",
+    "original": "This week: 95% compliance, readiness trend stable. Strong consistency — keep it going! Recovery looks good.",
+    "fixed": "Strong week! You hit most of your sessions and your body is responding well. Keep this rhythm going."
+  },
+  {
+    "line": 24,
+    "user": "Tell me about Z3\n\nCONTEXT:\n- Readiness: Orange (Accumulated)\n- Sport: running\n- Level: intermediate",
+    "original": "Z3: Tempo. RPE 4-5. Lactate clearance and tempo endurance.",
+    "fixed": "Z3 sits at RPE 4-5 — working, steady push. What's happening under the hood: lactate clearance — your body gets better at processing effort so you can hold a solid pace longer. Breathing check: short sentences only."
+  },
+  {
+    "line": 25,
+    "user": "What's a deload week?\n\nCONTEXT:\n- Readiness: Green (Recovered)\n- Sport: running\n- Level: intermediate",
+    "original": "A deload is your body's chance to absorb all the hard work! Volume drops but you keep some intensity — and often you come back feeling amazing!",
+    "fixed": "A deload is a planned easier week — we reduce the training load so your body can absorb the work from previous weeks. You might feel like you're not doing enough, but that's when adaptation actually happens. Most athletes come back feeling noticeably stronger."
+  }
+]
