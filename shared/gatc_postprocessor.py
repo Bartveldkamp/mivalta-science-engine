@@ -105,7 +105,9 @@ _MEDICAL_RED_FLAGS = [
     r'\bbeen\s+(?:hurt|pain)ing\b',
     r'\bsharp\s+pain\b',
     r'\bshooting\s+pain\b',
-    r'\bpain\s+in\s+my\s+(?:chest|heart|shin|knee|back|shoulder|hip|ankle)\b',
+    # Chest/heart pain is ALWAYS a red flag (no duration required)
+    r'\bpain\s+in\s+my\s+(?:chest|heart)\b',
+    # Non-cardiac body part pain only qualifies with duration/persistence qualifier
     r'\b(?:knee|back|shin|shoulder|hip|ankle)\s+(?:has\s+been|been)\s+(?:hurt|pain)ing\b',
     r'\b(?:knee|back|shin|shoulder|hip|ankle)\b.{0,20}\bhurt(?:s|ing)\b.{0,20}\b\d+\s+day',
 ]
@@ -133,7 +135,7 @@ def strip_markdown_fences(raw: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# 4. Parse raw model output into dict
+# 5. Parse raw model output into dict
 # ---------------------------------------------------------------------------
 
 def _repair_truncated_json(text: str) -> Optional[dict]:

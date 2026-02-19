@@ -127,10 +127,19 @@ def _extract_first_json_object(text: str) -> Optional[str]:
 
 
 def _validate_llm_intent(obj: dict) -> bool:
-    """Check that the parsed object has the required LLMIntent fields."""
+    """Check that the parsed object has the required LLMIntent fields.
+
+    Lenient on source_cards: if the model produces a valid response but
+    forgets source_cards (or leaves it empty), we backfill a default
+    rather than rejecting the entire response.
+    """
     if not isinstance(obj, dict):
         return False
-    if not REQUIRED_FIELDS.issubset(obj.keys()):
+
+    # Check required fields, but allow source_cards to be missing/empty
+    # (we'll backfill in _set_defaults)
+    required_minus_cards = REQUIRED_FIELDS - {"source_cards"}
+    if not required_minus_cards.issubset(obj.keys()):
         return False
     if obj.get("intent") not in VALID_INTENTS:
         return False
@@ -138,18 +147,26 @@ def _validate_llm_intent(obj: dict) -> bool:
         return False
     if not isinstance(obj.get("message"), str) or len(obj["message"]) == 0:
         return False
-    if not isinstance(obj.get("source_cards"), list) or len(obj["source_cards"]) == 0:
-        return False
     if not isinstance(obj.get("guardrail_triggered"), bool):
         return False
     return True
 
 
+_DEFAULT_SOURCE_CARD = "josi_explanations"
+
+
 def _set_defaults(obj: dict) -> dict:
-    """Ensure optional fields have defaults."""
+    """Ensure optional fields have defaults.
+
+    Backfills source_cards with a safe default if the model omitted it,
+    rather than rejecting an otherwise valid response.
+    """
     obj.setdefault("guardrail_reason", None)
     obj.setdefault("replan_request", None)
     obj.setdefault("tool_call", None)
+    # Backfill source_cards if missing or empty
+    if not isinstance(obj.get("source_cards"), list) or len(obj.get("source_cards", [])) == 0:
+        obj["source_cards"] = [_DEFAULT_SOURCE_CARD]
     return obj
 
 
