@@ -187,6 +187,8 @@ if [ ! -d "$LLAMA_DIR" ] || [ ! -f "$LLAMA_DIR/build/bin/llama-quantize" ]; then
         git clone https://github.com/ggerganov/llama.cpp.git "$LLAMA_DIR"
     fi
     cd "$LLAMA_DIR"
+    # Clean stale build cache to avoid reusing wrong config
+    rm -rf build
     # Try CUDA build first; fall back to CPU-only (sufficient for quantization)
     if command -v nvcc &> /dev/null; then
         echo "Building llama.cpp with CUDA support..."
