@@ -15,6 +15,10 @@
 
 set -e
 
+# Force Python UTF-8 mode — TRL's model card template contains non-ASCII
+# characters and will crash on servers with ASCII-only locale (no LC_ALL set).
+export PYTHONUTF8=1
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TRAINING_DIR="$(dirname "$SCRIPT_DIR")"
 cd "$TRAINING_DIR"
