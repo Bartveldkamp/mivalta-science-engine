@@ -398,12 +398,15 @@ def train(
 
     if train_path is None:
         if mode == "explainer":
-            train_path = str(DATA_DIR / "train_explainer.jsonl")
+            # v5: humanized training data (robot speak / jargon / templates fixed)
+            v5_path = DATA_DIR / "train_explainer_v5.jsonl"
+            train_path = str(v5_path if v5_path.exists() else DATA_DIR / "train_explainer.jsonl")
         else:
             train_path = str(DEFAULT_TRAIN)
     if val_path is None:
         if mode == "explainer":
-            val_path = str(DATA_DIR / "val_explainer.jsonl")
+            v5_val = DATA_DIR / "val_explainer_v5.jsonl"
+            val_path = str(v5_val if v5_val.exists() else DATA_DIR / "val_explainer.jsonl")
         else:
             val_path = str(DEFAULT_VAL)
 
