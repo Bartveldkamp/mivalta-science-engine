@@ -85,6 +85,110 @@ def check_tone(text: str) -> str:
     return text
 
 
+def post_explainer_enhance(
+    response: str,
+    engine_payload: dict | None,
+    state: object = None,
+) -> str:
+    """Post-explainer intelligence — catch weak responses and enhance them.
+
+    The explainer is a small model. Sometimes it produces generic text that
+    doesn't use the cross-domain intelligence we fed it. This layer
+    deterministically injects the key insight if the model missed it.
+
+    Also catches responses that leak internal terms or are too short/long.
+    """
+    if not response or not engine_payload:
+        return response
+
+    # --- Strip leaked internal terms ---
+    leaked_terms = [
+        "ENGINE_PAYLOAD", "INTERPRETER", "cross_domain", "GATC",
+        "GATCRequest", "engine_payload", "interpreter_handoff",
+        "cross-domain", "rule_id", "priority",
+    ]
+    for term in leaked_terms:
+        if term in response:
+            response = response.replace(term, "").strip()
+
+    # --- Ensure cross-domain intelligence is present ---
+    # If high-priority rules fired but the explainer didn't mention the key
+    # insight, append it naturally.
+    cross_domain_msgs = engine_payload.get("cross_domain", [])
+    cross_domain_actions = engine_payload.get("cross_domain_actions", [])
+
+    if not cross_domain_msgs:
+        return response
+
+    # Check if the highest-priority insight was captured
+    top_msg = cross_domain_msgs[0]
+    top_action = cross_domain_actions[0] if cross_domain_actions else ""
+
+    # Simple heuristic: if the response doesn't contain key words from
+    # the top cross-domain message, the model missed it
+    key_phrases = _extract_key_phrases(top_msg)
+    response_lower = response.lower()
+    captured = any(phrase in response_lower for phrase in key_phrases)
+
+    if not captured and top_action in (
+        "reduce_load", "modify_workout", "suggest_deload",
+        "reduce_intensity", "escalate_medical", "recovery_nutrition",
+    ):
+        # Inject the insight as a natural follow-on sentence
+        # Pick a connector based on action type
+        if top_action in ("reduce_load", "suggest_deload"):
+            connector = "One thing to keep in mind:"
+        elif top_action == "modify_workout":
+            connector = "Also:"
+        elif top_action == "escalate_medical":
+            connector = "Something I want to flag:"
+        else:
+            connector = "Worth noting:"
+
+        # Keep the injection concise — take first sentence of the cross-domain msg
+        first_sentence = top_msg.split(".")[0].strip() + "."
+        response = response.rstrip() + f" {connector} {first_sentence}"
+
+    # --- Length guard ---
+    # If explainer went over 100 words, trim at last sentence boundary
+    words = response.split()
+    if len(words) > 100:
+        truncated = " ".join(words[:100])
+        # Find last period
+        last_period = truncated.rfind(".")
+        if last_period > 50:
+            response = truncated[:last_period + 1]
+
+    return response
+
+
+def _extract_key_phrases(message: str) -> list[str]:
+    """Extract 2-3 key phrases from a cross-domain message for matching."""
+    phrases = []
+    lower = message.lower()
+
+    # Body parts
+    for part in ["knee", "shin", "ankle", "hip", "back", "shoulder",
+                 "elbow", "wrist", "foot", "calf"]:
+        if part in lower:
+            phrases.append(part)
+
+    # Action keywords
+    for kw in ["ease off", "lighter", "recovery", "deload", "rest",
+                "swap", "physio", "overtraining", "inflammation",
+                "diminishing returns", "welcome back", "sleep",
+                "nutrition", "protein"]:
+        if kw in lower:
+            phrases.append(kw)
+
+    # Readiness references
+    for level in ["orange", "red", "yellow", "declining"]:
+        if level in lower:
+            phrases.append(level)
+
+    return phrases if phrases else [lower[:30]]
+
+
 def _classify_response(response: str, action: str,
                        engine_payload: dict | None) -> str:
     """Classify what kind of response was given, for the feedback loop.
@@ -155,6 +259,25 @@ EXPLAINER_FILENAME = "josi-v5-explainer-q4_k_m.gguf"
 # Qwen 2.5 ChatML template
 CHATML_START = "<|im_start|>"
 CHATML_END = "<|im_end|>"
+
+# GBNF grammar for interpreter output — forces valid JSON with known action enum.
+# The reasoning line ("> ...") is optional and precedes the JSON.
+# This eliminates JSON parse failures from the small model entirely.
+INTERPRETER_GRAMMAR = r"""
+root   ::= reasoning? ws object
+reasoning ::= ">" [^\n]* "\n"
+object ::= "{" ws members ws "}"
+members ::= pair ("," ws pair)*
+pair   ::= ws string ws ":" ws value
+string ::= "\"" chars "\""
+chars  ::= char*
+char   ::= [^"\\] | "\\" escape
+escape ::= ["\\nrt/]
+value  ::= string | number | "true" | "false" | "null" | object | array
+number ::= "-"? [0-9]+ ("." [0-9]+)?
+array  ::= "[" ws (value ("," ws value)*)? ws "]"
+ws     ::= [ \t\n]*
+"""
 
 # Inference parameters
 INTERPRETER_PARAMS = {
@@ -585,13 +708,187 @@ def resolve_short_message(message: str, state: ConversationState) -> str | None:
 
 
 # =============================================================================
+# DETERMINISTIC PRE-FILTER — classify obvious messages WITHOUT the LLM
+# =============================================================================
+# For messages where the intent is unambiguous, skip the interpreter entirely.
+# This is faster, more accurate, and saves LLM tokens for hard cases.
+
+_WORKOUT_REQUEST_PATTERN = re.compile(
+    r'\b(?:give|build|create|make|plan|want|need)\b.*\b(?:workout|session|run|ride|bike)\b',
+    re.IGNORECASE,
+)
+_WORKOUT_SPECIFIC_PATTERN = re.compile(
+    r'\b(\d+)\s*(?:min|minutes|minute)\b.*\b(run|bike|ride|cycle|ski|strength|swim)\b',
+    re.IGNORECASE,
+)
+_WORKOUT_SPECIFIC_REV = re.compile(
+    r'\b(run|bike|ride|cycle|ski|strength|swim)\b.*\b(\d+)\s*(?:min|minutes|minute)\b',
+    re.IGNORECASE,
+)
+_SKIP_PATTERN = re.compile(
+    r'\b(?:skip|can\'?t|won\'?t|not going to|need to miss)\b.*\b(?:today|session|workout|training)\b',
+    re.IGNORECASE,
+)
+_ILLNESS_PATTERN = re.compile(
+    r'\b(?:flu|cold|sick|fever|stomach|vomit|nausea)\b',
+    re.IGNORECASE,
+)
+
+_SPORT_MAP = {
+    "run": "run", "running": "run", "jog": "run",
+    "bike": "bike", "ride": "bike", "cycle": "bike", "cycling": "bike",
+    "ski": "ski", "skiing": "ski",
+    "strength": "strength", "gym": "strength", "weights": "strength",
+    "swim": "other",
+}
+
+
+def deterministic_prefilter(
+    message: str,
+    state: object = None,
+) -> dict | None:
+    """Try to classify the message without the LLM.
+
+    Returns a dict like the interpreter would (action, sport, etc.),
+    or None if the message needs the LLM.
+    """
+    lower = message.lower().strip()
+
+    # --- Injury / pain → always needs LLM for nuanced extraction ---
+    if message_mentions_pain(message):
+        return None  # Let LLM handle
+
+    # --- Medical red flag → immediate deterministic ---
+    if has_medical_red_flag(message):
+        return None  # Let the existing red-flag handler deal with it
+
+    # --- Skip / replan ---
+    if _SKIP_PATTERN.search(lower):
+        return {
+            "action": "replan",
+            "replan_type": "skip_today",
+            "free_text": message,
+        }
+
+    # --- Illness ---
+    if _ILLNESS_PATTERN.search(lower):
+        return {
+            "action": "replan",
+            "replan_type": "illness",
+            "free_text": message,
+        }
+
+    # --- Specific workout request: "45 min run" or "run 45 minutes" ---
+    m = _WORKOUT_SPECIFIC_PATTERN.search(lower)
+    if m:
+        duration = int(m.group(1))
+        sport_raw = m.group(2).lower()
+        sport = _SPORT_MAP.get(sport_raw, sport_raw)
+        return {
+            "action": "create_workout",
+            "sport": sport,
+            "time_available_min": duration,
+            "goal": "endurance",
+            "free_text": message,
+        }
+    m = _WORKOUT_SPECIFIC_REV.search(lower)
+    if m:
+        sport_raw = m.group(1).lower()
+        duration = int(m.group(2))
+        sport = _SPORT_MAP.get(sport_raw, sport_raw)
+        return {
+            "action": "create_workout",
+            "sport": sport,
+            "time_available_min": duration,
+            "goal": "endurance",
+            "free_text": message,
+        }
+
+    # --- General workout request with context ---
+    if _WORKOUT_REQUEST_PATTERN.search(lower):
+        # Try to extract sport from the message
+        sport = None
+        for word in lower.split():
+            if word in _SPORT_MAP:
+                sport = _SPORT_MAP[word]
+                break
+        # Fall back to state
+        if not sport and state and state.athlete_store.preferences.get("primary_sport"):
+            sport = state.athlete_store.preferences["primary_sport"]
+        if sport:
+            return {
+                "action": "create_workout",
+                "sport": sport,
+                "goal": "endurance",
+                "free_text": message,
+            }
+        # No sport → need to clarify (let LLM handle or state-fill will catch it)
+
+    return None  # Needs the LLM
+
+
+# =============================================================================
 # SYSTEM PROMPTS
 # =============================================================================
 
 INTERPRETER_SYSTEM_PROMPT = """\
 You are Josi's Interpreter — you translate athlete messages into structured GATC requests.
 
-TASK: Read the user message, athlete CONTEXT, and conversation STATE. Output ONLY valid JSON. No markdown fences. No explanation.
+TASK: Read the user message, athlete CONTEXT, and conversation STATE. Think step-by-step, then output valid JSON. No markdown fences.
+
+STEP 1 — IDENTIFY: What does the athlete want? (workout / skip / explain / question / injury / unclear)
+STEP 2 — CHECK STATE: Any injuries, readiness issues, or fatigue that should influence classification?
+STEP 3 — OUTPUT: JSON with the right action and fields.
+
+Output format: brief reasoning on one line starting with >, then JSON on the next line.
+
+ACTIONS (action field):
+- create_workout: user wants a new workout → extract sport, time, goal, constraints
+- replan: user wants to change/skip/swap a session → extract replan_type
+- explain: user asks about THEIR specific session, readiness, or plan in CONTEXT → extract question
+- answer_question: general coaching/knowledge question → extract question
+- injury_triage: user mentions pain, injury, or soreness → extract what you can
+- clarify: intent is completely ambiguous → include clarify_message (max 20 words)
+
+EXAMPLES:
+
+User: "Give me a 45-minute run"
+CONTEXT: Readiness: Green (Recovered), Sport: running
+> Wants workout. Green readiness, no injuries. Straightforward.
+{"action":"create_workout","sport":"run","time_available_min":45,"goal":"endurance","free_text":"Give me a 45-minute run"}
+
+User: "I want some hard intervals today"
+CONTEXT: Readiness: Orange (Accumulated), Sport: running
+STATE: {"readiness_level":"Orange","readiness_trend":"declining"}
+> Wants hard workout but Orange + declining. Override goal to recovery.
+{"action":"create_workout","sport":"run","goal":"recovery","constraints":{"fatigue_hint":"tired","readiness_override":"Orange declining"},"free_text":"I want some hard intervals today"}
+
+User: "My knee hurts when I run"
+> Pain mentioned. This is injury triage, not a workout request.
+{"action":"injury_triage","pain_area":"knee","trigger":"running","free_text":"My knee hurts when I run"}
+
+User: "I'm exhausted but don't want to skip"
+CONTEXT: Readiness: Yellow (Productive), Sport: running
+> Fatigued but wants to train. Classify as explain — discuss options, don't just build a workout.
+{"action":"explain","question":"Should I train when exhausted?","constraints":{"fatigue_hint":"very_tired"},"free_text":"I'm exhausted but don't want to skip"}
+
+User: "What is Zone 2?"
+> General knowledge question, not about their specific plan.
+{"action":"answer_question","question":"What is Zone 2?","free_text":"What is Zone 2?"}
+
+User: "I need to skip today, work meeting"
+> Wants to skip today's session. Replan.
+{"action":"replan","replan_type":"skip_today","free_text":"I need to skip today, work meeting"}
+
+User: "Give me a workout"
+STATE: {"known_sport":"run"}
+> Wants workout, no sport specified, but STATE says they're a runner. Use it.
+{"action":"create_workout","sport":"run","goal":"endurance","free_text":"Give me a workout"}
+
+User: "ok"
+STATE: {"pending_question":"What sport would you like?","last_topic":"workout"}
+> Short reply to pending question. Not enough info. Clarify.
+{"action":"clarify","clarify_message":"Running, cycling, or strength?","free_text":"ok"}
 
 ACTIONS (action field):
 - create_workout: user wants a new workout → extract sport, time, goal, constraints
@@ -657,54 +954,74 @@ RULES:
 - If STATE.active_injuries exists and athlete requests affected sport, include constraints.injury"""
 
 EXPLAINER_SYSTEM_PROMPT = """\
-You are Josi, MiValta's AI coaching assistant. You generate the final user-facing text.
+You are Josi, MiValta's AI coaching assistant. You speak to the athlete.
 
-You receive TWO inputs that work together:
-1. [INTERPRETER] — what the system classified and what it knows about the athlete
-2. ENGINE_PAYLOAD — the coaching decision to verbalize
+You receive [INTERPRETER] context + ENGINE_PAYLOAD. Verbalize the payload warmly.
 
-Your job is to VERBALIZE the payload warmly, using the interpreter context to
-personalize your response. The interpreter and you are one coaching brain.
+COACHING VOICE:
+- Empathetic, direct, honest. No filler, no corporate speak.
+- You ARE the coach. Never recommend other apps, coaches, or services.
+- Lead with the most important thing. Explain WHY, not just WHAT.
 
-PERSONALITY:
-- Empathetic and warm — you genuinely care about the athlete
-- Direct and honest — no filler, no corporate speak
-- You ARE the coach — never recommend other apps, coaches, or services
+CONTEXT SHAPING — use [INTERPRETER] to personalize:
+- known_injuries → acknowledge naturally: "with your knee in mind..."
+- readiness Green → energetic, push. Orange/Red → gentler, validate fatigue.
+- load_trend increasing → acknowledge effort. Declining → normalize rest.
+- constraints → explain the reasoning behind them.
+- last_response_summary → do NOT repeat it. Say something new.
 
-USING [INTERPRETER] CONTEXT:
-- "known_injuries": the athlete has these active injuries — acknowledge naturally
-  Example: if knee injury active and workout requested, weave in: "keeping your knee in mind..."
-- "readiness" + "readiness_trend": shape your tone.
-  Green/improving → energetic. Orange/declining → gentler, validate their fatigue.
-- "load_trend": if increasing, acknowledge their hard work. If declining, normalize the rest.
-- "constraints": the interpreter already factored these in — explain WHY, not just WHAT
-- "last_response_summary": do NOT repeat this. Say something new.
+CROSS-DOMAIN — weave naturally (never list mechanically):
+- "cross_domain" = insights connecting injury + load + readiness + history
+- Prioritize the first message (highest priority rule)
+- Sound like a coach who sees the full picture, not a system reading alerts
 
-USING ENGINE_PAYLOAD:
-- Verbalize what ENGINE_PAYLOAD contains. Do not invent beyond it.
-- If payload has a "message" field, use it as the core of your response.
-- If payload has a "question" field, end with that question.
+COACHING PLAYBOOK — match scenario to response shape:
 
-CROSS-DOMAIN CONTEXT (if present in payload):
-- "cross_domain" contains coaching insights from connecting injury, load, readiness, and history
-- Weave these naturally — like a coach who sees the full picture
-- Prioritize the first message (highest priority)
-- Do NOT list them mechanically — integrate into coaching advice
-- Example: "Your knee is still bothering you and your load has been climbing — let's ease off."
+[create_workout + injury active]
+"With your {area} still at {severity}/10, let's keep this {sport} session easy.
+{cross_domain insight}. When it settles, we'll build back up."
+
+[create_workout + readiness override]
+"I know you wanted {original_goal}, but your body is telling a different story
+right now — {readiness} and trending {trend}. An easy session today means you
+can hit it harder when you're ready."
+
+[create_workout + high load]
+"That's a solid week already — {sessions} sessions. {cross_domain insight}.
+Let's make this one count by keeping the intensity honest."
+
+[create_workout + comeback]
+"Welcome back! Your engine will come back fast, but joints and tendons need
+a gentler ramp. Easy to moderate this week — trust the process."
+
+[create_workout + all good]
+"You're in a good rhythm — {sessions} sessions this week and your body is
+responding. Here's your {sport} session: {payload message}."
+
+[injury_triage]
+"Let's take a closer look at that {area}. {triage question}"
+
+[explain + fatigued]
+"Feeling {fatigue_level} is real data, not weakness. {cross_domain insight}.
+{payload message}"
+
+[answer_question]
+"{Direct answer from payload}. {Personalize with athlete context if relevant}."
+
+[replan + illness]
+"Rest first — training can wait. Your plan will adjust around this."
+
+[red_flag]
+"Stop training immediately. {Red flag detail}. See a doctor before your next session."
 
 RULES:
-- Keep responses under 80 words. 3-5 lines max.
-- Ask at most ONE question (only if payload includes one).
-- NEVER repeat what you said in previous turns (check last_response_summary).
-- If the athlete seems frustrated, acknowledge it warmly first.
-
-SAFETY:
-- If payload says "red_flag": stop training, see a doctor. Be direct.
+- Under 80 words. 3-5 lines max.
+- At most ONE question per turn.
+- NEVER repeat previous turn (check last_response_summary).
 
 BOUNDARIES:
-- NEVER prescribe, create, or modify training yourself
 - NEVER invent zones, durations, paces, or power numbers
-- NEVER reference internal systems (algorithm, interpreter, gatc, cross_domain, rules, etc.)
+- NEVER reference internal systems (algorithm, interpreter, gatc, cross_domain, rules)
 - NEVER use jargon: periodization, mesocycle, vo2max, lactate threshold, ftp
 - NEVER output JSON, [INTERPRETER], ENGINE_PAYLOAD, or internal terms
 
@@ -775,6 +1092,15 @@ class JosiEngine:
         )
         print(f"    Loaded in {time.time() - t0:.1f}s")
 
+        # Try to load GBNF grammar for constrained decoding
+        self._interp_grammar = None
+        try:
+            from llama_cpp import LlamaGrammar
+            self._interp_grammar = LlamaGrammar.from_string(INTERPRETER_GRAMMAR)
+            print("    Grammar-constrained decoding: ENABLED")
+        except (ImportError, Exception) as e:
+            print(f"    Grammar-constrained decoding: DISABLED ({e})")
+
         print("  Loading explainer model...")
         t0 = time.time()
         self.explainer_model = Llama(
@@ -809,18 +1135,25 @@ class JosiEngine:
         return "\n".join(parts)
 
     def run_interpreter(self, user_message: str) -> tuple[str, dict | None]:
-        """Run the interpreter model → GATCRequest JSON."""
+        """Run the interpreter model → GATCRequest JSON.
+
+        Uses grammar-constrained decoding when available to guarantee
+        valid JSON output. Falls back to unconstrained + repair.
+        """
         prompt = self._format_chatml(INTERPRETER_SYSTEM_PROMPT, user_message)
 
+        call_kwargs = {
+            "max_tokens": INTERPRETER_PARAMS["n_predict"],
+            "temperature": INTERPRETER_PARAMS["temperature"],
+            "top_p": INTERPRETER_PARAMS["top_p"],
+            "repeat_penalty": INTERPRETER_PARAMS["repeat_penalty"],
+            "stop": [CHATML_END, "<|endoftext|>"],
+        }
+        if self._interp_grammar:
+            call_kwargs["grammar"] = self._interp_grammar
+
         t0 = time.time()
-        result = self.interpreter(
-            prompt,
-            max_tokens=INTERPRETER_PARAMS["n_predict"],
-            temperature=INTERPRETER_PARAMS["temperature"],
-            top_p=INTERPRETER_PARAMS["top_p"],
-            repeat_penalty=INTERPRETER_PARAMS["repeat_penalty"],
-            stop=[CHATML_END, "<|endoftext|>"],
-        )
+        result = self.interpreter(prompt, **call_kwargs)
         elapsed = time.time() - t0
 
         raw = result["choices"][0]["text"].strip()
@@ -943,10 +1276,38 @@ class JosiEngine:
                 interp_message = interp_message.replace(user_message, rewritten, 1)
 
         # =====================================================================
+        # Step 0.5: Deterministic pre-filter — skip LLM for obvious cases
+        # =====================================================================
+        prefilter_result = deterministic_prefilter(user_message, state)
+
+        # =====================================================================
         # Step 1: Interpreter — classify + extract
         # =====================================================================
-        interp_raw, interp_parsed = self.run_interpreter(interp_message)
-        action = interp_parsed.get("action", "unknown") if interp_parsed else "parse_error"
+        if prefilter_result:
+            # Pre-filter handled it deterministically — no LLM needed
+            interp_raw = json.dumps(prefilter_result)
+            interp_parsed = postprocess_gatc_request(prefilter_result, user_message)
+            action = interp_parsed.get("action", "unknown")
+            print(f"    Pre-filter: {action} (deterministic, LLM skipped)")
+        else:
+            interp_raw, interp_parsed = self.run_interpreter(interp_message)
+            action = interp_parsed.get("action", "unknown") if interp_parsed else "parse_error"
+
+            # --- Confidence check + retry ---
+            # If the interpreter produced garbage or a suspicious result,
+            # re-run with a stronger hint. Small models sometimes need a nudge.
+            if action in ("parse_error", "unknown") and not message_mentions_pain(user_message):
+                print("    Low confidence — retrying with hint...")
+                hint = (
+                    f"\n\nIMPORTANT: The previous attempt failed to produce valid JSON. "
+                    f"Output ONLY a JSON object. The user said: \"{user_message}\""
+                )
+                retry_raw, retry_parsed = self.run_interpreter(interp_message + hint)
+                if retry_parsed and retry_parsed.get("action") not in ("unknown", "parse_error", None):
+                    interp_raw = retry_raw
+                    interp_parsed = retry_parsed
+                    action = interp_parsed.get("action", "unknown")
+                    print(f"    Retry succeeded: {action}")
 
         # =====================================================================
         # Step 2: Deterministic validation + routing
@@ -1322,6 +1683,11 @@ class JosiEngine:
                 engine_payload=engine_payload,
                 history=clean_history,
                 interpreter_handoff=interpreter_handoff,
+            )
+
+            # Step 6.5: Post-explainer intelligence — enhance weak responses
+            explainer_text = post_explainer_enhance(
+                explainer_text, engine_payload, state
             )
             final_response = explainer_text
 

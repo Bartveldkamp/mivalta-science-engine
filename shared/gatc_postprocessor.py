@@ -176,9 +176,16 @@ def _repair_truncated_json(text: str) -> Optional[dict]:
 def parse_gatc_response(raw: str) -> Optional[dict]:
     """Parse raw model output string into a GATCRequest dict.
 
-    Handles markdown fences, noisy output, and truncated JSON.
+    Handles markdown fences, reasoning prefix lines (> ...), noisy output,
+    and truncated JSON.
     """
     cleaned = strip_markdown_fences(raw)
+
+    # Strip reasoning lines (> prefix) from chain-of-thought scaffold.
+    # The interpreter may emit "> Wants workout. Green readiness." before JSON.
+    lines = cleaned.split("\n")
+    non_reasoning = [l for l in lines if not l.strip().startswith(">")]
+    cleaned = "\n".join(non_reasoning).strip()
 
     # Fast path: direct parse
     try:
