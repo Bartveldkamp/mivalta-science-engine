@@ -259,6 +259,7 @@ class ConversationState:
         self.history: list[dict] = []  # [{"role": "user"/"assistant", "message": str}]
         self.last_topic: str | None = None
         self.last_user_problem: str | None = None
+        self.last_action: str | None = None  # Track previous interpreter action
 
     def add_user(self, message: str):
         self.history.append({"role": "user", "message": message})
@@ -514,6 +515,33 @@ class JosiEngine:
 
         action = interp_parsed.get("action", "unknown") if interp_parsed else "parse_error"
 
+        # --- Clarify loop-breaker ---
+        # If the interpreter says "clarify" but the previous action was ALSO clarify,
+        # the athlete already gave more info — don't ask again. Route to explainer.
+        if action == "clarify" and state and state.last_action == "clarify":
+            action = "answer_question"
+            if interp_parsed:
+                interp_parsed["action"] = "answer_question"
+                interp_parsed["question"] = user_message
+
+        # --- Non-emergency pain override ---
+        # If interpreter says clarify with medical_clearance but the message is about
+        # joint/muscle pain (not chest/heart), override to answer_question.
+        # Medical red flags (chest pain, dizziness, etc.) stay as clarify.
+        if (action == "clarify" and interp_parsed
+                and "medical_clearance" in (interp_parsed.get("missing") or [])):
+            msg_lower = user_message.lower()
+            has_red_flag = any(kw in msg_lower for kw in [
+                "chest", "heart", "dizzy", "dizziness", "faint", "black out",
+                "can't breathe", "numb", "tingling",
+            ])
+            if not has_red_flag:
+                # Joint/muscle pain — answer as injury question, not medical emergency
+                action = "answer_question"
+                if interp_parsed:
+                    interp_parsed["action"] = "answer_question"
+                    interp_parsed["question"] = user_message
+
         # Step 2: Router — decide if explainer is needed
         # All coaching actions route through explainer for a human response.
         # In production, create_workout/replan also trigger the GATC engine,
@@ -561,13 +589,33 @@ class JosiEngine:
             )
             final_response = explainer_text
         elif action == "clarify" and interp_parsed:
-            final_response = interp_parsed.get("clarify_message", "Could you tell me more?")
+            # Use interpreter's clarify_message if available, otherwise generate one
+            clarify_msg = interp_parsed.get("clarify_message")
+            if not clarify_msg:
+                missing = interp_parsed.get("missing", [])
+                if "medical_clearance" in missing:
+                    clarify_msg = (
+                        "That sounds like it could be serious. "
+                        "Please stop training and see a doctor before continuing."
+                    )
+                elif "sport" in missing:
+                    clarify_msg = (
+                        "What sport would you like to train? "
+                        "Running, cycling, strength, or something else?"
+                    )
+                elif "pain_location" in missing:
+                    clarify_msg = "Where exactly does it hurt, and when did it start?"
+                else:
+                    clarify_msg = "Can you give me a bit more detail so I can help?"
+            final_response = clarify_msg
         else:
             final_response = f"[Parse error — raw: {interp_raw[:100]}]"
 
-        # Track assistant response in conversation state
-        if state and final_response:
-            state.add_assistant(final_response)
+        # Track assistant response and action in conversation state
+        if state:
+            state.last_action = action
+            if final_response:
+                state.add_assistant(final_response)
 
         return {
             "user_message": user_message,
