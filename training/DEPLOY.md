@@ -121,54 +121,36 @@ v5 uses a **sequential dual-model architecture** — interpreter + explainer as 
 | Interpreter | `josi-v5-interpreter-q4_k_m.gguf` | ~935 MB | GATCRequest JSON structured output |
 | Explainer | `josi-v5-explainer-q4_k_m.gguf` | ~935 MB | Plain coaching text output |
 
+**Setup nginx (first time only):**
+
+Models are served directly from the Hetzner training server via nginx.
+
+```bash
+# Run on the Hetzner server (as root)
+bash training/server/setup_nginx.sh
+```
+
+This installs nginx and configures it to serve `/var/www/mivalta-models/` at `http://<server-ip>/models/`.
+
 **Automated publish (recommended):**
 
 ```bash
-# Full pipeline: merge LoRA → GGUF Q4_K_M → upload to Hetzner Object Storage
+# Full pipeline: merge LoRA → GGUF Q4_K_M → publish via nginx
 python scripts/publish_models.py \
   --interpreter models/josi-v5-qwen25-interpreter-<timestamp>/final \
   --explainer models/josi-v5-qwen25-explainer-<timestamp>/final
 
-# Upload pre-built GGUF files only
+# Publish pre-built GGUF files only
 python scripts/publish_models.py \
   --gguf-interpreter models/gguf/josi-v5-interpreter-q4_k_m.gguf \
   --gguf-explainer models/gguf/josi-v5-explainer-q4_k_m.gguf \
-  --upload-only
+  --publish-only
 
-# Merge + convert only (skip upload)
+# Merge + convert only (skip publish)
 python scripts/publish_models.py \
   --interpreter models/josi-v5-qwen25-interpreter-<timestamp>/final \
   --explainer models/josi-v5-qwen25-explainer-<timestamp>/final \
-  --no-upload
-```
-
-**S3 credentials (first time):**
-
-```bash
-# Option 1: Environment variables
-export S3_ACCESS_KEY='your-access-key'
-export S3_SECRET_KEY='your-secret-key'
-
-# Option 2: CLI arguments
-python scripts/publish_models.py --s3-access-key KEY --s3-secret-key SECRET ...
-
-# Option 3: Configure s3cmd directly
-s3cmd --configure
-
-# Get credentials: Hetzner Console → Object Storage → Manage credentials
-```
-
-**Manual upload (if needed):**
-
-```bash
-s3cmd put ./models/gguf/josi-v5-interpreter-q4_k_m.gguf \
-  s3://mivalta-models/josi-v5-interpreter-q4_k_m.gguf --acl-public
-s3cmd put ./models/gguf/josi-v5-explainer-q4_k_m.gguf \
-  s3://mivalta-models/josi-v5-explainer-q4_k_m.gguf --acl-public
-
-# Verify
-curl -I https://objects.mivalta.com/models/josi-v5-interpreter-q4_k_m.gguf
-curl -I https://objects.mivalta.com/models/josi-v5-explainer-q4_k_m.gguf
+  --no-publish
 ```
 
 **Developer download:**
@@ -185,14 +167,14 @@ python training/scripts/download_models.py --interpreter-only
 python training/scripts/download_models.py --explainer-only
 
 # Direct download (no script needed)
-curl -LO https://objects.mivalta.com/models/josi-v5-interpreter-q4_k_m.gguf
-curl -LO https://objects.mivalta.com/models/josi-v5-explainer-q4_k_m.gguf
+curl -LO http://144.76.62.249/models/josi-v5-interpreter-q4_k_m.gguf
+curl -LO http://144.76.62.249/models/josi-v5-explainer-q4_k_m.gguf
 ```
 
 **App download flow:**
 1. User installs app (~50 MB, no models bundled)
 2. First launch: "Setting up your coach..." progress bar
-3. Both models download from Hetzner Object Storage (~1.87 GB total)
+3. Both models download from the Hetzner server (~1.87 GB total)
 4. Cached locally, never re-downloaded unless model version updates
 5. All inference runs on-device via llama.cpp — **NO network calls during chat**
 

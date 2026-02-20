@@ -2,7 +2,7 @@
 """
 MiValta Josi v5 — Model Download Script
 
-Downloads the published Josi v5 GGUF models from Hetzner Object Storage.
+Downloads the published Josi v5 GGUF models from the Hetzner training server.
 Intended for developers who need the models for local evaluation or integration.
 
 Downloads:
@@ -25,6 +25,9 @@ Usage:
     # Download only the explainer
     python download_models.py --explainer-only
 
+    # Use a different server URL
+    python download_models.py --server http://my-server/models
+
     # Skip checksum verification
     python download_models.py --no-verify
 
@@ -33,7 +36,7 @@ Usage:
 
 Requirements:
     - Python 3.8+ (no external dependencies)
-    - Internet connection
+    - Network access to the Hetzner training server
 """
 
 import argparse
@@ -45,17 +48,16 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 
-S3_PUBLIC_URL = "https://objects.mivalta.com/models"
+# Hetzner training server — models served via nginx
+SERVER_URL = "http://144.76.62.249/models"
 
 # Fallback model definitions (used if manifest download fails)
 DEFAULT_MODELS = {
     "interpreter": {
         "file": "josi-v5-interpreter-q4_k_m.gguf",
-        "url": f"{S3_PUBLIC_URL}/josi-v5-interpreter-q4_k_m.gguf",
     },
     "explainer": {
         "file": "josi-v5-explainer-q4_k_m.gguf",
-        "url": f"{S3_PUBLIC_URL}/josi-v5-explainer-q4_k_m.gguf",
     },
 }
 
@@ -124,9 +126,9 @@ def download_file(url: str, dest: str, desc: str = ""):
         return False
 
 
-def fetch_manifest() -> dict | None:
+def fetch_manifest(base_url: str) -> dict | None:
     """Download and parse the model manifest."""
-    manifest_url = f"{S3_PUBLIC_URL}/josi-v5-manifest.json"
+    manifest_url = f"{base_url}/josi-v5-manifest.json"
     try:
         req = urllib.request.Request(manifest_url)
         req.add_header("User-Agent", "MiValta-Download/1.0")
@@ -153,11 +155,13 @@ def verify_checksum(path: str, expected_sha256: str) -> bool:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Download Josi v5 GGUF models from Hetzner Object Storage"
+        description="Download Josi v5 GGUF models from the Hetzner training server"
     )
 
     parser.add_argument("--output-dir", type=str, default=None,
                         help="Output directory (default: models/gguf/ in project root)")
+    parser.add_argument("--server", type=str, default=SERVER_URL,
+                        help=f"Base URL for model downloads (default: {SERVER_URL})")
     parser.add_argument("--interpreter-only", action="store_true",
                         help="Download only the interpreter model")
     parser.add_argument("--explainer-only", action="store_true",
@@ -168,6 +172,7 @@ def main():
                         help="Force re-download even if files exist")
 
     args = parser.parse_args()
+    base_url = args.server.rstrip("/")
 
     # Determine output directory
     if args.output_dir:
@@ -183,10 +188,11 @@ def main():
     print("  MiValta Josi v5 — Model Download")
     print("  Base model: Qwen2.5-1.5B-Instruct")
     print("=" * 60)
-    print(f"\n  Output: {output_dir}")
+    print(f"\n  Server: {base_url}")
+    print(f"  Output: {output_dir}")
 
     # Fetch manifest for checksums and URLs
-    manifest = fetch_manifest()
+    manifest = fetch_manifest(base_url)
     models = (manifest or {}).get("models", DEFAULT_MODELS)
 
     if manifest:
@@ -210,7 +216,7 @@ def main():
             continue
 
         filename = meta.get("file", DEFAULT_MODELS[role]["file"])
-        url = meta.get("url", DEFAULT_MODELS[role]["url"])
+        url = meta.get("url", f"{base_url}/{filename}")
         dest = output_dir / filename
 
         # Check if already downloaded
