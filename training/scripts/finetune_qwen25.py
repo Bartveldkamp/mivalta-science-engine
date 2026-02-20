@@ -28,7 +28,7 @@ Architecture notes:
   - Merged + GGUF Q4_K_M for on-device deployment (~1 GB per model)
 
 Runtime constraints (on-device):
-  - Context cap: 1024 tokens
+  - Context cap: 2048 tokens (interpreter system prompt needs ~1300)
   - Output cap: 150 tokens
   - Temperature: 0.4-0.5
   - 100% on-device via llama.cpp on Android
@@ -113,7 +113,7 @@ LORA_TARGET_MODULES = [
 LEARNING_RATE = 5e-5       # Higher than Gemma 3n (smaller model needs stronger signal)
 BATCH_SIZE = 4             # Fits easily in VRAM (~3 GB model)
 GRAD_ACCUM = 4             # Effective batch = 16
-MAX_SEQ_LENGTH = 1024      # On-device context cap
+MAX_SEQ_LENGTH = 2048      # Training context (interpreter system prompt is ~1300 tokens)
 EPOCHS = 4                 # More epochs for smaller model
 WARMUP_RATIO = 0.05
 
