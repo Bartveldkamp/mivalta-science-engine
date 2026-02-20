@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 """
-MiValta Josi v4 — Model Download Script
+MiValta Josi v5 — Model Download Script
 
-Downloads the published Josi v4 GGUF models from Hetzner Object Storage.
+Downloads the published Josi v5 GGUF models from Hetzner Object Storage.
 Intended for developers who need the models for local evaluation or integration.
 
 Downloads:
-  - josi-v4-interpreter-q4_k_m.gguf  (~2.8 GB) — GATCRequest JSON output
-  - josi-v4-explainer-q4_k_m.gguf    (~2.8 GB) — Plain coaching text output
-  - josi-v4-manifest.json             — Model metadata and checksums
+  - josi-v5-interpreter-q4_k_m.gguf  (~935 MB) — GATCRequest JSON output
+  - josi-v5-explainer-q4_k_m.gguf    (~935 MB) — Plain coaching text output
+  - josi-v5-manifest.json             — Model metadata and checksums
+
+Base model: Qwen2.5-1.5B-Instruct (sequential dual-model architecture)
 
 Usage:
     # Download both models to default location (models/gguf/)
@@ -48,12 +50,12 @@ S3_PUBLIC_URL = "https://objects.mivalta.com/models"
 # Fallback model definitions (used if manifest download fails)
 DEFAULT_MODELS = {
     "interpreter": {
-        "file": "josi-v4-interpreter-q4_k_m.gguf",
-        "url": f"{S3_PUBLIC_URL}/josi-v4-interpreter-q4_k_m.gguf",
+        "file": "josi-v5-interpreter-q4_k_m.gguf",
+        "url": f"{S3_PUBLIC_URL}/josi-v5-interpreter-q4_k_m.gguf",
     },
     "explainer": {
-        "file": "josi-v4-explainer-q4_k_m.gguf",
-        "url": f"{S3_PUBLIC_URL}/josi-v4-explainer-q4_k_m.gguf",
+        "file": "josi-v5-explainer-q4_k_m.gguf",
+        "url": f"{S3_PUBLIC_URL}/josi-v5-explainer-q4_k_m.gguf",
     },
 }
 
@@ -124,7 +126,7 @@ def download_file(url: str, dest: str, desc: str = ""):
 
 def fetch_manifest() -> dict | None:
     """Download and parse the model manifest."""
-    manifest_url = f"{S3_PUBLIC_URL}/josi-v4-manifest.json"
+    manifest_url = f"{S3_PUBLIC_URL}/josi-v5-manifest.json"
     try:
         req = urllib.request.Request(manifest_url)
         req.add_header("User-Agent", "MiValta-Download/1.0")
@@ -151,7 +153,7 @@ def verify_checksum(path: str, expected_sha256: str) -> bool:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Download Josi v4 GGUF models from Hetzner Object Storage"
+        description="Download Josi v5 GGUF models from Hetzner Object Storage"
     )
 
     parser.add_argument("--output-dir", type=str, default=None,
@@ -178,7 +180,8 @@ def main():
     output_dir.mkdir(parents=True, exist_ok=True)
 
     print("=" * 60)
-    print("  MiValta Josi v4 — Model Download")
+    print("  MiValta Josi v5 — Model Download")
+    print("  Base model: Qwen2.5-1.5B-Instruct")
     print("=" * 60)
     print(f"\n  Output: {output_dir}")
 
@@ -257,14 +260,13 @@ def main():
 
     if results:
         print(f"\n  Next steps:")
+        print(f"    Run sanity checks:")
         if "interpreter" in results:
-            print(f"    Evaluate interpreter:")
-            print(f"      python training/scripts/evaluate_gemma3n_v4.py \\")
-            print(f"        --interpreter {results['interpreter']} --verbose")
+            print(f"      python training/scripts/finetune_qwen25.py sanity \\")
+            print(f"        --model_path {results['interpreter']} --mode interpreter")
         if "explainer" in results:
-            print(f"    Evaluate explainer:")
-            print(f"      python training/scripts/evaluate_gemma3n_v4.py \\")
-            print(f"        --explainer {results['explainer']} --verbose")
+            print(f"      python training/scripts/finetune_qwen25.py sanity \\")
+            print(f"        --model_path {results['explainer']} --mode explainer")
     print()
 
     return 0 if len(results) == len(roles) else 1

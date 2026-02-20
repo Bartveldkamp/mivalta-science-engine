@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-MiValta Josi v4 — Model Publish Script
+MiValta Josi v5 — Model Publish Script
 
 End-to-end pipeline: LoRA adapters → merge → GGUF Q4_K_M → upload to Hetzner Object Storage.
 
-Produces two GGUF models for the dual-mode v4 architecture:
-  - josi-v4-interpreter-q4_k_m.gguf  (GATCRequest JSON output)
-  - josi-v4-explainer-q4_k_m.gguf    (plain coaching text output)
+Produces two GGUF models for the sequential v5 architecture (Qwen2.5-1.5B):
+  - josi-v5-interpreter-q4_k_m.gguf  (~935 MB, GATCRequest JSON output)
+  - josi-v5-explainer-q4_k_m.gguf    (~935 MB, plain coaching text output)
 
 Upload target: Hetzner Object Storage (S3-compatible)
   URL: https://objects.mivalta.com/models/
@@ -14,29 +14,29 @@ Upload target: Hetzner Object Storage (S3-compatible)
 Usage:
     # Full pipeline: merge + GGUF + upload
     python publish_models.py \
-      --interpreter models/josi-v4-gemma3n-20260215_115614/final \
-      --explainer models/josi-v4-gemma3n-20260214_215643/final
+      --interpreter models/josi-v5-qwen25-interpreter-<timestamp>/final \
+      --explainer models/josi-v5-qwen25-explainer-<timestamp>/final
 
     # Merge + GGUF only (no upload)
     python publish_models.py \
-      --interpreter models/josi-v4-gemma3n-20260215_115614/final \
-      --explainer models/josi-v4-gemma3n-20260214_215643/final \
+      --interpreter models/josi-v5-qwen25-interpreter-<timestamp>/final \
+      --explainer models/josi-v5-qwen25-explainer-<timestamp>/final \
       --no-upload
 
     # Upload already-converted GGUF files
     python publish_models.py \
-      --gguf-interpreter models/gguf/josi-v4-interpreter-q4_k_m.gguf \
-      --gguf-explainer models/gguf/josi-v4-explainer-q4_k_m.gguf \
+      --gguf-interpreter models/gguf/josi-v5-interpreter-q4_k_m.gguf \
+      --gguf-explainer models/gguf/josi-v5-explainer-q4_k_m.gguf \
       --upload-only
 
     # Run in background (persists after terminal close)
     nohup python publish_models.py --interpreter ... --explainer ... > publish.log 2>&1 &
 
 Requirements:
-    - finetune_gemma3n.py (merge command)
-    - convert_gemma3n.py (GGUF conversion)
+    - finetune_qwen25.py (merge command)
+    - llama.cpp (convert_hf_to_gguf.py + llama-quantize for GGUF conversion)
     - s3cmd configured for Hetzner Object Storage (for upload)
-    - GPU with ~16GB VRAM (for merge step)
+    - GPU with ~8GB VRAM (for merge step)
 """
 
 import argparse
@@ -134,8 +134,22 @@ def run_cmd(cmd: list[str], desc: str) -> subprocess.CompletedProcess:
     return result
 
 
+def find_llama_cpp() -> Path | None:
+    """Find llama.cpp installation."""
+    candidates = [
+        Path.home() / "llama.cpp",
+        Path("/opt/llama.cpp"),
+        Path.cwd() / "llama.cpp",
+        Path.cwd().parent / "llama.cpp",
+    ]
+    for loc in candidates:
+        if (loc / "convert_hf_to_gguf.py").exists():
+            return loc
+    return None
+
+
 def merge_lora(lora_path: str, label: str) -> str:
-    """Merge LoRA adapter into base model. Returns path to merged model."""
+    """Merge LoRA adapter into base Qwen2.5 model. Returns path to merged model."""
     lora_path = str(Path(lora_path).resolve())
     merged_path = str(Path(lora_path).parent / "merged")
 
@@ -144,15 +158,15 @@ def merge_lora(lora_path: str, label: str) -> str:
         return merged_path
 
     run_cmd(
-        [sys.executable, str(SCRIPT_DIR / "finetune_gemma3n.py"),
+        [sys.executable, str(SCRIPT_DIR / "finetune_qwen25.py"),
          "merge", "--lora_path", lora_path, "--output_path", merged_path],
-        f"Merging {label} LoRA into base model",
+        f"Merging {label} LoRA into Qwen2.5 base model",
     )
     return merged_path
 
 
 def convert_to_gguf(merged_path: str, output_name: str, quant: str = "q4_k_m") -> str:
-    """Convert merged model to GGUF. Returns path to quantized GGUF."""
+    """Convert merged Qwen2.5 model to GGUF via llama.cpp (2-step: f16 → quantize)."""
     GGUF_DIR.mkdir(parents=True, exist_ok=True)
     output_path = GGUF_DIR / f"{output_name}-{quant}.gguf"
 
@@ -161,17 +175,58 @@ def convert_to_gguf(merged_path: str, output_name: str, quant: str = "q4_k_m") -
         print(f"\n  ✓ GGUF already exists: {output_path} ({size_gb:.2f} GB)")
         return str(output_path)
 
+    llama_cpp = find_llama_cpp()
+    if llama_cpp is None:
+        raise RuntimeError(
+            "Could not find llama.cpp. Please clone it:\n"
+            "  git clone https://github.com/ggerganov/llama.cpp ~/llama.cpp\n"
+            "  cd ~/llama.cpp && cmake -B build && cmake --build build"
+        )
+
+    convert_script = llama_cpp / "convert_hf_to_gguf.py"
+    fp16_path = GGUF_DIR / f"{output_name}-f16.gguf"
+
+    # Step 1: Convert HF model to GGUF F16
     run_cmd(
-        [sys.executable, str(SCRIPT_DIR / "convert_gemma3n.py"),
-         "--model_path", merged_path,
-         "--output_dir", str(GGUF_DIR),
-         "--output_name", output_name,
-         "--quant", quant],
-        f"Converting to GGUF {quant}",
+        [sys.executable, str(convert_script), merged_path,
+         "--outfile", str(fp16_path), "--outtype", "f16"],
+        f"Converting {output_name} to GGUF F16",
+    )
+
+    if not fp16_path.exists():
+        raise RuntimeError(f"F16 conversion failed: {fp16_path} not created")
+
+    # Step 2: Quantize F16 → Q4_K_M (or other quant type)
+    quantize_bin = None
+    for candidate in [
+        llama_cpp / "build" / "bin" / "llama-quantize",
+        llama_cpp / "build" / "llama-quantize",
+        llama_cpp / "llama-quantize",
+    ]:
+        if candidate.exists():
+            quantize_bin = candidate
+            break
+
+    if quantize_bin is None:
+        raise RuntimeError(
+            f"llama-quantize not found. Build llama.cpp:\n"
+            f"  cd {llama_cpp} && cmake -B build && cmake --build build --target llama-quantize"
+        )
+
+    quant_upper = quant.upper().replace("_K_", "_K_")  # Q4_K_M
+    run_cmd(
+        [str(quantize_bin), str(fp16_path), str(output_path), quant_upper],
+        f"Quantizing to {quant_upper}",
     )
 
     if not output_path.exists():
-        raise RuntimeError(f"GGUF conversion did not produce expected output: {output_path}")
+        raise RuntimeError(f"Quantization failed: {output_path} not created")
+
+    # Clean up F16 intermediate
+    if fp16_path.exists():
+        fp16_size = fp16_path.stat().st_size / (1024**3)
+        print(f"  Removing F16 intermediate ({fp16_size:.2f} GB)...")
+        fp16_path.unlink()
 
     size_gb = output_path.stat().st_size / (1024**3)
     print(f"  Created: {output_path} ({size_gb:.2f} GB)")
@@ -211,7 +266,8 @@ def write_manifest(models: dict):
     GGUF_DIR.mkdir(parents=True, exist_ok=True)
 
     manifest = {
-        "version": "v4",
+        "version": "v5",
+        "base_model": "Qwen2.5-1.5B-Instruct",
         "published": datetime.now().isoformat(),
         "models": models,
     }
@@ -225,7 +281,7 @@ def write_manifest(models: dict):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Publish Josi v4 models: merge → GGUF → Hetzner Object Storage"
+        description="Publish Josi v5 models: merge → GGUF → Hetzner Object Storage"
     )
 
     # LoRA inputs (for full pipeline)
@@ -276,7 +332,8 @@ def main():
         parser.error("--interpreter and --explainer are required (or use --upload-only with --gguf-*)")
 
     print("=" * 60)
-    print("  MiValta Josi v4 — Model Publish Pipeline")
+    print("  MiValta Josi v5 — Model Publish Pipeline")
+    print(f"  Base model: Qwen2.5-1.5B-Instruct")
     print(f"  {datetime.now().strftime('%Y-%m-%d %H:%M')}")
     print("=" * 60)
 
@@ -307,9 +364,9 @@ def main():
         print(f"{'='*60}")
 
         gguf_files["interpreter"] = convert_to_gguf(
-            merged_interpreter, "josi-v4-interpreter", args.quant)
+            merged_interpreter, "josi-v5-interpreter", args.quant)
         gguf_files["explainer"] = convert_to_gguf(
-            merged_explainer, "josi-v4-explainer", args.quant)
+            merged_explainer, "josi-v5-explainer", args.quant)
 
     # Compute checksums
     print(f"\n{'='*60}")
@@ -353,7 +410,7 @@ def main():
 
     # Upload manifest too
     if not args.no_upload:
-        upload_to_s3(str(MANIFEST_PATH), "josi-v4-manifest.json")
+        upload_to_s3(str(MANIFEST_PATH), "josi-v5-manifest.json")
 
     # Summary
     print(f"\n{'='*60}")
@@ -362,7 +419,7 @@ def main():
     print(f"\n  Models available at:")
     for role, meta in models_meta.items():
         print(f"    {role}: {meta['url']}")
-    print(f"    manifest: {S3_PUBLIC_URL}/josi-v4-manifest.json")
+    print(f"    manifest: {S3_PUBLIC_URL}/josi-v5-manifest.json")
 
     print(f"\n  Developer download:")
     print(f"    python training/scripts/download_models.py")
