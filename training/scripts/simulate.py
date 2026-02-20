@@ -178,6 +178,14 @@ DIALOGUE RULES:
 - Use simple language. Explain like a trusted friend who happens to be a coach.
 - Do NOT end with a question unless absolutely necessary.
 
+CONVERSATION HANDLING:
+- This is a multi-turn conversation. Previous messages appear as earlier turns.
+- NEVER repeat what you already said. If you gave an answer, give a DIFFERENT one next.
+- When the athlete asks a follow-up, address their NEW question specifically.
+- If a TOPIC tag is present, focus your answer on THAT topic — not the previous one.
+- If the athlete seems frustrated or says you're not answering, acknowledge it and try a fresh angle.
+- When [INTERPRETER] context is present, use the action to guide your response type.
+
 SAFETY:
 - If the athlete mentions pain, chest pain, dizziness: tell them to stop and seek medical attention.
 - Be honest about unrealistic goals — push back with care.
@@ -342,6 +350,26 @@ class JosiEngine:
             f"{CHATML_START}assistant\n"
         )
 
+    def _format_chatml_multiturn(self, system_prompt: str,
+                                  history: list[dict],
+                                  user_message: str) -> str:
+        """Format a multi-turn prompt using proper ChatML turns.
+
+        Instead of dumping history as text, each past exchange becomes a real
+        ChatML user/assistant turn so the model handles it natively.
+        """
+        parts = [f"{CHATML_START}system\n{system_prompt}{CHATML_END}"]
+        for turn in history:
+            role = turn["role"]
+            msg = turn["message"]
+            # Truncate long history messages to save context
+            if len(msg) > 150:
+                msg = msg[:147] + "..."
+            parts.append(f"{CHATML_START}{role}\n{msg}{CHATML_END}")
+        parts.append(f"{CHATML_START}user\n{user_message}{CHATML_END}")
+        parts.append(f"{CHATML_START}assistant\n")
+        return "\n".join(parts)
+
     def run_interpreter(self, user_message: str) -> tuple[str, dict | None]:
         """Run the interpreter model → GATCRequest JSON.
 
@@ -372,12 +400,34 @@ class JosiEngine:
 
         return raw, parsed
 
-    def run_explainer(self, user_message: str) -> str:
+    def run_explainer(self, user_message: str,
+                      history: list[dict] | None = None,
+                      interpreter_action: str | None = None,
+                      topic_hint: str | None = None) -> str:
         """Run the explainer model → coaching text.
+
+        Args:
+            user_message: Current user message (with CONTEXT block).
+            history: Previous conversation turns for multi-turn ChatML.
+            interpreter_action: The interpreter's classified action (explain, answer_question, etc.)
+            topic_hint: Topic the athlete has been discussing (for follow-ups).
 
         Returns the governed coaching text.
         """
-        prompt = self._format_chatml(EXPLAINER_SYSTEM_PROMPT, user_message)
+        # Build the current turn message with interpreter context
+        current_msg = user_message
+        if interpreter_action:
+            current_msg += f"\n\n[INTERPRETER]: action={interpreter_action}"
+        if topic_hint:
+            current_msg += f"\nTOPIC: The athlete has been discussing {topic_hint}. Address this topic."
+
+        if history and len(history) > 1:
+            # Multi-turn: use proper ChatML turns (skip last entry = current user msg)
+            prompt = self._format_chatml_multiturn(
+                EXPLAINER_SYSTEM_PROMPT, history[:-1], current_msg
+            )
+        else:
+            prompt = self._format_chatml(EXPLAINER_SYSTEM_PROMPT, current_msg)
 
         t0 = time.time()
         result = self.explainer(
@@ -440,21 +490,22 @@ class JosiEngine:
             if ctx_lines:
                 full_message += "\n\nCONTEXT:\n" + "\n".join(ctx_lines)
 
-        # Inject conversation history and topic hint for multi-turn
+        # Build interpreter message with flat history (interpreter handles this fine)
+        interp_message = full_message
         if state:
             history_block = state.format_history_block()
             if history_block:
-                full_message += history_block
+                interp_message += history_block
 
             # For short follow-ups, inject the topic hint
             msg_words = user_message.strip().split()
             if len(msg_words) <= 4:
                 topic_hint = state.format_topic_hint()
                 if topic_hint:
-                    full_message += topic_hint
+                    interp_message += topic_hint
 
         # Step 1: Interpreter
-        interp_raw, interp_parsed = self.run_interpreter(full_message)
+        interp_raw, interp_parsed = self.run_interpreter(interp_message)
 
         action = interp_parsed.get("action", "unknown") if interp_parsed else "parse_error"
 
@@ -465,8 +516,14 @@ class JosiEngine:
         final_response = None
 
         if needs_explainer:
-            # Step 3: Explainer
-            explainer_text = self.run_explainer(full_message)
+            # Step 3: Explainer — use proper multi-turn ChatML with history
+            explainer_topic = state.last_topic if state else None
+            explainer_text = self.run_explainer(
+                full_message,
+                history=state.history if state else None,
+                interpreter_action=action,
+                topic_hint=explainer_topic,
+            )
             final_response = explainer_text
         elif action == "clarify" and interp_parsed:
             final_response = interp_parsed.get("clarify_message", "Could you tell me more?")
