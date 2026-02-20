@@ -360,6 +360,7 @@ def train(
         gradient_checkpointing=True,
         max_grad_norm=1.0,
         report_to=report_to,
+        max_length=max_seq,
         # Completion-only loss: only train on the assistant's response (including
         # the <|im_end|> stop token), not on the system prompt or user message.
         # TRL auto-detects prompt/completion format and creates a completion_mask.

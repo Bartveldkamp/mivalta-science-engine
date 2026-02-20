@@ -476,6 +476,7 @@ def train(
         max_grad_norm=1.0,
         report_to=report_to,
         optim="adamw_torch_fused",
+        max_length=MAX_SEQ_LENGTH,
         completion_only_loss=True,
     )
 
