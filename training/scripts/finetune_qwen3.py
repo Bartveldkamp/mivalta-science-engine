@@ -1,39 +1,49 @@
 #!/usr/bin/env python3
 """
-MiValta Josi v6 — Qwen3-4B LoRA Fine-Tuning Script
+MiValta Josi v6 — Qwen3 LoRA Fine-Tuning Script
 
 Single-model architecture (replaces v5 dual-model):
-  ONE Qwen3-4B model handles both modes via system prompt switching:
-    - INTERPRETER mode: GATCRequest JSON output (~50 tokens, fast)
-    - COACH mode: warm coaching text output (grounded in interpreter context)
+  ONE Qwen3 model handles both modes via system prompt switching:
+    - INTERPRETER mode: GATCRequest JSON output (~50 tokens, /no_think, fast)
+    - COACH mode: warm coaching text (router-controlled /think for complex questions)
 
   On-device, the app calls the SAME model twice:
-    1. Interpreter call → GATCRequest JSON
+    1. Interpreter call → GATCRequest JSON (always /no_think)
     2. Router (code, not LLM) decides if coach call is needed
-    3. Coach call → coaching text (only for explain/answer_question)
+    3. Coach call → coaching text (/think for complex, /no_think for simple)
 
-Why single model:
-  - Qwen3-4B at 2.5 GB is dramatically smarter than two Qwen2.5-1.5B at 1.87 GB
-  - One GGUF file to download, manage, and update (simpler for users)
-  - Same model learns both tasks → shared understanding of coaching domain
-  - Multilingual out of the box (Dutch, English, 100+ languages)
-  - 2.7x more parameters dedicated to EACH task vs split budget
+Model sizes (--model-size flag):
+  - 8b (DEFAULT, Android): Qwen3-8B Q4_K_M ~5.0 GB — best quality, Android 12GB+
+  - 4b (iPhone/low-RAM):   Qwen3-4B Q4_K_M ~2.5 GB — great quality, all phones
 
-On-device performance:
-  - Single 4B Q4_K_M model = ~2.5 GB GGUF
-  - Interpreter call: ~300ms (JSON output, short)
-  - Coach call: ~500ms (longer output, only when needed)
+Why 8B for Android:
+  - Outperforms Qwen2.5-14B on reasoning benchmarks
+  - 5.3x more parameters than v5 per task (8B vs 1.5B)
+  - Dramatically better coaching nuance, Dutch quality, injury reasoning
+  - Router-controlled /think gives "fast most of the time, smart when needed"
+  - Motorola Edge 60 (12GB) runs it comfortably
+
+On-device performance (8B on Android 12GB):
+  - Single 8B Q4_K_M model = ~5.0 GB GGUF
+  - Interpreter call: ~400ms (/no_think, JSON output)
+  - Coach call simple: ~600ms (/no_think, short answer)
+  - Coach call complex: ~1200ms (/think, injury reasoning, plan tradeoffs)
   - Coach skipped for ~40% of messages (create_workout, replan, clarify)
-  - Fits on all phones: iPhone 8 GB RAM, Samsung 12 GB RAM
   - 100% on-device via llama.cpp — NO network calls
 
+Router-controlled thinking:
+  - /no_think: interpreter JSON, clarify, create_workout, replan, simple answers
+  - /think: "why is my readiness red?", injury patterns, plan tradeoffs, complex coaching
+  - The router decides AFTER the interpreter classifies the action
+  - Users never see or control this — it's invisible quality escalation
+
 Architecture notes:
-  - Qwen3-4B uses ChatML natively (<|im_start|>/<|im_end|>) — same as Qwen2.5
-  - Supports thinking mode (<think>...</think>) but DISABLED for on-device speed
+  - Qwen3 uses ChatML natively (<|im_start|>/<|im_end|>) — same as Qwen2.5
+  - Thinking mode: <think>...</think> tags, controlled via /think and /no_think
   - AutoModelForCausalLM + AutoTokenizer (standard HF pipeline)
-  - bf16 loading (~8 GB) + LoRA adapters — fits on single GPU
-  - LoRA targets: attention + MLP projections (higher rank for quality)
-  - Merged + GGUF Q4_K_M for on-device deployment (~2.5 GB)
+  - bf16 loading + LoRA adapters — fits on single GPU
+  - LoRA targets: attention + MLP projections
+  - Merged + GGUF Q4_K_M for on-device deployment
 
 Training modes:
   - interpreter: train on interpreter data only (GATCRequest JSON)
@@ -44,22 +54,21 @@ Runtime constraints (on-device):
   - Context cap: 4096 tokens (up from 2048 in v5)
   - Output cap: 200 tokens (up from 150 in v5)
   - Temperature: 0.3 interpreter / 0.5 coach
-  - 100% on-device via llama.cpp on Android/iOS
+  - 100% on-device via llama.cpp on Android
 
 Usage:
-    # RECOMMENDED: Unified training (both tasks in one run)
+    # RECOMMENDED: Unified training (both tasks, 8B Android default)
     python finetune_qwen3.py train --mode unified
 
-    # Or train separately:
-    python finetune_qwen3.py train --mode interpreter
-    python finetune_qwen3.py train --mode coach
+    # Train 4B variant for iPhone
+    python finetune_qwen3.py train --mode unified --model-size 4b
 
     # Merge LoRA weights into base model
-    python finetune_qwen3.py merge --lora_path ./models/josi-v6-qwen3-unified-*/lora_weights
+    python finetune_qwen3.py merge --lora_path ./models/josi-v6-qwen3-8b-unified-*/lora_weights
 
     # Sanity check both modes
-    python finetune_qwen3.py sanity --model_path ./models/josi-v6-qwen3-unified-*/merged --mode interpreter
-    python finetune_qwen3.py sanity --model_path ./models/josi-v6-qwen3-unified-*/merged --mode coach
+    python finetune_qwen3.py sanity --model_path ./models/.../merged --mode interpreter
+    python finetune_qwen3.py sanity --model_path ./models/.../merged --mode coach
 
     # GGUF conversion (via llama.cpp)
     python /path/to/llama.cpp/convert_hf_to_gguf.py ./models/merged --outtype q4_k_m
@@ -92,26 +101,57 @@ from trl import SFTTrainer, SFTConfig
 
 
 # =============================================================================
-# MODEL CONFIGURATION — Qwen3-4B
+# MODEL CONFIGURATION — Qwen3 (8B default for Android, 4B for iPhone)
 # =============================================================================
 
-MODEL_ID = "Qwen/Qwen3-4B"
+# Model size configs: 8B (Android default) and 4B (iPhone)
+MODEL_CONFIGS = {
+    "8b": {
+        "model_id": "Qwen/Qwen3-8B",
+        "local_dir": "Qwen3-8B",
+        "params": "8B",
+        "gguf_size": "~5.0 GB",
+        "lr": 1e-5,            # Gentler for 8B
+        "batch_size": 1,       # Fits in 24GB VRAM with LoRA
+        "grad_accum": 16,      # Effective batch = 16
+        "epochs": 3,
+        "lora_r": 32,
+        "lora_alpha": 64,
+    },
+    "4b": {
+        "model_id": "Qwen/Qwen3-4B",
+        "local_dir": "Qwen3-4B",
+        "params": "4B",
+        "gguf_size": "~2.5 GB",
+        "lr": 2e-5,            # Slightly higher for smaller model
+        "batch_size": 2,       # More room in VRAM
+        "grad_accum": 8,       # Effective batch = 16
+        "epochs": 3,
+        "lora_r": 32,
+        "lora_alpha": 64,
+    },
+}
 
-# Local path (set by download, falls back to HF hub)
+# Default: 8B for Android (best quality)
+MODEL_SIZE = "8b"
+
 SCRIPT_DIR_FOR_MODEL = Path(__file__).resolve().parent
-LOCAL_MODEL_PATH = SCRIPT_DIR_FOR_MODEL.parent / "models" / "Qwen3-4B"
 
 
-def resolve_model_id():
+def get_config(size: str = None) -> dict:
+    """Get model configuration for given size."""
+    return MODEL_CONFIGS[size or MODEL_SIZE]
+
+
+def resolve_model_id(size: str = None):
     """Use local download if available, otherwise pull from HuggingFace."""
-    if LOCAL_MODEL_PATH.exists() and (LOCAL_MODEL_PATH / "config.json").exists():
-        return str(LOCAL_MODEL_PATH)
-    return MODEL_ID
+    cfg = get_config(size)
+    local = SCRIPT_DIR_FOR_MODEL.parent / "models" / cfg["local_dir"]
+    if local.exists() and (local / "config.json").exists():
+        return str(local)
+    return cfg["model_id"]
 
 
-# LoRA config — higher rank for 4B model (more capacity to leverage)
-LORA_R = 32
-LORA_ALPHA = 64
 LORA_DROPOUT = 0.05
 
 # LoRA targets on the language model backbone
@@ -120,12 +160,7 @@ LORA_TARGET_MODULES = [
     "gate_proj", "up_proj", "down_proj",       # MLP
 ]
 
-# Training hyperparameters — tuned for 4B model
-LEARNING_RATE = 2e-5        # Lower than 1.5B (larger model needs gentler updates)
-BATCH_SIZE = 2              # Larger model, smaller batch to fit VRAM
-GRAD_ACCUM = 8              # Effective batch = 16
 MAX_SEQ_LENGTH = 4096       # Training context (Qwen3 supports 32K, we use 4K)
-EPOCHS = 3                  # Fewer epochs for larger model (learns faster)
 WARMUP_RATIO = 0.05
 
 # Early stopping
@@ -303,10 +338,11 @@ def prepare_dataset(path: str, tokenizer, max_seq_length: int = 4096) -> Dataset
 # MODEL SETUP — bf16 + LoRA
 # =============================================================================
 
-def load_model_and_tokenizer(model_id: str = None):
-    """Load Qwen3-4B in bf16 and apply LoRA adapters."""
+def load_model_and_tokenizer(model_id: str = None, size: str = None):
+    """Load Qwen3 model in bf16 and apply LoRA adapters."""
+    cfg = get_config(size)
     if model_id is None:
-        model_id = resolve_model_id()
+        model_id = resolve_model_id(size)
 
     print(f"Loading tokenizer: {model_id}")
     tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
@@ -318,8 +354,8 @@ def load_model_and_tokenizer(model_id: str = None):
     tokenizer.padding_side = "right"
 
     print(f"Loading model: {model_id} (bf16, LoRA fine-tuning)")
-    print(f"  Architecture: Qwen3-4B (AutoModelForCausalLM)")
-    print(f"  Params: 4B")
+    print(f"  Architecture: Qwen3-{cfg['params']} (AutoModelForCausalLM)")
+    print(f"  Params: {cfg['params']}")
     model = AutoModelForCausalLM.from_pretrained(
         model_id,
         device_map="auto",
@@ -337,20 +373,22 @@ def load_model_and_tokenizer(model_id: str = None):
     for param in model.parameters():
         param.requires_grad = False
 
-    # Enable gradient checkpointing (critical for 4B model VRAM)
+    # Enable gradient checkpointing (critical for VRAM)
     model.gradient_checkpointing_enable()
 
     # LoRA adapters
+    lora_r = cfg["lora_r"]
+    lora_alpha = cfg["lora_alpha"]
     lora_config = LoraConfig(
-        r=LORA_R,
-        lora_alpha=LORA_ALPHA,
+        r=lora_r,
+        lora_alpha=lora_alpha,
         lora_dropout=LORA_DROPOUT,
         target_modules=LORA_TARGET_MODULES,
         bias="none",
         task_type=TaskType.CAUSAL_LM,
     )
 
-    print(f"Applying LoRA (r={LORA_R}, alpha={LORA_ALPHA})")
+    print(f"Applying LoRA (r={lora_r}, alpha={lora_alpha})")
     model = get_peft_model(model, lora_config)
     model.print_trainable_parameters()
 
@@ -376,16 +414,19 @@ def train(
     lr_override: float = None,
     epochs_override: int = None,
     mode: str = "unified",
+    model_size: str = None,
 ):
-    """Run LoRA fine-tuning on Qwen3-4B.
+    """Run LoRA fine-tuning on Qwen3.
 
     Args:
         mode: "interpreter" for GATCRequest JSON training,
               "coach" for coaching text training,
               "unified" for combined training (recommended).
+        model_size: "8b" (Android default) or "4b" (iPhone).
     """
-    lr = lr_override or LEARNING_RATE
-    epochs = epochs_override or EPOCHS
+    cfg = get_config(model_size)
+    lr = lr_override or cfg["lr"]
+    epochs = epochs_override or cfg["epochs"]
 
     if train_path is None:
         if mode == "unified":
@@ -418,30 +459,36 @@ def train(
 
     if output_dir is None:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        output_dir = f"./models/josi-v6-qwen3-{mode}-{timestamp}"
+        size_tag = model_size or MODEL_SIZE
+        output_dir = f"./models/josi-v6-qwen3-{size_tag}-{mode}-{timestamp}"
 
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
 
+    batch_size = cfg["batch_size"]
+    grad_accum = cfg["grad_accum"]
+
     # Save training config
     run_config = {
         "version": "v6",
-        "model_id": MODEL_ID,
-        "model_family": "Qwen3-4B",
+        "model_id": cfg["model_id"],
+        "model_family": f"Qwen3-{cfg['params']}",
+        "model_size": model_size or MODEL_SIZE,
         "architecture": "AutoModelForCausalLM (ChatML)",
         "pipeline": "single-model, dual-mode (interpreter + coach via system prompt)",
+        "thinking_mode": "router-controlled (/think for complex, /no_think for fast)",
         "mode": mode,
-        "params": "4B",
+        "params": cfg["params"],
         "quantization": "bf16 + LoRA",
-        "lora_r": LORA_R,
-        "lora_alpha": LORA_ALPHA,
+        "lora_r": cfg["lora_r"],
+        "lora_alpha": cfg["lora_alpha"],
         "lora_dropout": LORA_DROPOUT,
         "target_modules": LORA_TARGET_MODULES,
         "lr": lr,
         "epochs": epochs,
-        "batch_size": BATCH_SIZE,
-        "grad_accum": GRAD_ACCUM,
-        "effective_batch": BATCH_SIZE * GRAD_ACCUM,
+        "batch_size": batch_size,
+        "grad_accum": grad_accum,
+        "effective_batch": batch_size * grad_accum,
         "max_seq_length": MAX_SEQ_LENGTH,
         "train_data": train_path,
         "val_data": val_path,
@@ -449,8 +496,8 @@ def train(
         "interpreter_temperature": INTERPRETER_TEMPERATURE,
         "coach_temperature": COACH_TEMPERATURE,
         "inference_max_tokens": INFERENCE_MAX_TOKENS,
-        "gguf_target": "Q4_K_M (~2.5 GB single model)",
-        "upgrade_from": "v5: dual Qwen2.5-1.5B (1.87 GB) → v6: single Qwen3-4B (2.5 GB)",
+        "gguf_target": f"Q4_K_M ({cfg['gguf_size']})",
+        "target_platform": "Android 12GB+" if (model_size or MODEL_SIZE) == "8b" else "All phones",
         "timestamp": datetime.now().isoformat(),
     }
     with open(output_path / "training_config.json", "w") as f:
@@ -461,9 +508,10 @@ def train(
     if use_wandb:
         try:
             import wandb
+            size_tag = model_size or MODEL_SIZE
             wandb.init(
                 project="mivalta-josi-v6",
-                name=f"josi-v6-qwen3-{mode}-{datetime.now().strftime('%m%d_%H%M')}",
+                name=f"josi-v6-qwen3-{size_tag}-{mode}-{datetime.now().strftime('%m%d_%H%M')}",
                 config=run_config,
             )
             report_to = "wandb"
@@ -473,7 +521,7 @@ def train(
             report_to = "none"
 
     # Load model
-    model, tokenizer = load_model_and_tokenizer()
+    model, tokenizer = load_model_and_tokenizer(size=model_size)
 
     # Load datasets
     print(f"\nLoading datasets (max_seq_length={MAX_SEQ_LENGTH})...")
@@ -486,15 +534,15 @@ def train(
     print(f"  Sample completion (first 100 chars): {sample['completion'][:100]}...")
 
     # Training arguments
-    eval_steps = max(1, len(train_dataset) // (BATCH_SIZE * GRAD_ACCUM * 4))
+    eval_steps = max(1, len(train_dataset) // (batch_size * grad_accum * 4))
     print(f"\n  Eval every {eval_steps} steps")
 
     training_args = SFTConfig(
         output_dir=str(output_path),
         num_train_epochs=epochs,
-        per_device_train_batch_size=BATCH_SIZE,
-        per_device_eval_batch_size=BATCH_SIZE,
-        gradient_accumulation_steps=GRAD_ACCUM,
+        per_device_train_batch_size=batch_size,
+        per_device_eval_batch_size=batch_size,
+        gradient_accumulation_steps=grad_accum,
         learning_rate=lr,
         warmup_ratio=WARMUP_RATIO,
         lr_scheduler_type="cosine",
@@ -535,8 +583,9 @@ def train(
     )
 
     # Train
+    size_tag = model_size or MODEL_SIZE
     print("\n" + "=" * 60)
-    print(f"Starting Josi v6 training — Qwen3-4B (bf16 + LoRA)")
+    print(f"Starting Josi v6 training — Qwen3-{cfg['params']} (bf16 + LoRA)")
     print(f"  Mode: {mode.upper()}")
     if mode == "unified":
         print(f"    Combined: interpreter (JSON) + coach (text) in one training run")
@@ -544,16 +593,17 @@ def train(
         print(f"    GATCRequest JSON output only")
     else:
         print(f"    Coaching text output only")
-    print(f"  Model: {MODEL_ID}")
-    print(f"  Pipeline: single-model, dual-mode")
-    print(f"  Params: 4B (2.7x more than v5 per task)")
-    print(f"  LoRA: r={LORA_R}, alpha={LORA_ALPHA}, bf16")
-    print(f"  Effective batch size: {BATCH_SIZE * GRAD_ACCUM}")
+    print(f"  Model: {cfg['model_id']}")
+    print(f"  Target: {'Android 12GB+' if size_tag == '8b' else 'All phones (iPhone + Android)'}")
+    print(f"  Pipeline: single-model, dual-mode + router-controlled /think")
+    print(f"  Params: {cfg['params']}")
+    print(f"  LoRA: r={cfg['lora_r']}, alpha={cfg['lora_alpha']}, bf16")
+    print(f"  Effective batch size: {batch_size * grad_accum}")
     print(f"  Learning rate: {lr}")
     print(f"  Max epochs: {epochs} (early stopping patience={EARLY_STOPPING_PATIENCE})")
     print(f"  Context cap: {MAX_SEQ_LENGTH} tokens")
     print(f"  Output: {output_path}")
-    print(f"  GGUF target: ~2.5 GB (single file, both modes)")
+    print(f"  GGUF target: {cfg['gguf_size']} (single file, both modes)")
     print("=" * 60 + "\n")
 
     result = trainer.train()
@@ -789,19 +839,21 @@ def sanity(model_path: str, mode: str = "interpreter"):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="MiValta Josi v6 — Qwen3-4B LoRA Fine-Tuning (Single-Model Architecture)"
+        description="MiValta Josi v6 — Qwen3 LoRA Fine-Tuning (Single-Model Architecture)"
     )
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
 
     # Train
-    train_parser = subparsers.add_parser("train", help="Fine-tune Qwen3-4B with LoRA")
+    train_parser = subparsers.add_parser("train", help="Fine-tune Qwen3 with LoRA")
     train_parser.add_argument("--mode", choices=["interpreter", "coach", "unified"], default="unified",
                              help="Training mode: interpreter (JSON), coach (text), or unified (both — recommended)")
+    train_parser.add_argument("--model-size", choices=["8b", "4b"], default="8b",
+                             help="Model size: 8b (Android, best quality) or 4b (iPhone, all phones)")
     train_parser.add_argument("--train_data", help="Path to training JSONL")
     train_parser.add_argument("--val_data", help="Path to validation JSONL")
     train_parser.add_argument("--output_dir", help="Output directory")
-    train_parser.add_argument("--lr", type=float, help=f"Learning rate (default: {LEARNING_RATE})")
-    train_parser.add_argument("--epochs", type=int, help=f"Number of epochs (default: {EPOCHS})")
+    train_parser.add_argument("--lr", type=float, help="Learning rate override")
+    train_parser.add_argument("--epochs", type=int, help="Number of epochs override")
     train_parser.add_argument("--no_wandb", action="store_true", help="Disable W&B logging")
 
     # Merge
@@ -826,6 +878,7 @@ def main():
             lr_override=args.lr,
             epochs_override=args.epochs,
             mode=args.mode,
+            model_size=getattr(args, "model_size", None),
         )
     elif args.command == "merge":
         merge(
@@ -839,13 +892,14 @@ def main():
         )
     else:
         parser.print_help()
-        print("\nv6 single-model pipeline:")
-        print("  1. python prepare_v6_data.py                              # Prepare unified training data")
-        print("  2. python finetune_qwen3.py train --mode unified           # Train both modes in one run")
+        print("\nv6 single-model pipeline (Android-first, Qwen3-8B):")
+        print("  1. python prepare_v6_data.py                                          # Prepare unified data")
+        print("  2. python finetune_qwen3.py train --mode unified                      # 8B Android (default)")
+        print("     python finetune_qwen3.py train --mode unified --model-size 4b      # 4B iPhone variant")
         print("  3. python finetune_qwen3.py merge --lora_path ./models/.../lora_weights")
         print("  4. python finetune_qwen3.py sanity --model_path ./models/.../merged --mode interpreter")
         print("  5. python finetune_qwen3.py sanity --model_path ./models/.../merged --mode coach")
-        print("  6. python publish_models_v6.py --model ./models/.../final  # Single GGUF export + publish")
+        print("  6. python publish_models_v6.py --model ./models/.../final             # GGUF + publish")
 
 
 if __name__ == "__main__":

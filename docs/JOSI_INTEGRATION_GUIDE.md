@@ -6,64 +6,75 @@
 
 ## Overview
 
-Josi v6 uses a **single-model architecture** — one fine-tuned **Qwen3-4B** model (GGUF Q4_K_M, ~2.5 GB) that runs **100% on-device** via llama.cpp / llama.android. **No network calls during chat.**
+Josi v6 uses a **single-model architecture** — one fine-tuned **Qwen3-8B** model (GGUF Q4_K_M, ~5.0 GB) that runs **100% on-device** via llama.cpp / llama.android. **No network calls during chat.**
 
-The same model handles two modes via different system prompts:
+The same model handles two modes via different system prompts, with **router-controlled thinking** for quality escalation:
 
-| Mode | System Prompt | Output | Purpose |
-|------|--------------|--------|---------|
-| **Interpreter** | `josi_v6_interpreter.txt` | GATCRequest JSON | Translates user messages into structured engine commands |
-| **Coach** | `josi_v6_coach.txt` | Plain coaching text | Generates friendly coaching text the user sees |
+| Mode | System Prompt | Thinking | Output | Purpose |
+|------|--------------|----------|--------|---------|
+| **Interpreter** | `josi_v6_interpreter.txt` | `/no_think` always | GATCRequest JSON | Translates user messages into structured engine commands |
+| **Coach (simple)** | `josi_v6_coach.txt` | `/no_think` | Plain coaching text | Quick answers, confirmations |
+| **Coach (complex)** | `josi_v6_coach.txt` | `/think` | Plain coaching text | Injury reasoning, "why?" questions, plan tradeoffs |
+
+**Platform strategy:** Android-first with 8B. iPhone variant (4B) planned separately.
 
 From the user's perspective, this is **one Josi AI coach**. Behind the scenes:
 
 ```
-+-----------------------------------------------------------------+
-|                      KOTLIN APP                                  |
-|                                                                  |
-|  1. Build ChatContext (user message + athlete state)             |
-|  2. Load SINGLE model (josi-v6-q4_k_m.gguf, ~2.5 GB)          |
-|                                                                  |
-|  3. INTERPRETER call (same model, interpreter system prompt)     |
-|     -> GATCRequest JSON (action, sport, replan_type, etc.)      |
-|                                                                  |
-|  4. ROUTER (code, not LLM) — decides if coach call is needed    |
-|     - create_workout -> skip coach, return JSON to engine        |
-|     - replan         -> skip coach, return JSON to engine        |
-|     - clarify        -> skip coach, use clarify_message          |
-|     - explain        -> run coach call                           |
-|     - answer_question-> run coach call                           |
-|                                                                  |
-|  5. COACH call (same model, coach system prompt)                 |
-|     -> plain coaching text (the message the user reads)          |
-|                                                                  |
-|  6. Parse GATCRequest -> dispatch to Rust engine if needed       |
-|  7. Apply dialogue governor to coach text                        |
-|  8. Render coaching text + engine results to user                |
-+-----------------------------------------------------------------+
++-----------------------------------------------------------------------+
+|                        KOTLIN APP                                      |
+|                                                                        |
+|  1. Build ChatContext (user message + athlete state)                   |
+|  2. Load SINGLE model (josi-v6-q4_k_m.gguf, ~5.0 GB)                |
+|                                                                        |
+|  3. INTERPRETER call (/no_think + GBNF grammar)                       |
+|     -> GATCRequest JSON (action, sport, replan_type, etc.)            |
+|     -> Grammar-constrained: ALWAYS valid JSON, zero parse failures    |
+|                                                                        |
+|  4. ROUTER (code, not LLM) — decides next step:                       |
+|     - create_workout -> skip coach, dispatch JSON to engine            |
+|     - replan         -> skip coach, dispatch JSON to engine            |
+|     - clarify        -> skip coach, use clarify_message                |
+|     - explain        -> run coach with /think (complex context)        |
+|     - answer_question-> router decides /think vs /no_think:            |
+|         simple ("What is Z2?")     -> /no_think (~600ms)              |
+|         complex ("Why am I tired?") -> /think (~1200ms)               |
+|                                                                        |
+|  5. COACH call (same model, coach system prompt)                       |
+|     -> plain coaching text (the message the user reads)                |
+|     -> Strip <think>...</think> tags before display                    |
+|                                                                        |
+|  6. Parse GATCRequest -> dispatch to Rust engine if needed             |
+|  7. Apply dialogue governor to coach text                              |
+|  8. Render coaching text + engine results to user                      |
++-----------------------------------------------------------------------+
 ```
 
-**Base model:** `Qwen/Qwen3-4B` — 4B parameters
+**Base model:** `Qwen/Qwen3-8B` — 8B parameters (Android), `Qwen/Qwen3-4B` (future iPhone)
 **Quantization:** Q4_K_M (4-bit)
 **Chat template:** ChatML (`<|im_start|>` / `<|im_end|>`, same as Qwen2.5)
 **Languages:** Dutch, English, 100+ languages natively
+**Thinking mode:** Router-controlled `/think` and `/no_think`
 
-### Runtime Constraints (on-device)
+### Runtime Constraints (on-device, Android 12GB)
 
-| Parameter | Interpreter | Coach |
-|-----------|------------|-------|
-| Context cap | 4096 tokens | 4096 tokens |
-| Output cap | 200 tokens | 200 tokens |
-| Temperature | 0.3 | 0.5 |
-| Top-p | 0.9 | 0.9 |
+| Parameter | Interpreter | Coach (simple) | Coach (complex) |
+|-----------|------------|----------------|-----------------|
+| Context cap | 4096 tokens | 4096 tokens | 4096 tokens |
+| Output cap | 200 tokens | 200 tokens | 400 tokens |
+| Temperature | 0.3 | 0.5 | 0.5 |
+| Top-p | 0.9 | 0.9 | 0.9 |
+| Thinking | `/no_think` | `/no_think` | `/think` |
+| Grammar | GBNF | none | none |
 
 | Parameter | Value |
 |-----------|-------|
 | Model file | `josi-v6-q4_k_m.gguf` |
-| Model size | ~2.5 GB |
-| Effective RAM | ~3 GB |
-| Interpreter latency | ~300ms |
-| Coach latency | ~500ms |
+| Model size | ~5.0 GB (8B Android) / ~2.5 GB (4B iPhone) |
+| Effective RAM | ~6 GB (8B) / ~3 GB (4B) |
+| Interpreter latency | ~400ms (/no_think + grammar) |
+| Coach simple latency | ~600ms (/no_think) |
+| Coach complex latency | ~1200ms (/think) |
 | Coach skipped | ~40% of messages |
 
 ### Tier Architecture
@@ -80,14 +91,15 @@ From the user's perspective, this is **one Josi AI coach**. Behind the scenes:
 
 ## Step 1: Download the Model
 
-**Total size:** ~2.5 GB (single file)
+**Total size:** ~5.0 GB (single file, Android 8B)
 **Format:** GGUF Q4_K_M (4-bit quantized, for llama.cpp / llama.android)
 
 ### Download
 
-| File | Size | Purpose |
-|------|------|---------|
-| `josi-v6-q4_k_m.gguf` | ~2.5 GB | Both interpreter (JSON) + coach (text) modes |
+| Platform | File | Size | Purpose |
+|----------|------|------|---------|
+| **Android** | `josi-v6-q4_k_m.gguf` | ~5.0 GB | Qwen3-8B, both modes, router-controlled thinking |
+| iPhone (future) | `josi-v6-4b-q4_k_m.gguf` | ~2.5 GB | Qwen3-4B variant |
 
 **Direct HTTP download from training server:**
 ```bash
@@ -110,7 +122,7 @@ The manifest contains current file name, size, and SHA-256 checksum. Use it to c
 **App download flow (end user):**
 1. User installs app (~50 MB, no models bundled)
 2. First launch: "Setting up your coach..." progress bar
-3. Single model downloads (~2.5 GB)
+3. Single model downloads (~5.0 GB on Android, ~2.5 GB on iPhone)
 4. Verify SHA-256 checksum after download
 5. Cached locally, never re-downloaded unless model version updates (check manifest)
 6. All inference runs on-device via llama.cpp — no network calls
@@ -243,9 +255,9 @@ fun buildChatMLPrompt(
 
 ---
 
-## Step 4: Run Inference (Single Model, Two Modes)
+## Step 4: Run Inference (Single Model, Two Modes, Router-Controlled Thinking)
 
-The SAME model is loaded ONCE and used for both calls. Only the system prompt changes.
+The SAME model is loaded ONCE and used for both calls. The system prompt and thinking mode change.
 
 ### Inference Parameters
 
@@ -255,27 +267,88 @@ val interpreterParams = LlamaParams(
     temperature = 0.3f,   // Low temperature for deterministic JSON
     topP = 0.9f,
     nCtx = 4096,          // Context cap: 4096 tokens
+    // GBNF grammar loaded from shared/schemas/gatc_request.gbnf
+    grammar = GATC_REQUEST_GRAMMAR,
 )
 
-val coachParams = LlamaParams(
+val coachSimpleParams = LlamaParams(
     nPredict = 200,       // Output cap: 200 tokens
     temperature = 0.5f,   // Higher temperature for natural coaching text
     topP = 0.9f,
     nCtx = 4096,
 )
+
+val coachComplexParams = LlamaParams(
+    nPredict = 400,       // More room for thinking + response
+    temperature = 0.5f,
+    topP = 0.9f,
+    nCtx = 4096,
+)
 ```
 
-### Sequential Inference (recommended)
+### GBNF Grammar for Interpreter
 
-Run interpreter first, then decide if coach call is needed:
+The interpreter uses a GBNF grammar to guarantee valid GATCRequest JSON.
+Load the grammar from `shared/schemas/gatc_request.gbnf`:
+
+```kotlin
+// Load at app startup
+val GATC_REQUEST_GRAMMAR = context.assets.open("gatc_request.gbnf")
+    .bufferedReader().readText()
+```
+
+With grammar-constrained generation:
+- **Zero parse failures** — the model can ONLY produce valid JSON
+- **Correct enum values** — action, sport, replan_type are enforced at token level
+- **No markdown fences** — grammar doesn't allow them
+- **Faster** — model doesn't waste tokens on invalid paths
+
+### Thinking Mode Router
+
+The router decides whether the coach call needs `/think` (slow, deep reasoning) or `/no_think` (fast, simple answer):
+
+```kotlin
+// Actions that trigger /think for deeper reasoning
+val COMPLEX_ACTIONS = setOf("explain")  // Explaining readiness/sessions needs context reasoning
+
+// Keywords in the question that trigger /think for answer_question
+val COMPLEX_KEYWORDS = listOf(
+    "why", "waarom",           // "Why is my readiness red?"
+    "how come", "hoe komt",    // "How come I'm tired?"
+    "should i", "moet ik",     // "Should I train today?"
+    "injury", "blessure",      // Injury-related reasoning
+    "pain", "pijn",            // Pain assessment
+    "plan", "schema",          // Plan tradeoff questions
+    "instead", "in plaats",    // Alternative reasoning
+)
+
+fun shouldThink(gatcRequest: GATCRequest?): Boolean {
+    if (gatcRequest == null) return false
+
+    // Always think for explain (needs to reason about session context)
+    if (gatcRequest.action in COMPLEX_ACTIONS) return true
+
+    // For answer_question, check if it's complex
+    if (gatcRequest.action == "answer_question") {
+        val q = (gatcRequest.question ?: gatcRequest.freeText).lowercase()
+        return COMPLEX_KEYWORDS.any { q.contains(it) }
+    }
+
+    return false
+}
+```
+
+### Sequential Inference with Router-Controlled Thinking
 
 ```kotlin
 suspend fun runJosi(userMessage: String, ctx: ChatContext): JosiResult {
     val contextStr = buildContextString(ctx)
 
-    // Step 1: Interpreter call (always runs)
+    // Step 1: Interpreter call (always /no_think + GBNF grammar)
     val interpreterPrompt = buildChatMLPrompt(
-        INTERPRETER_SYSTEM_PROMPT, ctx.history, userMessage, contextStr)
+        INTERPRETER_SYSTEM_PROMPT, ctx.history,
+        userMessage + "\n/no_think",  // Force no thinking for interpreter
+        contextStr)
     val interpreterRaw = model.generate(interpreterPrompt, interpreterParams)
     val gatcRequest = parseGATCRequest(interpreterRaw)
 
@@ -283,11 +356,18 @@ suspend fun runJosi(userMessage: String, ctx: ChatContext): JosiResult {
     val needsCoach = gatcRequest?.action in setOf("explain", "answer_question")
 
     val coachingText = if (needsCoach) {
-        // Build coach prompt with interpreter context appended
+        // Step 3: Router decides thinking mode
+        val useThinking = shouldThink(gatcRequest)
+        val thinkTag = if (useThinking) "/think" else "/no_think"
+        val params = if (useThinking) coachComplexParams else coachSimpleParams
+
+        // Build coach prompt with interpreter context + thinking control
         val coachContext = contextStr + "\n\n[INTERPRETER]\n" + interpreterRaw.trim()
         val coachPrompt = buildChatMLPrompt(
-            COACH_SYSTEM_PROMPT, ctx.history, userMessage, coachContext)
-        val raw = model.generate(coachPrompt, coachParams)
+            COACH_SYSTEM_PROMPT, ctx.history,
+            userMessage + "\n$thinkTag",  // Router controls thinking
+            coachContext)
+        val raw = model.generate(coachPrompt, params)
         governDialogue(stripThinkingTags(raw.trim()))
     } else {
         // For clarify: use interpreter's clarify_message
@@ -301,13 +381,16 @@ suspend fun runJosi(userMessage: String, ctx: ChatContext): JosiResult {
 
 ### Strip Thinking Tags
 
-Qwen3 may produce `<think>...</think>` tags. Strip them before displaying to user:
+When `/think` is used, Qwen3 produces `<think>...</think>` tags with internal reasoning.
+**Always strip these before displaying to the user:**
 
 ```kotlin
 fun stripThinkingTags(text: String): String {
     return text.replace(Regex("<think>.*?</think>", RegexOption.DOT_MATCHES_ALL), "").trim()
 }
 ```
+
+The thinking content is invisible to the user — they just see a better, more reasoned response.
 
 ---
 
@@ -695,27 +778,30 @@ Zone 2 is je aerobe zone — ideaal voor het opbouwen van je uithoudingsvermogen
 
 ## Migration from v5 (Dual Model -> Single Model)
 
-| Change | v5 (dual model) | v6 (single model) |
-|--------|-----------------|-------------------|
+| Change | v5 (dual model) | v6 (single model, Android) |
+|--------|-----------------|---------------------------|
 | Models | 2 GGUF files | 1 GGUF file |
-| Download size | ~1.87 GB | ~2.5 GB |
-| Base model | Qwen2.5-1.5B-Instruct | Qwen3-4B |
-| Params per task | 1.5B | 4B (2.7x more) |
+| Download size | ~1.87 GB | ~5.0 GB (8B) |
+| Base model | Qwen2.5-1.5B-Instruct | Qwen3-8B |
+| Params per task | 1.5B | 8B (5.3x more) |
 | Chat template | ChatML | ChatML (same) |
-| Interpreter output | GATCRequest JSON | GATCRequest JSON (same schema) |
+| Interpreter | Raw JSON (hope for valid) | GBNF grammar (guaranteed valid) |
 | Coach output | Plain text | Plain text (same) |
+| Thinking | None | Router-controlled /think for complex |
 | Temperature | 0.45 (both) | 0.3 interpreter / 0.5 coach |
 | Context cap | 2048 tokens | 4096 tokens |
-| Output cap | 150 tokens | 200 tokens |
+| Output cap | 150 tokens | 200-400 tokens |
 | Dutch | Basic | Native, excellent |
-| Memory management | Load 2 models (~4 GB) | Load 1 model (~3 GB) |
+| Memory management | Load 2 models (~4 GB) | Load 1 model (~6 GB) |
 | Inference | 2 separate models | Same model, 2 system prompts |
 
 **Key integration changes:**
 1. Download and store **one** model file instead of two
-2. Load **one** model into memory (simpler, less RAM)
+2. Load **one** model into memory (simpler)
 3. Use **same model** for both calls, just switch system prompt
-4. Strip `<think>` tags from Qwen3 output (if any)
-5. Same GATCRequest schema — no engine changes needed
-6. Update temperatures: 0.3 for interpreter, 0.5 for coach
-7. Update context cap to 4096 tokens
+4. Add **GBNF grammar** for interpreter (zero parse failures)
+5. Add **thinking mode router** (/think for complex, /no_think for fast)
+6. Strip `<think>` tags from coach output
+7. Same GATCRequest schema — no engine changes needed
+8. Update temperatures: 0.3 for interpreter, 0.5 for coach
+9. Update context cap to 4096 tokens

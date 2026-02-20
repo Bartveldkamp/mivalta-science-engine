@@ -14,31 +14,32 @@ The model is downloaded by users on first app launch and runs locally on their d
 
 | Version | Model | Size (Q4_K_M) | Architecture | Status |
 |---------|-------|---------------|-------------|--------|
-| **v6 (current)** | Qwen3-4B | ~2.5 GB (single file) | Single-model, dual-mode | **Production** |
+| **v6 Android** | **Qwen3-8B** | **~5.0 GB (single file)** | Single-model, dual-mode, /think router | **Production** |
+| v6 iPhone (planned) | Qwen3-4B | ~2.5 GB (single file) | Same architecture, smaller model | Planned |
 | v5 (legacy) | Qwen2.5-1.5B-Instruct | ~935 MB x 2 (~1.87 GB total) | Dual-model (interpreter + explainer) | Archived |
 | v4 (legacy) | Gemma 3n E2B-it | ~2.8 GB x 2 (~5.6 GB total) | Dual-model | Archived |
 | v3 (legacy) | SmolLM2-1.7B / 360M | ~1.0 GB / ~210 MB | Single-model | Archived |
 
 ### Why v6
 
-| | v5 (dual Qwen2.5-1.5B) | v6 (single Qwen3-4B) |
+| | v5 (dual Qwen2.5-1.5B) | v6 Android (single Qwen3-8B) |
 |--|--|--|
-| Download | 1.87 GB (2 files) | 2.5 GB (1 file) |
-| Model intelligence | 1.5B per task | 4B per task (2.7x) |
+| Download | 1.87 GB (2 files) | 5.0 GB (1 file) |
+| Model intelligence | 1.5B per task | 8B per task (5.3x) |
 | Dutch quality | Basic | Excellent (100+ languages native) |
-| JSON accuracy | Good (fine-tuned) | Better (stronger base + fine-tuned) |
-| Coaching warmth | Okay | Natural, human-like |
+| JSON accuracy | Good (fine-tuned) | Guaranteed (GBNF grammar-constrained) |
+| Coaching warmth | Okay | Natural, human-like, with deep reasoning |
+| Thinking mode | None | Router-controlled /think for complex questions |
 | Management | 2 GGUFs, 2 manifests | 1 GGUF, 1 manifest |
-| Fits iPhone 8GB | Yes | Yes |
-| Fits Samsung 12GB | Yes | Yes |
+| Target | All phones | Android 12GB+ (iPhone 4B planned) |
 
 ---
 
-## Qwen3-4B Pipeline (v6 — Current)
+## Qwen3-8B Pipeline (v6 — Current, Android)
 
 ### Step 1: Prepare Training Data
 
-v6 uses a **single-model architecture** — one model trained on both interpreter (JSON) and coach (text) tasks. The model switches mode based on the system prompt.
+v6 uses a **single-model architecture** — one Qwen3-8B model trained on both interpreter (JSON) and coach (text) tasks. The model switches mode based on the system prompt. Router-controlled `/think` enables deep reasoning for complex questions.
 
 ```bash
 cd training/scripts
@@ -66,22 +67,25 @@ cd ~/mivalta-science-engine/training
 # Install dependencies (first time only)
 pip install -r requirements.txt
 
-# RECOMMENDED: Unified training (both modes in one run)
-python scripts/finetune_qwen3.py train --mode unified
+# RECOMMENDED: 8B Android model, unified training
+python scripts/finetune_qwen3.py train --mode unified --model-size 8b
+
+# Future: 4B iPhone variant
+python scripts/finetune_qwen3.py train --mode unified --model-size 4b
 
 # Or train modes separately:
-python scripts/finetune_qwen3.py train --mode interpreter
-python scripts/finetune_qwen3.py train --mode coach
+python scripts/finetune_qwen3.py train --mode interpreter --model-size 8b
+python scripts/finetune_qwen3.py train --mode coach --model-size 8b
 
 # Custom params
-python scripts/finetune_qwen3.py train --mode unified --lr 1e-5 --epochs 4
+python scripts/finetune_qwen3.py train --mode unified --model-size 8b --lr 5e-6 --epochs 4
 
 # Without W&B tracking
 python scripts/finetune_qwen3.py train --mode unified --no_wandb
 ```
 
-Training takes ~30-60 min on GPU (requires ~16GB VRAM with LoRA on 4B model).
-Output goes to `./models/josi-v6-qwen3-{unified,interpreter,coach}-<timestamp>/`.
+Training takes ~45-90 min on GPU (8B requires ~24GB VRAM with LoRA, 4B requires ~16GB).
+Output goes to `./models/josi-v6-qwen3-{8b,4b}-{unified,interpreter,coach}-<timestamp>/`.
 
 ### Step 3: Merge LoRA Weights
 
@@ -110,7 +114,7 @@ python ~/llama.cpp/convert_hf_to_gguf.py ./models/.../merged \
 rm ./models/gguf/*-f16.gguf
 ```
 
-Expected size: ~2.5 GB (Q4_K_M, single file).
+Expected size: ~5.0 GB (8B Q4_K_M) or ~2.5 GB (4B Q4_K_M).
 
 ### Step 5: Sanity Check
 
@@ -132,11 +136,12 @@ Key metrics:
 
 ### Step 6: Publish Model (Merge -> GGUF -> Upload)
 
-v6 produces a **single GGUF file** that handles both modes:
+v6 produces a **single GGUF file** per platform:
 
-| File | Size | Purpose |
-|------|------|---------|
-| `josi-v6-q4_k_m.gguf` | ~2.5 GB | Both interpreter (JSON) + coach (text) modes |
+| Platform | File | Size | Purpose |
+|----------|------|------|---------|
+| **Android** | `josi-v6-q4_k_m.gguf` | ~5.0 GB | Qwen3-8B, both modes + /think router |
+| iPhone (future) | `josi-v6-4b-q4_k_m.gguf` | ~2.5 GB | Qwen3-4B variant |
 
 **Automated publish (recommended):**
 
@@ -166,7 +171,7 @@ curl -LO http://<server-ip>/models/josi-v6-q4_k_m.gguf
 **App download flow:**
 1. User installs app (~50 MB, no models bundled)
 2. First launch: "Setting up your coach..." progress bar
-3. Single model downloads from Hetzner server (~2.5 GB)
+3. Single model downloads from Hetzner server (~5.0 GB Android / ~2.5 GB iPhone)
 4. Cached locally, never re-downloaded unless model version updates
 5. All inference runs on-device via llama.cpp — **NO network calls during chat**
 
@@ -178,8 +183,11 @@ curl -LO http://<server-ip>/models/josi-v6-q4_k_m.gguf
 - Chat format: ChatML (`<|im_start|>role\ncontent<|im_end|>`) — same as Qwen2.5
 - **Native system role** — ChatML supports system messages directly
 - **Single model, two modes** — same GGUF loaded once, different system prompt per mode
-- Interpreter: max 200 tokens, temperature 0.3, top_p 0.9
-- Coach: max 200 tokens, temperature 0.5, top_p 0.9
+- **GBNF grammar** for interpreter — guarantees valid JSON (see `shared/schemas/gatc_request.gbnf`)
+- **Router-controlled thinking** — `/think` for complex questions, `/no_think` for fast answers
+- Interpreter: max 200 tokens, temperature 0.3, top_p 0.9, /no_think + GBNF grammar
+- Coach simple: max 200 tokens, temperature 0.5, top_p 0.9, /no_think
+- Coach complex: max 400 tokens, temperature 0.5, top_p 0.9, /think
 - Context cap: 4096 tokens (up from 2048 in v5)
 - Dialogue governor: answer-first, max 1 follow-up question per turn
 
@@ -222,6 +230,7 @@ shared/
   dialogue_governor.py             # Answer-first, max 1 question enforcement
   schemas/
     gatc_request.schema.json       # Interpreter output contract (v4/v5/v6 — unchanged)
+    gatc_request.gbnf              # v6: GBNF grammar for llama.cpp (guaranteed valid JSON)
     chat_context.schema.json       # Input contract (with athlete_memory)
 ```
 
