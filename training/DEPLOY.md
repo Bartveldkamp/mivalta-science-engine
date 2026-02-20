@@ -12,31 +12,47 @@ The model is downloaded by users on first app launch and runs locally on their d
 
 **Model versions:**
 
-| Version | Model | Size (Q4_K_M) | Status |
-|---------|-------|---------------|--------|
-| **v5 (current)** | Qwen2.5-1.5B-Instruct | ~935 MB per model (~1.87 GB total) | **Production** |
-| v4 (legacy) | Gemma 3n E2B-it | ~2.8 GB per model (~5.6 GB total) | Archived |
-| v3 (legacy) | SmolLM2-1.7B / 360M | ~1.0 GB / ~210 MB | Archived |
+| Version | Model | Size (Q4_K_M) | Architecture | Status |
+|---------|-------|---------------|-------------|--------|
+| **v6 (current)** | Qwen3-4B | ~2.5 GB (single file) | Single-model, dual-mode | **Production** |
+| v5 (legacy) | Qwen2.5-1.5B-Instruct | ~935 MB x 2 (~1.87 GB total) | Dual-model (interpreter + explainer) | Archived |
+| v4 (legacy) | Gemma 3n E2B-it | ~2.8 GB x 2 (~5.6 GB total) | Dual-model | Archived |
+| v3 (legacy) | SmolLM2-1.7B / 360M | ~1.0 GB / ~210 MB | Single-model | Archived |
+
+### Why v6
+
+| | v5 (dual Qwen2.5-1.5B) | v6 (single Qwen3-4B) |
+|--|--|--|
+| Download | 1.87 GB (2 files) | 2.5 GB (1 file) |
+| Model intelligence | 1.5B per task | 4B per task (2.7x) |
+| Dutch quality | Basic | Excellent (100+ languages native) |
+| JSON accuracy | Good (fine-tuned) | Better (stronger base + fine-tuned) |
+| Coaching warmth | Okay | Natural, human-like |
+| Management | 2 GGUFs, 2 manifests | 1 GGUF, 1 manifest |
+| Fits iPhone 8GB | Yes | Yes |
+| Fits Samsung 12GB | Yes | Yes |
 
 ---
 
-## Qwen2.5-1.5B Pipeline (v5 — Current)
+## Qwen3-4B Pipeline (v6 — Current)
 
 ### Step 1: Prepare Training Data
 
-v5 uses a **sequential dual-model architecture** — interpreter and explainer trained separately.
-The explainer receives the interpreter's JSON output as context (sequential pipeline).
-
-Training data is already prepared:
-- `train_interpreter.jsonl` / `val_interpreter.jsonl` — GATCRequest JSON examples
-- `train_explainer_sequential.jsonl` / `val_explainer_sequential.jsonl` — Sequential explainer examples
-
-To regenerate explainer sequential data:
+v6 uses a **single-model architecture** — one model trained on both interpreter (JSON) and coach (text) tasks. The model switches mode based on the system prompt.
 
 ```bash
 cd training/scripts
-python prepare_sequential_data.py
+
+# Create unified dataset (merges interpreter + coach data)
+python prepare_v6_data.py
+
+# Optional: update system prompts to v6 versions in the data
+python prepare_v6_data.py --update-prompts
 ```
+
+Output:
+- `train_v6_unified.jsonl` — merged + shuffled (~2262 examples)
+- `val_v6_unified.jsonl` — merged + shuffled (~241 examples)
 
 ### Step 2: Fine-Tune on Hetzner Server
 
@@ -50,144 +66,121 @@ cd ~/mivalta-science-engine/training
 # Install dependencies (first time only)
 pip install -r requirements.txt
 
-# Fine-tune INTERPRETER (GATCRequest JSON output)
-python scripts/finetune_qwen25.py train --mode interpreter
+# RECOMMENDED: Unified training (both modes in one run)
+python scripts/finetune_qwen3.py train --mode unified
 
-# Fine-tune EXPLAINER (sequential coaching text output)
-python scripts/finetune_qwen25.py train --mode explainer
+# Or train modes separately:
+python scripts/finetune_qwen3.py train --mode interpreter
+python scripts/finetune_qwen3.py train --mode coach
 
 # Custom params
-python scripts/finetune_qwen25.py train --mode interpreter --lr 3e-5 --epochs 4
+python scripts/finetune_qwen3.py train --mode unified --lr 1e-5 --epochs 4
 
 # Without W&B tracking
-python scripts/finetune_qwen25.py train --mode explainer --no_wandb
+python scripts/finetune_qwen3.py train --mode unified --no_wandb
 ```
 
-Training takes ~20-40 min per model on GPU (requires ~8GB VRAM with LoRA).
-Output goes to `./models/josi-v5-qwen25-{interpreter,explainer}-<timestamp>/`.
+Training takes ~30-60 min on GPU (requires ~16GB VRAM with LoRA on 4B model).
+Output goes to `./models/josi-v6-qwen3-{unified,interpreter,coach}-<timestamp>/`.
 
 ### Step 3: Merge LoRA Weights
 
 ```bash
-python scripts/finetune_qwen25.py merge \
-  --lora_path ./models/josi-v5-qwen25-<timestamp>/lora_weights
+python scripts/finetune_qwen3.py merge \
+  --lora_path ./models/josi-v6-qwen3-unified-<timestamp>/lora_weights
 ```
 
-Output: `./models/josi-v5-qwen25-<timestamp>/merged/`
+Output: `./models/josi-v6-qwen3-unified-<timestamp>/merged/`
 
 ### Step 4: Export to GGUF
 
-Two-step process via llama.cpp (Qwen2.5 uses standard architecture, no patches needed):
+Two-step process via llama.cpp (Qwen3 uses standard architecture, natively supported):
 
 ```bash
 # Step 1: Convert to GGUF F16
 python ~/llama.cpp/convert_hf_to_gguf.py ./models/.../merged \
-  --outfile ./models/gguf/josi-v5-interpreter-f16.gguf --outtype f16
+  --outfile ./models/gguf/josi-v6-f16.gguf --outtype f16
 
 # Step 2: Quantize to Q4_K_M
 ~/llama.cpp/build/bin/llama-quantize \
-  ./models/gguf/josi-v5-interpreter-f16.gguf \
-  ./models/gguf/josi-v5-interpreter-q4_k_m.gguf Q4_K_M
+  ./models/gguf/josi-v6-f16.gguf \
+  ./models/gguf/josi-v6-q4_k_m.gguf Q4_K_M
 
 # Clean up F16 intermediate
 rm ./models/gguf/*-f16.gguf
 ```
 
-Expected size: ~935 MB per model (Q4_K_M).
+Expected size: ~2.5 GB (Q4_K_M, single file).
 
 ### Step 5: Sanity Check
 
 ```bash
-# Quick sanity check on merged model
-python scripts/finetune_qwen25.py sanity \
-  --model_path ./models/josi-v5-qwen25-interpreter-<timestamp>/merged \
+# Test interpreter mode (JSON output)
+python scripts/finetune_qwen3.py sanity \
+  --model_path ./models/josi-v6-qwen3-unified-<timestamp>/merged \
   --mode interpreter
 
-python scripts/finetune_qwen25.py sanity \
-  --model_path ./models/josi-v5-qwen25-explainer-<timestamp>/merged \
-  --mode explainer
+# Test coach mode (coaching text output)
+python scripts/finetune_qwen3.py sanity \
+  --model_path ./models/josi-v6-qwen3-unified-<timestamp>/merged \
+  --mode coach
 ```
 
 Key metrics:
-- **Interpreter**: eval_loss < 0.01, token_accuracy > 99%, 5/5 sanity checks
-- **Explainer**: eval_loss < 1.5, token_accuracy > 70%, 2/2 sanity checks
+- **Interpreter**: eval_loss < 0.01, 6/6 sanity checks (including Dutch)
+- **Coach**: eval_loss < 1.5, 3/3 sanity checks (including Dutch response)
 
-### Step 6: Publish Models (Merge → GGUF → Upload)
+### Step 6: Publish Model (Merge -> GGUF -> Upload)
 
-v5 uses a **sequential dual-model architecture** — interpreter + explainer as separate GGUF files:
+v6 produces a **single GGUF file** that handles both modes:
 
-| Model | File | Size | Purpose |
-|-------|------|------|---------|
-| Interpreter | `josi-v5-interpreter-q4_k_m.gguf` | ~935 MB | GATCRequest JSON structured output |
-| Explainer | `josi-v5-explainer-q4_k_m.gguf` | ~935 MB | Plain coaching text output |
-
-**Setup nginx (first time only):**
-
-Models are served directly from the Hetzner training server via nginx.
-
-```bash
-# Run on the Hetzner server (as root)
-bash training/server/setup_nginx.sh
-```
-
-This installs nginx and configures it to serve `/var/www/mivalta-models/` at `http://<server-ip>/models/`.
+| File | Size | Purpose |
+|------|------|---------|
+| `josi-v6-q4_k_m.gguf` | ~2.5 GB | Both interpreter (JSON) + coach (text) modes |
 
 **Automated publish (recommended):**
 
 ```bash
-# Full pipeline: merge LoRA → GGUF Q4_K_M → publish via nginx
-python scripts/publish_models.py \
-  --interpreter models/josi-v5-qwen25-interpreter-<timestamp>/final \
-  --explainer models/josi-v5-qwen25-explainer-<timestamp>/final
+# Full pipeline: merge LoRA -> GGUF Q4_K_M -> publish via nginx
+python scripts/publish_models_v6.py \
+  --model models/josi-v6-qwen3-unified-<timestamp>/final
 
-# Publish pre-built GGUF files only
-python scripts/publish_models.py \
-  --gguf-interpreter models/gguf/josi-v5-interpreter-q4_k_m.gguf \
-  --gguf-explainer models/gguf/josi-v5-explainer-q4_k_m.gguf \
+# Publish pre-built GGUF file only
+python scripts/publish_models_v6.py \
+  --gguf models/gguf/josi-v6-q4_k_m.gguf \
   --publish-only
 
 # Merge + convert only (skip publish)
-python scripts/publish_models.py \
-  --interpreter models/josi-v5-qwen25-interpreter-<timestamp>/final \
-  --explainer models/josi-v5-qwen25-explainer-<timestamp>/final \
+python scripts/publish_models_v6.py \
+  --model models/josi-v6-qwen3-unified-<timestamp>/final \
   --no-publish
 ```
 
 **Developer download:**
 
 ```bash
-# Automated download with checksum verification
-python training/scripts/download_models.py
-
-# Download to custom directory
-python training/scripts/download_models.py --output-dir /path/to/models
-
-# Download only one model
-python training/scripts/download_models.py --interpreter-only
-python training/scripts/download_models.py --explainer-only
-
-# Direct download (no script needed)
-curl -LO http://144.76.62.249/models/josi-v5-interpreter-q4_k_m.gguf
-curl -LO http://144.76.62.249/models/josi-v5-explainer-q4_k_m.gguf
+# Direct download
+curl -LO http://<server-ip>/models/josi-v6-q4_k_m.gguf
 ```
 
 **App download flow:**
 1. User installs app (~50 MB, no models bundled)
 2. First launch: "Setting up your coach..." progress bar
-3. Both models download from the Hetzner server (~1.87 GB total)
+3. Single model downloads from Hetzner server (~2.5 GB)
 4. Cached locally, never re-downloaded unless model version updates
 5. All inference runs on-device via llama.cpp — **NO network calls during chat**
 
 ---
 
-## Android Integration Notes (Qwen2.5 v5)
+## Android Integration Notes (Qwen3 v6)
 
-- Qwen2.5 uses `qwen2` architecture — natively supported by llama.cpp
-- Chat format: ChatML (`<|im_start|>role\ncontent<|im_end|>`)
+- Qwen3 uses `qwen3` architecture — natively supported by llama.cpp
+- Chat format: ChatML (`<|im_start|>role\ncontent<|im_end|>`) — same as Qwen2.5
 - **Native system role** — ChatML supports system messages directly
-- Max generation tokens: 150
-- Temperature: 0.45 (range: 0.4-0.5)
-- Context cap: 2048 tokens
+- **Single model, two modes** — same GGUF loaded once, different system prompt per mode
+- Interpreter: max 200 tokens, temperature 0.3, top_p 0.9
+- Coach: max 200 tokens, temperature 0.5, top_p 0.9
+- Context cap: 4096 tokens (up from 2048 in v5)
 - Dialogue governor: answer-first, max 1 follow-up question per turn
 
 See `docs/JOSI_INTEGRATION_GUIDE.md` for full Kotlin integration spec.
@@ -199,50 +192,47 @@ See `docs/JOSI_INTEGRATION_GUIDE.md` for full Kotlin integration spec.
 ```
 training/
   scripts/
-    finetune_qwen25.py             # v5: Qwen2.5-1.5B LoRA fine-tuning (sequential architecture)
-    prepare_sequential_data.py     # v5: Generate sequential explainer training data
-    publish_models.py              # v5: merge → GGUF → upload to Hetzner Object Storage
-    download_models.py             # v5: Developer model download with checksum verify
+    finetune_qwen3.py              # v6: Qwen3-4B LoRA fine-tuning (single-model architecture)
+    prepare_v6_data.py             # v6: Merge interpreter + coach data into unified dataset
+    publish_models_v6.py           # v6: merge -> GGUF -> upload (single model)
+    finetune_qwen25.py             # v5 (legacy): Qwen2.5-1.5B dual-model fine-tuning
+    prepare_sequential_data.py     # v5 (legacy): Generate sequential explainer data
+    publish_models.py              # v5 (legacy): dual-model publish
+    download_models.py             # Developer model download with checksum verify
     finetune_gemma3n.py            # Legacy v4: Gemma 3n E2B fine-tuning
-    evaluate_gemma3n_v4.py         # Legacy v4: Validation suite
-    convert_gemma3n.py             # Legacy v4: GGUF conversion
     finetune_smollm2.py            # Legacy v3: SmolLM2 fine-tuning
-    evaluate_smollm2.py            # Legacy v3: SmolLM2 validation
-    export_gguf.py                 # Generic GGUF conversion via llama.cpp
   prompts/
-    interpreter_system.txt         # System prompt for interpreter model
-    explainer_system.txt           # System prompt for explainer model
+    josi_v6_interpreter.txt        # v6: Interpreter system prompt (multilingual)
+    josi_v6_coach.txt              # v6: Coach system prompt (multilingual)
+    interpreter_system.txt         # v5 (legacy): Interpreter prompt
+    explainer_system.txt           # v5 (legacy): Explainer prompt
+    explainer_sequential_system.txt # v5 (legacy): Sequential explainer prompt
   data/
+    train_v6_unified.jsonl         # v6: Unified training set (interpreter + coach merged)
+    val_v6_unified.jsonl           # v6: Unified validation set
     train_interpreter.jsonl        # Interpreter training set (~1450 examples)
     val_interpreter.jsonl          # Interpreter validation set (~149 examples)
     train_explainer_sequential.jsonl  # v5 Sequential explainer training set (~812 examples)
     val_explainer_sequential.jsonl    # v5 Sequential explainer validation set (~92 examples)
-    train_explainer.jsonl          # Legacy explainer training set (~1120 examples)
-    val_explainer.jsonl            # Legacy explainer validation set
-    train_v3.jsonl                 # Legacy v3 source data (8,574 LLMIntent examples)
-    val_v3.jsonl                   # Legacy v3 validation data
     gold_combined.jsonl            # Source gold data (678 curated)
-    philosophy_enhanced.jsonl      # Coaching persona data
   requirements.txt
 shared/
   llm_intent_parser.py            # JSON post-processor (v3 LLMIntent production)
-  gatc_postprocessor.py            # v4 GATCRequest post-processor
-  memory_extractor.py              # Rule-based fact extraction (v1)
+  gatc_postprocessor.py            # v4/v5/v6 GATCRequest post-processor
   dialogue_governor.py             # Answer-first, max 1 question enforcement
   schemas/
-    llm_intent.schema.json         # Legacy v3 output contract
-    gatc_request.schema.json       # v4/v5 Interpreter output contract
-    chat_context.schema.json       # v4/v5 Input contract (with athlete_memory)
+    gatc_request.schema.json       # Interpreter output contract (v4/v5/v6 — unchanged)
+    chat_context.schema.json       # Input contract (with athlete_memory)
 ```
 
 ---
 
-## SmolLM2 Pipeline (v3, Legacy)
+## Qwen2.5-1.5B Pipeline (v5, Legacy)
 
-The SmolLM2 pipeline is preserved for reference and fallback. See the legacy scripts:
-- `finetune_smollm2.py` — LoRA fine-tuning
-- `evaluate_smollm2.py` — Validation suite
-- `export_gguf.py` — GGUF conversion
+The v5 dual-model pipeline is preserved for reference:
+- `finetune_qwen25.py` — LoRA fine-tuning (interpreter + explainer separately)
+- `publish_models.py` — Dual-model GGUF publish
+- `prepare_sequential_data.py` — Explainer data with interpreter context
 
 ---
 
@@ -256,10 +246,6 @@ shutil.copy2(sys.argv[1], sys.argv[2])
 with open(sys.argv[2], 'r+b') as f:
     f.seek(4)
     f.write(b'\x02\x00\x00\x00')
-```
-
-```bash
-python3 -c "..." input.gguf output-v2.gguf
 ```
 
 This changes only the header version number — model weights are identical.
