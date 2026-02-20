@@ -65,9 +65,9 @@ echo "  Data: $DATA_DIR/train_interpreter_v6.jsonl"
 
 python3 scripts/finetune_qwen25.py train \
     --mode interpreter \
-    --train "$DATA_DIR/train_interpreter_v6.jsonl" \
-    --val "$DATA_DIR/val_interpreter_v6.jsonl" \
-    --no-wandb
+    --train_data "$DATA_DIR/train_interpreter_v6.jsonl" \
+    --val_data "$DATA_DIR/val_interpreter_v6.jsonl" \
+    --no_wandb
 
 # Find the latest interpreter output
 INTERP_DIR=$(ls -td "$TRAINING_DIR"/models/josi-v5-qwen25-interpreter-*/ 2>/dev/null | head -1)
@@ -84,9 +84,9 @@ echo "  Data: $DATA_DIR/train_explainer_v6.jsonl"
 
 python3 scripts/finetune_qwen25.py train \
     --mode explainer \
-    --train "$DATA_DIR/train_explainer_v6.jsonl" \
-    --val "$DATA_DIR/val_explainer_v6.jsonl" \
-    --no-wandb
+    --train_data "$DATA_DIR/train_explainer_v6.jsonl" \
+    --val_data "$DATA_DIR/val_explainer_v6.jsonl" \
+    --no_wandb
 
 # Find the latest explainer output
 EXPL_DIR=$(ls -td "$TRAINING_DIR"/models/josi-v5-qwen25-explainer-*/ 2>/dev/null | head -1)
