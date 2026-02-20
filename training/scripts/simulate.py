@@ -45,6 +45,7 @@ from dialogue_governor import govern_dialogue
 from athlete_state_store import AthleteStateStore
 from cross_domain_rules import evaluate_rules
 from context_assembler import enrich_payload, update_state_from_turn
+from memory_extractor import extract_facts_from_conversation, merge_memory
 
 # Try importing llm_intent_parser for explainer output (LLMIntent JSON)
 try:
@@ -122,6 +123,23 @@ def _classify_response(response: str, action: str,
         return "confirmation"
 
     return "general"
+
+
+def _load_memory(athlete_id: str, state_dir: str) -> dict | None:
+    """Load athlete memory from disk."""
+    path = os.path.join(state_dir, f"{athlete_id}.memory.json")
+    if os.path.exists(path):
+        with open(path, "r") as f:
+            return json.load(f)
+    return None
+
+
+def _save_memory(athlete_id: str, state_dir: str, memory: dict) -> None:
+    """Persist athlete memory to disk."""
+    os.makedirs(state_dir, exist_ok=True)
+    path = os.path.join(state_dir, f"{athlete_id}.memory.json")
+    with open(path, "w") as f:
+        json.dump(memory, f, indent=2)
 
 
 # =============================================================================
@@ -375,7 +393,8 @@ class ConversationState:
     continuous feedback loop where each turn builds on the last.
     """
 
-    def __init__(self, max_turns: int = 6, athlete_id: str = "default"):
+    def __init__(self, max_turns: int = 6, athlete_id: str = "default",
+                 state_dir: str | None = None):
         self.max_turns = max_turns
         self.history: list[dict] = []
         self.last_topic: str | None = None
@@ -383,7 +402,20 @@ class ConversationState:
         self.last_action: str | None = None
         self.pending_question: str | None = None  # What Josi last asked
         self.triage: InjuryTriage | None = None    # Active injury triage
-        self.athlete_store = AthleteStateStore(athlete_id)  # Cross-domain state
+
+        # --- Persistence ---
+        self.state_dir = state_dir  # Directory for athlete state files
+
+        # Load existing athlete state from disk (or create fresh)
+        if state_dir:
+            self.athlete_store = AthleteStateStore.load(athlete_id, state_dir)
+        else:
+            self.athlete_store = AthleteStateStore(athlete_id)
+
+        # --- Athlete memory (learned facts from past conversations) ---
+        self.athlete_memory: dict | None = None
+        if state_dir:
+            self.athlete_memory = _load_memory(athlete_id, state_dir)
 
         # --- Feedback from explainer → interpreter ---
         self.last_response_type: str | None = None   # "question", "advice", "warning", "encouragement"
@@ -886,10 +918,18 @@ class JosiEngine:
             if ctx_lines:
                 full_message += "\n\nCONTEXT:\n" + "\n".join(ctx_lines)
 
-        # --- Build interpreter message with STATE + HISTORY ---
+        # --- Build interpreter message with STATE + MEMORY + HISTORY ---
         interp_message = full_message
         if state:
             interp_message += f"\n\n<STATE>\n{state.format_state_json()}\n</STATE>"
+
+            # Inject athlete memory (learned facts from past conversations)
+            if state.athlete_memory:
+                from memory_extractor import serialize_memory_for_prompt
+                memory_block = serialize_memory_for_prompt(state.athlete_memory)
+                if memory_block:
+                    interp_message += f"\n\n{memory_block}"
+
             history_block = state.format_history_block()
             if history_block:
                 interp_message += history_block
@@ -1018,12 +1058,73 @@ class JosiEngine:
             if interp_parsed:
                 time_min = interp_parsed.get("time_available_min") or interp_parsed.get("time", "")
             goal = interp_parsed.get("goal", "") if interp_parsed else ""
+            constraints = interp_parsed.get("constraints", {}) if interp_parsed else {}
+
+            # --- Cross-domain goal adjustment ---
+            # A real coach overrides the athlete when their body says otherwise
+            if state:
+                store = state.athlete_store
+                current = store.current_readiness()
+                trend = store.readiness_trend()
+
+                # Orange/Red readiness → force recovery regardless of request
+                if current in ("Orange", "Red") and goal in ("threshold", "vo2", "race_prep"):
+                    original_goal = goal
+                    goal = "recovery"
+                    constraints["readiness_override"] = (
+                        f"Originally requested {original_goal}, "
+                        f"adjusted to recovery due to {current} readiness"
+                    )
+
+                # Yellow + declining + high intensity → reduce to endurance
+                elif (current == "Yellow" and trend == "declining"
+                      and goal in ("threshold", "vo2")):
+                    original_goal = goal
+                    goal = "endurance"
+                    constraints["readiness_override"] = (
+                        f"Originally requested {original_goal}, "
+                        f"adjusted to endurance due to declining readiness"
+                    )
+
+                # Active injury in sport → add injury constraint
+                active = store.active_injuries()
+                if active:
+                    for inj in active:
+                        area = inj["area"]
+                        severity = inj.get("severity", 5)
+                        constraints["injury_active"] = (
+                            f"{area} ({severity}/10) — avoid aggravation"
+                        )
+                        # High severity + matching sport → swap to recovery
+                        aggravation_map = {
+                            "knee": ["run"], "shin": ["run"],
+                            "ankle": ["run"], "back": ["run", "strength"],
+                            "shoulder": ["strength", "ski"],
+                            "elbow": ["bike", "strength"],
+                            "hip": ["run", "bike"],
+                        }
+                        if (severity >= 7
+                                and sport in aggravation_map.get(area, [])):
+                            goal = "recovery"
+                            constraints["injury_override"] = (
+                                f"{area} at {severity}/10 — forced recovery"
+                            )
+                        break  # Only check first active injury
+
+                # No sport specified? Use known preference
+                if not sport and store.preferences.get("primary_sport"):
+                    sport = store.preferences["primary_sport"]
+
+            # Build sport label for message
+            sport_label = sport or "your"
+            time_label = f"{time_min}min " if time_min else ""
             engine_payload = {
                 "action": "create_workout",
                 "sport": sport,
                 "time_min": time_min,
                 "goal": goal,
-                "message": f"Building a {time_min}min {sport} session focused on {goal}.",
+                "constraints": constraints if constraints else None,
+                "message": f"Building a {time_label}{sport_label} session focused on {goal}.",
             }
 
         # ---- REPLAN ----
@@ -1048,38 +1149,91 @@ class JosiEngine:
             question = user_message
             if interp_parsed and interp_parsed.get("question"):
                 question = interp_parsed["question"]
+
+            # Enrich with athlete context so explainer gives personalized answers
+            athlete_ctx = {}
+            if state:
+                store = state.athlete_store
+                current = store.current_readiness()
+                if current:
+                    athlete_ctx["readiness"] = current
+                if store.preferences.get("primary_sport"):
+                    athlete_ctx["sport"] = store.preferences["primary_sport"]
+                if store.has_active_injury():
+                    inj = store.active_injuries()[0]
+                    athlete_ctx["active_injury"] = (
+                        f"{inj['area']} ({inj['severity']}/10)"
+                    )
+
             engine_payload = {
                 "action": action,
                 "topic": state.last_topic if state else None,
                 "question": question,
                 "message": f"Answer the athlete's question: {question}",
             }
+            if athlete_ctx:
+                engine_payload["athlete_context_inline"] = athlete_ctx
 
         # ---- CLARIFY ----
         elif action == "clarify":
-            if interp_parsed:
-                clarify_msg = interp_parsed.get("clarify_message")
-                if not clarify_msg:
-                    missing = interp_parsed.get("missing", [])
-                    if "medical_clearance" in missing:
-                        clarify_msg = (
-                            "That sounds like it could be serious. "
-                            "Please stop training and see a doctor before continuing."
-                        )
-                    elif "sport" in missing:
-                        clarify_msg = (
-                            "What sport would you like to train? "
-                            "Running, cycling, strength, or something else?"
-                        )
-                    elif "pain_location" in missing:
-                        clarify_msg = "Where exactly does it hurt, and when did it start?"
-                    else:
-                        clarify_msg = "Can you give me a bit more detail so I can help?"
-                final_response = clarify_msg
-                if state:
-                    state.pending_question = clarify_msg
-            else:
-                final_response = "Can you give me a bit more detail so I can help?"
+            # --- Smart clarify: use known state to fill gaps ---
+            # A real coach doesn't ask "what sport?" if they already know.
+            resolved = False
+            if state and interp_parsed:
+                missing = interp_parsed.get("missing", [])
+                store = state.athlete_store
+
+                # Missing sport but we know their preference → auto-fill
+                if ("sport" in missing
+                        and store.preferences.get("primary_sport")
+                        and not interp_parsed.get("sport")):
+                    known_sport = store.preferences["primary_sport"]
+                    interp_parsed["sport"] = known_sport
+                    interp_parsed["action"] = "create_workout"
+                    action = "create_workout"
+                    needs_explainer = True
+
+                    goal = interp_parsed.get("goal", "endurance")
+                    time_min = (interp_parsed.get("time_available_min")
+                                or interp_parsed.get("time", ""))
+                    time_label = f"{time_min}min " if time_min else ""
+                    engine_payload = {
+                        "action": "create_workout",
+                        "sport": known_sport,
+                        "time_min": time_min,
+                        "goal": goal,
+                        "message": (
+                            f"Building a {time_label}{known_sport} session "
+                            f"focused on {goal}."
+                        ),
+                    }
+                    resolved = True
+                    print(f"    Smart-fill: sport={known_sport} (from preferences)")
+
+            if not resolved:
+                if interp_parsed:
+                    clarify_msg = interp_parsed.get("clarify_message")
+                    if not clarify_msg:
+                        missing = interp_parsed.get("missing", [])
+                        if "medical_clearance" in missing:
+                            clarify_msg = (
+                                "That sounds like it could be serious. "
+                                "Please stop training and see a doctor before continuing."
+                            )
+                        elif "sport" in missing:
+                            clarify_msg = (
+                                "What sport would you like to train? "
+                                "Running, cycling, strength, or something else?"
+                            )
+                        elif "pain_location" in missing:
+                            clarify_msg = "Where exactly does it hurt, and when did it start?"
+                        else:
+                            clarify_msg = "Can you give me a bit more detail so I can help?"
+                    final_response = clarify_msg
+                    if state:
+                        state.pending_question = clarify_msg
+                else:
+                    final_response = "Can you give me a bit more detail so I can help?"
 
         # ---- ACK (acknowledgement without clear intent) ----
         elif action == "ack" or (action in ("unknown", "parse_error") and not is_injury):
@@ -1232,6 +1386,26 @@ class JosiEngine:
                 readiness_state=readiness_state_str,
             )
 
+            # --- Persist athlete state to disk ---
+            if state.state_dir:
+                state.athlete_store.save(state.state_dir)
+
+            # --- Extract and persist memory from conversation ---
+            # Memory extraction runs every turn so facts accumulate
+            # as the conversation progresses. Lightweight — just regex.
+            if state.state_dir and len(state.history) >= 2:
+                new_facts = extract_facts_from_conversation(state.history)
+                if new_facts:
+                    updated_memory = merge_memory(
+                        state.athlete_memory, new_facts
+                    )
+                    state.athlete_memory = updated_memory
+                    _save_memory(
+                        state.athlete_store.athlete_id,
+                        state.state_dir,
+                        updated_memory,
+                    )
+
         return {
             "user_message": user_message,
             "full_message": full_message,
@@ -1373,6 +1547,154 @@ SCENARIOS = [
 
 
 # =============================================================================
+# CROSS-DOMAIN INTELLIGENCE SCENARIOS — multi-turn, stateful
+# =============================================================================
+# These test what makes Josi a REAL coach: connecting information across
+# turns and domains. Each scenario sets up athlete state and checks
+# that the system makes smart decisions based on the full picture.
+
+CROSS_DOMAIN_SCENARIOS = [
+    {
+        "name": "Injured athlete wants to run (should warn about sport)",
+        "description": "Athlete has active knee injury → asks for a run → system warns",
+        "setup_state": {
+            "injuries": [{"area": "knee", "side": "left", "severity": 6,
+                          "status": "active", "occurrences": 1,
+                          "trigger": "running", "first_seen": "2025-01-01",
+                          "last_seen": "2025-01-15"}],
+        },
+        "message": "Give me a 45-minute run",
+        "context": {"readiness": "Green (Recovered)", "sport": "running",
+                     "level": "intermediate"},
+        "expect_action": "create_workout",
+        "expect_rules": ["injury_matching_sport"],
+        "expect_goal_override": "recovery",
+    },
+    {
+        "name": "Orange readiness + wants VO2 intervals (should override goal)",
+        "description": "Athlete is Orange + declining → asks for hard workout → forced to recovery",
+        "setup_state": {
+            "readiness_history": ["Green", "Green", "Green", "Yellow", "Orange", "Orange"],
+        },
+        "message": "I want some hard intervals today",
+        "context": {"readiness": "Orange (Accumulated)", "sport": "running",
+                     "level": "intermediate"},
+        "expect_action": "create_workout",
+        "expect_rules": ["readiness_vs_intensity"],
+        "expect_goal_override": "recovery",
+    },
+    {
+        "name": "Overreaching detection (load up + readiness down)",
+        "description": "Load climbing + readiness dropping = overreaching signal",
+        "setup_state": {
+            "readiness_history": ["Green", "Green", "Yellow", "Orange", "Orange", "Orange"],
+            "training_load": {"this_week_sessions": 6, "this_week_load": 500,
+                              "last_week_load": 350, "trend": "increasing"},
+        },
+        "message": "Should I do another session today?",
+        "context": {"readiness": "Orange (Accumulated)", "sport": "running",
+                     "level": "intermediate"},
+        "expect_action": "explain",
+        "expect_rules": ["overreaching_detection"],
+    },
+    {
+        "name": "High load week + long session request",
+        "description": "6 sessions this week + wants 90min ride → suggest deload",
+        "setup_state": {
+            "readiness_history": ["Green", "Green", "Green"],
+            "training_load": {"this_week_sessions": 6, "this_week_load": 500,
+                              "last_week_load": 400, "trend": "increasing"},
+        },
+        "message": "Give me a 90-minute bike ride",
+        "context": {"readiness": "Green (Recovered)", "sport": "cycling",
+                     "level": "advanced"},
+        "expect_action": "create_workout",
+        "expect_rules": ["high_load_workout"],
+    },
+    {
+        "name": "Comeback after break + wants intensity",
+        "description": "No recent workouts → wants threshold run → dial it back",
+        "setup_state": {},
+        "message": "I haven't trained in 2 weeks. Give me a hard threshold run, 60 minutes.",
+        "context": {"readiness": "Green (Recovered)", "sport": "running",
+                     "level": "intermediate"},
+        "expect_action": "create_workout",
+        "expect_rules": ["comeback_after_break"],
+    },
+    {
+        "name": "Repeated injury → escalate to physio",
+        "description": "3rd time knee has flared → suggest professional help",
+        "setup_state": {
+            "injuries": [{"area": "knee", "side": "right", "severity": 5,
+                          "status": "active", "occurrences": 3,
+                          "trigger": "running", "first_seen": "2024-09-01",
+                          "last_seen": "2025-01-15"}],
+        },
+        "message": "My knee is acting up again",
+        "context": {"readiness": "Yellow (Productive)", "sport": "running",
+                     "level": "intermediate"},
+        "expect_action": "injury_triage",
+        "expect_rules": ["repeated_injury"],
+    },
+    {
+        "name": "Consistent progress → positive reinforcement",
+        "description": "Green readiness + improving + stable load = encourage the athlete",
+        "setup_state": {
+            "readiness_history": ["Yellow", "Yellow", "Green", "Green", "Green", "Green"],
+            "training_load": {"this_week_sessions": 3, "this_week_load": 250,
+                              "last_week_load": 200, "trend": "increasing"},
+        },
+        "message": "Give me a 50-minute endurance run",
+        "context": {"readiness": "Green (Recovered)", "sport": "running",
+                     "level": "intermediate"},
+        "expect_action": "create_workout",
+        "expect_rules": ["consistent_progress"],
+    },
+    {
+        "name": "Fatigue + declining readiness → suggest deload",
+        "description": "Athlete says tired + readiness has been dropping",
+        "setup_state": {
+            "readiness_history": ["Green", "Green", "Green", "Yellow", "Orange", "Orange"],
+        },
+        "message": "I'm exhausted, I can barely get out of bed",
+        "context": {"readiness": "Orange (Accumulated)", "sport": "running",
+                     "level": "intermediate"},
+        "expect_action": "explain",
+        "expect_rules": ["fatigue_declining_readiness"],
+    },
+    {
+        "name": "Sleep issues + high training load",
+        "description": "Athlete asks about sleep while training hard → contextual advice",
+        "setup_state": {
+            "readiness_history": ["Green", "Green", "Yellow"],
+            "training_load": {"this_week_sessions": 5, "this_week_load": 400,
+                              "last_week_load": 300, "trend": "increasing"},
+        },
+        "message": "I haven't been sleeping well this week, any tips?",
+        "context": {"readiness": "Yellow (Productive)", "sport": "running",
+                     "level": "intermediate"},
+        "expect_action": "answer_question",
+        "expect_rules": ["sleep_high_load"],
+    },
+    {
+        "name": "Injury + high intensity request (any sport)",
+        "description": "Active shoulder injury + wants strength/VO2 → blocked",
+        "setup_state": {
+            "injuries": [{"area": "shoulder", "side": "right", "severity": 7,
+                          "status": "active", "occurrences": 1,
+                          "trigger": "bench press", "first_seen": "2025-01-10",
+                          "last_seen": "2025-01-15"}],
+        },
+        "message": "Give me a strength session",
+        "context": {"readiness": "Green (Recovered)", "sport": "strength",
+                     "level": "intermediate"},
+        "expect_action": "create_workout",
+        "expect_rules": ["injury_matching_sport", "fresh_injury_intensity"],
+    },
+]
+
+
+# =============================================================================
 # DISPLAY
 # =============================================================================
 
@@ -1463,6 +1785,8 @@ def main():
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--scenarios", action="store_true",
                       help="Run built-in test scenarios")
+    mode.add_argument("--cross-domain", action="store_true",
+                      help="Run cross-domain intelligence scenarios")
     mode.add_argument("--interactive", action="store_true",
                       help="Interactive chat mode")
     mode.add_argument("--message", type=str,
@@ -1529,6 +1853,102 @@ def main():
         print(f"  Results: {passed}/{total} action matches")
         print(f"{'=' * 64}")
 
+    # ─── Cross-domain intelligence mode ───
+    elif getattr(args, "cross_domain", False):
+        print(f"\n  Running {len(CROSS_DOMAIN_SCENARIOS)} cross-domain scenarios...\n")
+        passed = 0
+        total = 0
+
+        for scenario in CROSS_DOMAIN_SCENARIOS:
+            # Set up athlete state for this scenario
+            state = ConversationState(max_turns=6, athlete_id="cross_domain_test")
+            store = state.athlete_store
+
+            setup = scenario.get("setup_state", {})
+            if "injuries" in setup:
+                store.injuries = setup["injuries"]
+            if "readiness_history" in setup:
+                store.readiness_history = setup["readiness_history"]
+            if "training_load" in setup:
+                store.training_load = setup["training_load"]
+            if "preferences" in setup:
+                store.preferences = setup["preferences"]
+            if "correlations" in setup:
+                store.correlations = setup["correlations"]
+
+            # Run the pipeline
+            result = engine.simulate(
+                scenario["message"],
+                context=scenario.get("context"),
+                state=state,
+            )
+
+            # Check results
+            action_ok = result["action"] == scenario.get("expect_action", "")
+            rules_fired = result.get("engine_payload", {}).get("cross_domain_rules", [])
+            expected_rules = scenario.get("expect_rules", [])
+            rules_ok = all(r in rules_fired for r in expected_rules)
+
+            # Check goal override
+            goal_override_ok = True
+            expected_goal = scenario.get("expect_goal_override")
+            if expected_goal:
+                actual_goal = result.get("engine_payload", {}).get("goal", "")
+                goal_override_ok = actual_goal == expected_goal
+
+            all_ok = action_ok and rules_ok and goal_override_ok
+
+            # Display
+            print(f"\n{'─' * 64}")
+            print(f"  Scenario: {scenario['name']}")
+            print(f"  Description: {scenario['description']}")
+            print(f"  Athlete:  \"{scenario['message']}\"")
+            print(f"{'─' * 64}")
+
+            status = "PASS" if action_ok else "FAIL"
+            print(f"  Action: {result['action']} ({status}, expected {scenario.get('expect_action', '?')})")
+
+            if expected_rules:
+                status = "PASS" if rules_ok else "FAIL"
+                print(f"  Rules:  {rules_fired} ({status}, expected {expected_rules})")
+            else:
+                print(f"  Rules:  {rules_fired}")
+
+            if expected_goal:
+                status = "PASS" if goal_override_ok else "FAIL"
+                actual = result.get("engine_payload", {}).get("goal", "?")
+                print(f"  Goal:   {actual} ({status}, expected {expected_goal})")
+
+            # Show cross-domain messages
+            cross_msgs = result.get("engine_payload", {}).get("cross_domain", [])
+            if cross_msgs:
+                print(f"\n  [Cross-Domain Intelligence]")
+                for msg in cross_msgs:
+                    print(f"    → {msg[:120]}")
+
+            # Show Josi's response
+            response = result.get("final_response", "")
+            if response:
+                print(f"\n  [Josi says]:")
+                words = response.split()
+                line = "    "
+                for w in words:
+                    if len(line) + len(w) + 1 > 68:
+                        print(line)
+                        line = "    " + w
+                    else:
+                        line += (" " if line.strip() else "") + w
+                if line.strip():
+                    print(line)
+
+            total += 1
+            if all_ok:
+                passed += 1
+
+        print(f"\n{'=' * 64}")
+        print(f"  Cross-Domain Results: {passed}/{total} scenarios passed")
+        print(f"{'=' * 64}")
+
     # ─── Interactive mode ───
     elif args.interactive:
         default_ctx = {
@@ -1536,12 +1956,30 @@ def main():
             "sport": args.sport,
             "level": args.level,
         }
-        conv_state = ConversationState(max_turns=6, athlete_id="interactive_user")
+        # Persistent state directory — athlete memory survives across sessions
+        state_dir = str(REPO_ROOT / "training" / "state")
+        conv_state = ConversationState(
+            max_turns=6, athlete_id="interactive_user", state_dir=state_dir
+        )
+
+        # Report loaded state
+        store = conv_state.athlete_store
+        has_state = (store.active_injuries() or store.recent_workouts
+                     or store.preferences or store.readiness_history)
+        has_memory = conv_state.athlete_memory is not None
 
         print(f"\n  Interactive mode — type 'quit' to exit")
         print(f"  Context: {args.sport}, {args.readiness}, {args.level}")
         print(f"  Cross-domain knowledge: ENABLED")
-        print(f"  Commands: /sport, /readiness, /level, /reset, /state (show cross-domain)\n")
+        if has_state:
+            print(f"  Loaded athlete state: {len(store.active_injuries())} injuries, "
+                  f"{store.training_load['this_week_sessions']} sessions this week, "
+                  f"{len(store.correlations)} known patterns")
+        if has_memory:
+            facts = conv_state.athlete_memory.get("key_facts", [])
+            print(f"  Loaded memory: {len(facts)} facts from past conversations")
+        print(f"  State persistence: {state_dir}")
+        print(f"  Commands: /sport, /readiness, /level, /reset, /state, /memory\n")
 
         while True:
             try:
@@ -1566,8 +2004,36 @@ def main():
                 print(f"    → Level set to: {default_ctx['level']}")
                 continue
             if user_input.lower() in ("/reset", "/clear"):
-                conv_state = ConversationState(max_turns=6, athlete_id="interactive_user")
-                print(f"    → Conversation history and cross-domain state cleared")
+                conv_state = ConversationState(
+                    max_turns=6, athlete_id="interactive_user",
+                    state_dir=state_dir,
+                )
+                print(f"    → Conversation history cleared (persistent state preserved)")
+                print(f"    → Use /reset-all to also clear saved athlete state")
+                continue
+            if user_input.lower() == "/reset-all":
+                conv_state = ConversationState(
+                    max_turns=6, athlete_id="interactive_user"
+                )
+                # Clear on-disk state too
+                for ext in (".state.json", ".memory.json"):
+                    p = os.path.join(state_dir, f"interactive_user{ext}")
+                    if os.path.exists(p):
+                        os.remove(p)
+                print(f"    → All state cleared (conversation, injuries, memory)")
+                continue
+            if user_input.lower() == "/memory":
+                mem = conv_state.athlete_memory
+                if mem:
+                    facts = mem.get("key_facts", [])
+                    patterns = mem.get("patterns", [])
+                    print(f"    Memory ({len(facts)} facts, {len(patterns)} patterns):")
+                    for f in facts:
+                        print(f"      [{f.get('confidence', 0):.1f}] {f['fact']}")
+                    for p in patterns:
+                        print(f"      [pattern] {p}")
+                else:
+                    print(f"    → No memory yet (Josi learns from conversations)")
                 continue
             if user_input.lower() == "/state":
                 store = conv_state.athlete_store

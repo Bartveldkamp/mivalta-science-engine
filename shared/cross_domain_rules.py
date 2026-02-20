@@ -393,19 +393,317 @@ def _rule_sleep_topic_plus_load(
     return None
 
 
+def _rule_readiness_vs_intensity(
+    action: str,
+    store: AthleteStateStore = None,
+    **kwargs,
+) -> Optional[RuleResult]:
+    """READINESS + WORKOUT: athlete requests high intensity but body isn't ready.
+
+    A real coach sees the whole picture: "You want to do intervals, but
+    you're Orange and declining. That's how injuries happen."
+    """
+    if action != "create_workout" or not store:
+        return None
+
+    # Extract the requested goal from interpreter output
+    goal = kwargs.get("goal") or ""
+    if not goal:
+        # Try to infer from workout_type
+        wt = kwargs.get("workout_type") or ""
+        if wt in ("interval", "tempo"):
+            goal = "threshold"
+
+    high_intensity_goals = ("threshold", "vo2", "race_prep")
+    if goal not in high_intensity_goals:
+        return None
+
+    current = store.current_readiness()
+    if not current or current == "Green":
+        return None
+
+    trend = store.readiness_trend()
+
+    # Orange/Red + declining = danger zone
+    if current in ("Orange", "Red"):
+        return RuleResult(
+            rule_id="readiness_vs_intensity",
+            action="modify_workout",
+            message=(
+                f"Your body is at {current} readiness"
+                + (f" and trending {trend}" if trend != "unknown" else "")
+                + f". High-intensity work right now risks pushing you into "
+                f"overtraining. Let's swap this to an easy session — you'll "
+                f"be able to hit those intervals harder when you're recovered."
+            ),
+            priority=88,
+            domains=["readiness", "workout"],
+        )
+
+    # Yellow + declining = caution
+    if current == "Yellow" and trend == "declining":
+        return RuleResult(
+            rule_id="readiness_vs_intensity_caution",
+            action="reduce_intensity",
+            message=(
+                "Readiness has been dropping and you're asking for intensity. "
+                "You can still train, but let's dial it back — a moderate "
+                "session will keep the fitness coming without digging a hole."
+            ),
+            priority=72,
+            domains=["readiness", "workout"],
+        )
+
+    return None
+
+
+def _rule_high_load_workout_request(
+    action: str,
+    store: AthleteStateStore = None,
+    duration_min: Optional[int] = None,
+    **kwargs,
+) -> Optional[RuleResult]:
+    """LOAD + WORKOUT: athlete requests a long/hard session when load is already high.
+
+    Catches: "Give me a 2-hour ride" when they've already done 6 sessions this week.
+    """
+    if action != "create_workout" or not store:
+        return None
+
+    sessions = store.training_load.get("this_week_sessions", 0)
+    trend = store.training_load.get("trend", "stable")
+
+    if sessions < 4:
+        return None  # Not enough volume to worry
+
+    # 5+ sessions AND either long duration or increasing trend
+    long_session = duration_min and duration_min > 75
+    high_load_week = sessions >= 5 and trend == "increasing"
+
+    if not (long_session or high_load_week):
+        return None
+
+    # Don't fire if goal is already recovery
+    goal = kwargs.get("goal") or ""
+    if goal == "recovery":
+        return None
+
+    if sessions >= 6:
+        return RuleResult(
+            rule_id="high_load_workout",
+            action="suggest_deload",
+            message=(
+                f"That's session #{sessions + 1} this week and your load "
+                f"has been climbing. Adding more volume now risks diminishing "
+                f"returns. A recovery day today means better performance tomorrow."
+            ),
+            priority=80,
+            domains=["training_load", "workout"],
+        )
+    else:
+        msg = (
+            f"You've already logged {sessions} sessions this week"
+        )
+        if long_session:
+            msg += f" and this would be {duration_min} minutes"
+        msg += (
+            ". Keep this one easier than usual — accumulated fatigue "
+            "is real even when you feel fine."
+        )
+        return RuleResult(
+            rule_id="high_load_moderate",
+            action="reduce_intensity",
+            message=msg,
+            priority=62,
+            domains=["training_load", "workout"],
+        )
+
+
+def _rule_fresh_injury_high_intensity(
+    action: str,
+    store: AthleteStateStore = None,
+    **kwargs,
+) -> Optional[RuleResult]:
+    """INJURY + INTENSITY: recently injured athlete requesting hard workout.
+
+    Not sport-specific (that's _rule_injury_plus_matching_sport).
+    This catches: athlete has ANY active injury and wants intervals/threshold.
+    """
+    if action != "create_workout" or not store:
+        return None
+    if not store.has_active_injury():
+        return None
+
+    goal = kwargs.get("goal") or ""
+    if goal not in ("threshold", "vo2", "race_prep", "strength"):
+        return None
+
+    injury = store.active_injuries()[0]
+    area = injury["area"]
+    severity = injury.get("severity", 5)
+
+    if severity >= 5:
+        return RuleResult(
+            rule_id="fresh_injury_intensity",
+            action="modify_workout",
+            message=(
+                f"You still have an active {area} issue at {severity}/10. "
+                f"Hard efforts create more inflammation and can turn a "
+                f"manageable issue into a serious one. Easy work only until "
+                f"it's below a 3."
+            ),
+            priority=86,
+            domains=["injury", "workout"],
+        )
+
+    return None
+
+
+def _rule_comeback_after_break(
+    action: str,
+    store: AthleteStateStore = None,
+    **kwargs,
+) -> Optional[RuleResult]:
+    """LOAD + HISTORY: athlete requesting workout after extended break.
+
+    Catches: zero sessions this week, zero last week, and athlete wants
+    to jump back in at full intensity.
+    """
+    if action != "create_workout" or not store:
+        return None
+
+    this_week = store.training_load.get("this_week_sessions", 0)
+    last_week = store.training_load.get("last_week_load", 0)
+
+    if this_week > 0 or last_week > 0:
+        return None  # Not a comeback situation
+
+    # Check if there are any recent workouts at all
+    if store.recent_workouts:
+        return None  # Has some recent activity
+
+    goal = kwargs.get("goal") or ""
+    duration = kwargs.get("duration_min") or 0
+
+    # Only fire for ambitious requests
+    if goal in ("threshold", "vo2") or (duration and duration > 60):
+        return RuleResult(
+            rule_id="comeback_after_break",
+            action="modify_workout",
+            message=(
+                "Welcome back! Since you've been away, let's start with "
+                "something moderate. Your cardiovascular system bounces back "
+                "fast, but tendons and joints need a gentler ramp. "
+                "Easy to moderate for the first week."
+            ),
+            priority=78,
+            domains=["training_load", "history"],
+        )
+
+    return None
+
+
+def _rule_consistent_progress(
+    action: str,
+    store: AthleteStateStore = None,
+    **kwargs,
+) -> Optional[RuleResult]:
+    """READINESS + LOAD: everything is going well — encourage the athlete.
+
+    A good coach doesn't just warn. When load is stable, readiness is
+    Green/improving, and no injuries — acknowledge the good work.
+    """
+    if action != "create_workout" or not store:
+        return None
+
+    current = store.current_readiness()
+    if current != "Green":
+        return None
+
+    trend = store.readiness_trend()
+    if trend not in ("improving", "stable"):
+        return None
+
+    if store.has_active_injury():
+        return None
+
+    sessions = store.training_load.get("this_week_sessions", 0)
+    if sessions < 2:
+        return None  # Not enough data
+
+    load_trend = store.training_load.get("trend", "stable")
+    if load_trend == "increasing":
+        # Green + improving readiness + increasing load = adapting well
+        return RuleResult(
+            rule_id="consistent_progress",
+            action="encouragement",
+            message=(
+                "Your body is responding well — load is building and "
+                "readiness is holding. You're in a good spot to push a bit."
+            ),
+            priority=30,  # Low priority — warnings always come first
+            domains=["readiness", "training_load"],
+        )
+
+    return None
+
+
+def _rule_morning_athlete_evening_intensity(
+    action: str,
+    store: AthleteStateStore = None,
+    **kwargs,
+) -> Optional[RuleResult]:
+    """PREFERENCES + WORKOUT: leveraging known preferences for better coaching.
+
+    If we know athlete prefers mornings and they're asking for a high-intensity
+    session, that's actually fine — affirm the timing choice.
+    If they have an avoids_intensity preference and ask for VO2 work, gently
+    check if they really want that.
+    """
+    if action != "create_workout" or not store:
+        return None
+
+    goal = kwargs.get("goal") or ""
+
+    # Athlete who avoids intensity but asks for it
+    if store.preferences.get("avoids_intensity") and goal in ("threshold", "vo2"):
+        return RuleResult(
+            rule_id="preference_intensity_check",
+            action="proactive_warning",
+            message=(
+                "You usually prefer easier sessions. If you're feeling "
+                "motivated for something harder today, that's great — just "
+                "make sure you warm up well and listen to your body."
+            ),
+            priority=35,
+            domains=["preferences", "workout"],
+        )
+
+    return None
+
+
 # =============================================================================
 # RULE REGISTRY — all rules evaluated in order
 # =============================================================================
 
 _ALL_RULES = [
-    _rule_overreaching_detection,
-    _rule_injury_plus_matching_sport,
-    _rule_injury_plus_increasing_load,
-    _rule_repeated_injury,
-    _rule_fatigue_plus_declining_readiness,
-    _rule_correlation_warning,
-    _rule_nutrition_plus_recovery,
-    _rule_sleep_topic_plus_load,
+    # --- Critical safety rules (priority 85-95) ---
+    _rule_overreaching_detection,           # load↑ + readiness↓ = overreaching
+    _rule_injury_plus_matching_sport,       # injury + aggravating sport
+    _rule_injury_plus_increasing_load,      # injury + climbing load
+    _rule_readiness_vs_intensity,           # orange/red + wants hard workout
+    _rule_fresh_injury_high_intensity,      # any injury + wants intervals
+    _rule_repeated_injury,                  # same area hurt 3+ times → see physio
+    # --- Load management rules (priority 60-85) ---
+    _rule_fatigue_plus_declining_readiness, # tired + readiness dropping
+    _rule_high_load_workout_request,        # 5+ sessions + wants more
+    _rule_comeback_after_break,             # zero recent load + wants intensity
+    # --- Contextual intelligence (priority 30-65) ---
+    _rule_correlation_warning,              # historical pattern match
+    _rule_sleep_topic_plus_load,            # sleep issues + high training
+    _rule_nutrition_plus_recovery,          # nutrition Q + poor readiness
+    _rule_morning_athlete_evening_intensity,# preference-aware coaching
+    _rule_consistent_progress,              # positive reinforcement
 ]
 
 
@@ -421,6 +719,7 @@ def evaluate_rules(
     duration_min: Optional[int] = None,
     fatigue_hint: Optional[str] = None,
     topic: Optional[str] = None,
+    goal: Optional[str] = None,
 ) -> list[dict]:
     """Evaluate all cross-domain rules against current context.
 
@@ -432,6 +731,7 @@ def evaluate_rules(
         duration_min: Requested duration (if applicable).
         fatigue_hint: Self-reported fatigue (fresh, ok, tired, very_tired).
         topic: Conversation topic (injury, sleep, nutrition, etc.)
+        goal: Requested training goal (endurance, threshold, vo2, etc.)
 
     Returns:
         List of fired rule dicts, sorted by priority (highest first).
@@ -445,6 +745,7 @@ def evaluate_rules(
         "duration_min": duration_min,
         "fatigue_hint": fatigue_hint,
         "topic": topic,
+        "goal": goal,
     }
 
     fired = []

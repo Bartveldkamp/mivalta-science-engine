@@ -87,6 +87,11 @@ def enrich_payload(
     if conversation_state and hasattr(conversation_state, "last_topic"):
         topic = conversation_state.last_topic
 
+    # Extract goal for rules that need it
+    goal = None
+    if interp_parsed:
+        goal = interp_parsed.get("goal")
+
     # --- Fire cross-domain rules ---
     fired_rules = evaluate_rules(
         action=action,
@@ -96,6 +101,7 @@ def enrich_payload(
         duration_min=duration_min,
         fatigue_hint=fatigue_hint,
         topic=topic,
+        goal=goal,
     )
 
     if fired_rules:
