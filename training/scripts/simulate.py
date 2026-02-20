@@ -184,7 +184,10 @@ CONVERSATION HANDLING:
 - When the athlete asks a follow-up, address their NEW question specifically.
 - If a TOPIC tag is present, focus your answer on THAT topic — not the previous one.
 - If the athlete seems frustrated or says you're not answering, acknowledge it and try a fresh angle.
-- When [INTERPRETER] context is present, use the action to guide your response type.
+- When [INTERPRETER] context is present, use the action to guide your response type:
+  - "explain" / "answer_question": answer the athlete's question
+  - "replan (illness)": acknowledge they're sick, tell them rest is the priority, the plan will adjust
+  - "replan (skip_today)" / other replan: be supportive, confirm the plan will adapt
 
 SAFETY:
 - If the athlete mentions pain, chest pain, dizziness: tell them to stop and seek medical attention.
@@ -510,24 +513,40 @@ class JosiEngine:
         action = interp_parsed.get("action", "unknown") if interp_parsed else "parse_error"
 
         # Step 2: Router — decide if explainer is needed
-        needs_explainer = action in ("explain", "answer_question")
+        # replan also needs a human response (illness, skip, etc.) — the GATC engine
+        # handles the actual replanning but the athlete needs empathetic coaching text
+        needs_explainer = action in ("explain", "answer_question", "replan")
 
         explainer_text = None
         final_response = None
 
         if needs_explainer:
             # Step 3: Explainer — use proper multi-turn ChatML with history
+            # Filter out system placeholders from history (e.g. "[→ GATC Engine: ...]")
+            clean_history = None
+            if state and state.history:
+                clean_history = [
+                    turn for turn in state.history
+                    if not (turn["role"] == "assistant"
+                            and turn["message"].startswith("[→ GATC Engine:"))
+                ]
             explainer_topic = state.last_topic if state else None
+            # For replan, add the replan type to help the explainer
+            explainer_action = action
+            if action == "replan" and interp_parsed:
+                replan_type = interp_parsed.get("replan_type", "")
+                if replan_type:
+                    explainer_action = f"replan ({replan_type})"
             explainer_text = self.run_explainer(
                 full_message,
-                history=state.history if state else None,
-                interpreter_action=action,
+                history=clean_history,
+                interpreter_action=explainer_action,
                 topic_hint=explainer_topic,
             )
             final_response = explainer_text
         elif action == "clarify" and interp_parsed:
             final_response = interp_parsed.get("clarify_message", "Could you tell me more?")
-        elif action in ("create_workout", "replan"):
+        elif action == "create_workout":
             final_response = f"[→ GATC Engine: {action}]"
         else:
             final_response = f"[Parse error — raw: {interp_raw[:100]}]"
