@@ -184,10 +184,12 @@ CONVERSATION HANDLING:
 - When the athlete asks a follow-up, address their NEW question specifically.
 - If a TOPIC tag is present, focus your answer on THAT topic — not the previous one.
 - If the athlete seems frustrated or says you're not answering, acknowledge it and try a fresh angle.
-- When [INTERPRETER] context is present, use the action to guide your response type:
+- When [INTERPRETER] context is present, use the action to guide your response:
   - "explain" / "answer_question": answer the athlete's question
-  - "replan (illness)": acknowledge they're sick, tell them rest is the priority, the plan will adjust
+  - "create_workout": acknowledge the request, confirm what you understood (sport, time, goal), say it's being built
+  - "replan (illness)": acknowledge they're sick, rest is priority, the plan will adjust
   - "replan (skip_today)" / other replan: be supportive, confirm the plan will adapt
+- NEVER output the [INTERPRETER] tag, action names, or internal terms in your response
 
 SAFETY:
 - If the athlete mentions pain, chest pain, dizziness: tell them to stop and seek medical attention.
@@ -422,7 +424,7 @@ class JosiEngine:
         if interpreter_action:
             current_msg += f"\n\n[INTERPRETER]: action={interpreter_action}"
         if topic_hint:
-            current_msg += f"\nTOPIC: The athlete has been discussing {topic_hint}. Address this topic."
+            current_msg += f"\n(Focus on: {topic_hint})"
 
         if history and len(history) > 1:
             # Multi-turn: use proper ChatML turns (skip last entry = current user msg)
@@ -513,30 +515,44 @@ class JosiEngine:
         action = interp_parsed.get("action", "unknown") if interp_parsed else "parse_error"
 
         # Step 2: Router — decide if explainer is needed
-        # replan also needs a human response (illness, skip, etc.) — the GATC engine
-        # handles the actual replanning but the athlete needs empathetic coaching text
-        needs_explainer = action in ("explain", "answer_question", "replan")
+        # All coaching actions route through explainer for a human response.
+        # In production, create_workout/replan also trigger the GATC engine,
+        # but the athlete still needs coaching text from the explainer.
+        needs_explainer = action in ("explain", "answer_question", "replan",
+                                     "create_workout")
 
         explainer_text = None
         final_response = None
 
         if needs_explainer:
             # Step 3: Explainer — use proper multi-turn ChatML with history
-            # Filter out system placeholders from history (e.g. "[→ GATC Engine: ...]")
+            # Filter out system placeholders from history
             clean_history = None
             if state and state.history:
                 clean_history = [
                     turn for turn in state.history
                     if not (turn["role"] == "assistant"
-                            and turn["message"].startswith("[→ GATC Engine:"))
+                            and "GATC Engine" in turn["message"])
                 ]
             explainer_topic = state.last_topic if state else None
-            # For replan, add the replan type to help the explainer
+            # Build descriptive action context for the explainer
             explainer_action = action
             if action == "replan" and interp_parsed:
                 replan_type = interp_parsed.get("replan_type", "")
                 if replan_type:
                     explainer_action = f"replan ({replan_type})"
+            elif action == "create_workout" and interp_parsed:
+                sport = interp_parsed.get("sport", "")
+                time_min = interp_parsed.get("time_available_min") or interp_parsed.get("time", "")
+                goal = interp_parsed.get("goal", "")
+                parts = [f"create_workout"]
+                if sport:
+                    parts.append(f"sport={sport}")
+                if time_min:
+                    parts.append(f"time={time_min}min")
+                if goal:
+                    parts.append(f"goal={goal}")
+                explainer_action = ", ".join(parts)
             explainer_text = self.run_explainer(
                 full_message,
                 history=clean_history,
@@ -546,8 +562,6 @@ class JosiEngine:
             final_response = explainer_text
         elif action == "clarify" and interp_parsed:
             final_response = interp_parsed.get("clarify_message", "Could you tell me more?")
-        elif action == "create_workout":
-            final_response = f"[→ GATC Engine: {action}]"
         else:
             final_response = f"[Parse error — raw: {interp_raw[:100]}]"
 
