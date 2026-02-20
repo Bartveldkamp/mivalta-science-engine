@@ -44,7 +44,7 @@ if not torch.cuda.is_available():
     print('  ERROR: No GPU detected! Training requires CUDA.')
     exit(1)
 name = torch.cuda.get_device_name(0)
-vram = torch.cuda.get_device_properties(0).total_mem / 1024**3
+vram = torch.cuda.get_device_properties(0).total_memory / 1024**3
 print(f'  GPU: {name} ({vram:.1f} GB VRAM)')
 if vram < 6:
     print(f'  WARNING: {vram:.1f} GB may be tight. 8+ GB recommended.')
