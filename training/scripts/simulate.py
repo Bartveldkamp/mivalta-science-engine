@@ -57,6 +57,48 @@ except ImportError:
 
 
 # =============================================================================
+# TONE GUARDRAILS — block hostile/snarky explainer output
+# =============================================================================
+
+# Patterns that indicate hostile, snarky, or accusatory tone
+_HOSTILE_PATTERNS = [
+    r"you'?re just trying",
+    r"you'?re not asking",
+    r"magic pill",
+    r"no clue",
+    r"you expect me to",
+    r"hoping for the best",
+    r"that fixes everything",
+    r"you'?re just .{0,30} and hoping",
+    r"what do you want from me",
+    r"i can'?t help you if",
+    r"you need to figure",
+    r"not my problem",
+    r"i'?m not your",
+    r"stop wasting",
+    r"pay attention",
+    r"i already told you",
+    r"as i said before",
+]
+
+import re as _re
+_HOSTILE_RES = [_re.compile(p, _re.IGNORECASE) for p in _HOSTILE_PATTERNS]
+
+_TONE_FALLBACK = (
+    "I hear you. Could you tell me a bit more about what's going on "
+    "so I can help?"
+)
+
+
+def check_tone(text: str) -> str:
+    """Block hostile/snarky explainer output and replace with safe fallback."""
+    for r in _HOSTILE_RES:
+        if r.search(text):
+            return _TONE_FALLBACK
+    return text
+
+
+# =============================================================================
 # CONFIGURATION
 # =============================================================================
 
@@ -196,6 +238,76 @@ def download_models(model_dir: Path) -> tuple[Path, Path]:
 # INFERENCE ENGINE (llama-cpp-python)
 # =============================================================================
 
+class ConversationState:
+    """Tracks conversation history and topic for multi-turn interactive mode."""
+
+    def __init__(self, max_turns: int = 6):
+        self.max_turns = max_turns
+        self.history: list[dict] = []  # [{"role": "user"/"assistant", "message": str}]
+        self.last_topic: str | None = None
+        self.last_user_problem: str | None = None
+
+    def add_user(self, message: str):
+        self.history.append({"role": "user", "message": message})
+        self._trim()
+        self._extract_topic(message)
+
+    def add_assistant(self, message: str):
+        self.history.append({"role": "assistant", "message": message})
+        self._trim()
+
+    def _trim(self):
+        # Keep last N turns (user+assistant pairs)
+        if len(self.history) > self.max_turns * 2:
+            self.history = self.history[-(self.max_turns * 2):]
+
+    def _extract_topic(self, message: str):
+        """Extract topic from user message for continuity."""
+        lower = message.lower()
+        topic_keywords = {
+            "sleep": ["sleep", "insomnia", "bad night", "wake up", "slept badly",
+                       "can't sleep", "can not sleep", "not sleeping"],
+            "fatigue": ["tired", "exhausted", "fatigue", "fatigued", "no energy",
+                        "drained", "worn out"],
+            "injury": ["hurt", "pain", "sore", "injury", "injured", "ache"],
+            "motivation": ["motivation", "motivated", "bored", "boring", "dread",
+                           "quit", "give up", "point", "ruined"],
+            "nutrition": ["eat", "food", "diet", "nutrition", "fuel", "hydration"],
+            "workout": ["workout", "session", "training", "run", "bike", "ride"],
+            "recovery": ["recovery", "rest", "rest day", "off day"],
+            "zones": ["zone", "zones", "z2", "z3", "z4", "z5", "heart rate"],
+        }
+        for topic, keywords in topic_keywords.items():
+            if any(kw in lower for kw in keywords):
+                self.last_topic = topic
+                self.last_user_problem = message
+                return
+        # Don't clear topic for short follow-ups — they refer to the previous topic
+
+    def format_history_block(self) -> str:
+        """Format recent history for injection into prompts."""
+        if not self.history:
+            return ""
+        lines = []
+        # Skip the most recent user message (it's the current turn)
+        for turn in self.history[:-1]:
+            role = turn["role"]
+            msg = turn["message"]
+            # Truncate long messages in history
+            if len(msg) > 120:
+                msg = msg[:117] + "..."
+            lines.append(f"  [{role}]: {msg}")
+        if not lines:
+            return ""
+        return "\nHISTORY:\n" + "\n".join(lines)
+
+    def format_topic_hint(self) -> str:
+        """Format a topic hint for the explainer when the current message is short."""
+        if not self.last_topic:
+            return ""
+        return f"\nTOPIC: The athlete has been discussing {self.last_topic}."
+
+
 class JosiEngine:
     """Dual-model inference engine using llama-cpp-python."""
 
@@ -288,22 +400,29 @@ class JosiEngine:
             intent = parse_llm_intent(raw)
             if intent:
                 intent = govern_dialogue(intent)
-                return intent.get("message", raw)
+                raw = intent.get("message", raw)
 
-        return raw
+        # Tone guardrail — block hostile/snarky output
+        return check_tone(raw)
 
-    def simulate(self, user_message: str, context: dict | None = None) -> dict:
+    def simulate(self, user_message: str, context: dict | None = None,
+                 state: ConversationState | None = None) -> dict:
         """Run the full pipeline: Interpreter → Router → Explainer.
 
         Args:
             user_message: The athlete's raw message.
             context: Optional athlete context dict with keys like
                      readiness, sport, level, session, etc.
+            state: Optional conversation state for multi-turn history.
 
         Returns:
             Dict with keys: user_message, interpreter_raw, interpreter_parsed,
             action, needs_explainer, explainer_text, final_response.
         """
+        # Track in conversation state
+        if state:
+            state.add_user(user_message)
+
         # Build the full message with CONTEXT block
         full_message = user_message
         if context:
@@ -320,6 +439,19 @@ class JosiEngine:
                 ctx_lines.append(f"- Phase: {context['phase']}")
             if ctx_lines:
                 full_message += "\n\nCONTEXT:\n" + "\n".join(ctx_lines)
+
+        # Inject conversation history and topic hint for multi-turn
+        if state:
+            history_block = state.format_history_block()
+            if history_block:
+                full_message += history_block
+
+            # For short follow-ups, inject the topic hint
+            msg_words = user_message.strip().split()
+            if len(msg_words) <= 4:
+                topic_hint = state.format_topic_hint()
+                if topic_hint:
+                    full_message += topic_hint
 
         # Step 1: Interpreter
         interp_raw, interp_parsed = self.run_interpreter(full_message)
@@ -342,6 +474,10 @@ class JosiEngine:
             final_response = f"[→ GATC Engine: {action}]"
         else:
             final_response = f"[Parse error — raw: {interp_raw[:100]}]"
+
+        # Track assistant response in conversation state
+        if state and final_response:
+            state.add_assistant(final_response)
 
         return {
             "user_message": user_message,
@@ -615,9 +751,11 @@ def main():
             "sport": args.sport,
             "level": args.level,
         }
+        conv_state = ConversationState(max_turns=6)
+
         print(f"\n  Interactive mode — type 'quit' to exit")
         print(f"  Context: {args.sport}, {args.readiness}, {args.level}")
-        print(f"  Change context with /sport, /readiness, /level commands\n")
+        print(f"  Commands: /sport, /readiness, /level, /reset (clear history)\n")
 
         while True:
             try:
@@ -641,8 +779,14 @@ def main():
                 default_ctx["level"] = user_input[7:].strip()
                 print(f"    → Level set to: {default_ctx['level']}")
                 continue
+            if user_input.lower() in ("/reset", "/clear"):
+                conv_state = ConversationState(max_turns=6)
+                print(f"    → Conversation history cleared")
+                continue
 
-            result = engine.simulate(user_input, context=default_ctx)
+            result = engine.simulate(user_input, context=default_ctx, state=conv_state)
+            if conv_state.last_topic:
+                print(f"    [topic: {conv_state.last_topic}]")
             print_result(result)
 
     # ─── Single message ───
