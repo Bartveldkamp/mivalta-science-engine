@@ -42,6 +42,9 @@ sys.path.insert(0, str(REPO_ROOT / "shared"))
 
 from gatc_postprocessor import postprocess_gatc_request, parse_gatc_response
 from dialogue_governor import govern_dialogue
+from athlete_state_store import AthleteStateStore
+from cross_domain_rules import evaluate_rules
+from context_assembler import enrich_payload, update_state_from_turn
 
 # Try importing llm_intent_parser for explainer output (LLMIntent JSON)
 try:
@@ -327,7 +330,7 @@ _FOLLOWUP_WORDS = {
 class ConversationState:
     """Tracks conversation history, topic, triage state, and pending questions."""
 
-    def __init__(self, max_turns: int = 6):
+    def __init__(self, max_turns: int = 6, athlete_id: str = "default"):
         self.max_turns = max_turns
         self.history: list[dict] = []
         self.last_topic: str | None = None
@@ -335,6 +338,7 @@ class ConversationState:
         self.last_action: str | None = None
         self.pending_question: str | None = None  # What Josi last asked
         self.triage: InjuryTriage | None = None    # Active injury triage
+        self.athlete_store = AthleteStateStore(athlete_id)  # Cross-domain state
 
     def add_user(self, message: str):
         self.history.append({"role": "user", "message": message})
@@ -499,13 +503,20 @@ RULES:
 - NEVER repeat what you said in previous turns.
 - If the athlete seems frustrated, acknowledge it warmly first.
 
+CROSS-DOMAIN CONTEXT (if present in payload):
+- "cross_domain" contains coaching insights from connecting injury, load, readiness, and history data
+- Weave these insights naturally into your response — like a coach who sees the full picture
+- Prioritize the first cross_domain message (highest priority)
+- Do NOT list them mechanically — integrate them into your coaching advice
+- Example: Instead of "Rule says reduce load", say "Your knee is still bothering you and your training has been ramping up — let's ease off this week."
+
 SAFETY:
 - If payload says "red_flag": stop training, see a doctor. Be direct.
 
 BOUNDARIES:
 - NEVER prescribe, create, or modify training yourself
 - NEVER invent zones, durations, paces, or power numbers
-- NEVER reference internal systems (algorithm, gatc, ewma, tss, etc.)
+- NEVER reference internal systems (algorithm, gatc, ewma, tss, cross_domain, rules, etc.)
 - NEVER use jargon: periodization, mesocycle, vo2max, lactate threshold, ftp
 - NEVER output JSON, [INTERPRETER], ENGINE_PAYLOAD, or internal terms
 
@@ -910,7 +921,25 @@ class JosiEngine:
             final_response = "What would you like to do — a workout, plan change, or have a question?"
 
         # =====================================================================
-        # Step 4: Explainer (if needed) — verbalizes ENGINE_PAYLOAD
+        # Step 4: Cross-Domain Enrichment — fire rules, enrich payload
+        # =====================================================================
+
+        if state and engine_payload:
+            # Enrich payload with cross-domain intelligence
+            engine_payload = enrich_payload(
+                engine_payload=engine_payload,
+                store=state.athlete_store,
+                interp_parsed=interp_parsed,
+                conversation_state=state,
+            )
+
+            # Log fired rules
+            if engine_payload.get("cross_domain"):
+                rules = engine_payload.get("cross_domain_rules", [])
+                print(f"    Cross-domain: {len(rules)} rule(s) fired: {rules}")
+
+        # =====================================================================
+        # Step 5: Explainer (if needed) — verbalizes ENGINE_PAYLOAD
         # =====================================================================
 
         if needs_explainer and engine_payload:
@@ -923,7 +952,7 @@ class JosiEngine:
             final_response = explainer_text
 
         # =====================================================================
-        # Step 5: Track state
+        # Step 6: Track state + update cross-domain store
         # =====================================================================
 
         if state:
@@ -936,6 +965,31 @@ class JosiEngine:
             # Clear pending question if this turn answered something
             if action not in ("clarify", "injury_triage"):
                 state.pending_question = None
+
+            # Update cross-domain state store from this turn
+            triage_data = None
+            if state.triage:
+                triage_data = state.triage.data
+
+            readiness_level = None
+            readiness_state_str = None
+            if context:
+                readiness_str = context.get("readiness", "")
+                # Parse "Green (Recovered)" → level="Green", state="Recovered"
+                if readiness_str:
+                    parts = readiness_str.split("(")
+                    readiness_level = parts[0].strip()
+                    if len(parts) > 1:
+                        readiness_state_str = parts[1].rstrip(")")
+
+            update_state_from_turn(
+                store=state.athlete_store,
+                interp_parsed=interp_parsed,
+                triage_data=triage_data,
+                user_message=user_message,
+                readiness_level=readiness_level,
+                readiness_state=readiness_state_str,
+            )
 
         return {
             "user_message": user_message,
@@ -1113,7 +1167,17 @@ def print_result(result: dict, scenario_name: str = "", expect_action: str = "")
     # Show engine payload if present
     payload = result.get("engine_payload")
     if payload:
-        print(f"\n  [Engine] {json.dumps(payload, indent=None)[:200]}")
+        # Show base payload (without cross-domain for cleaner display)
+        display_payload = {k: v for k, v in payload.items()
+                          if k not in ("cross_domain", "cross_domain_actions",
+                                       "cross_domain_rules", "athlete_context")}
+        print(f"\n  [Engine] {json.dumps(display_payload, indent=None)[:200]}")
+
+        # Show cross-domain insights separately
+        if payload.get("cross_domain"):
+            print(f"\n  [Cross-Domain Intelligence]")
+            for msg in payload["cross_domain"]:
+                print(f"    → {msg[:120]}")
 
     if result["needs_explainer"]:
         print(f"\n  [Router] → Explainer needed (action={action})")
@@ -1230,11 +1294,12 @@ def main():
             "sport": args.sport,
             "level": args.level,
         }
-        conv_state = ConversationState(max_turns=6)
+        conv_state = ConversationState(max_turns=6, athlete_id="interactive_user")
 
         print(f"\n  Interactive mode — type 'quit' to exit")
         print(f"  Context: {args.sport}, {args.readiness}, {args.level}")
-        print(f"  Commands: /sport, /readiness, /level, /reset (clear history)\n")
+        print(f"  Cross-domain knowledge: ENABLED")
+        print(f"  Commands: /sport, /readiness, /level, /reset, /state (show cross-domain)\n")
 
         while True:
             try:
@@ -1259,8 +1324,26 @@ def main():
                 print(f"    → Level set to: {default_ctx['level']}")
                 continue
             if user_input.lower() in ("/reset", "/clear"):
-                conv_state = ConversationState(max_turns=6)
-                print(f"    → Conversation history cleared")
+                conv_state = ConversationState(max_turns=6, athlete_id="interactive_user")
+                print(f"    → Conversation history and cross-domain state cleared")
+                continue
+            if user_input.lower() == "/state":
+                store = conv_state.athlete_store
+                cross = store.serialize_for_prompt()
+                if cross:
+                    print(f"    {cross}")
+                else:
+                    print(f"    → No cross-domain state yet (interact to build it)")
+                if store.active_injuries():
+                    for inj in store.active_injuries():
+                        print(f"    Injury: {inj['area']} ({inj['severity']}/10) "
+                              f"x{inj.get('occurrences', 1)} [{inj['status']}]")
+                if store.correlations:
+                    for c in store.correlations:
+                        print(f"    Correlation: {c['trigger']} → {c['result']} "
+                              f"(x{c['occurrences']}, conf={c['confidence']:.1f})")
+                if store.preferences:
+                    print(f"    Preferences: {json.dumps(store.preferences)}")
                 continue
 
             result = engine.simulate(user_input, context=default_ctx, state=conv_state)
@@ -1270,6 +1353,10 @@ def main():
                 triage = conv_state.triage
                 collected = list(triage.data.keys())
                 print(f"    [triage: stage={triage.stage}, collected={collected}]")
+            # Show cross-domain rules that fired
+            if result.get("engine_payload", {}).get("cross_domain"):
+                rules = result["engine_payload"].get("cross_domain_rules", [])
+                print(f"    [cross-domain: {', '.join(rules)}]")
             print_result(result)
 
     # ─── Single message ───
