@@ -4,10 +4,11 @@ MiValta Josi v6 — Single Model Publish Script
 
 End-to-end pipeline: LoRA adapter → merge → GGUF Q4_K_M → publish via nginx.
 
-Produces ONE GGUF model for the v6 single-model architecture (Qwen3-4B):
-  - josi-v6-q4_k_m.gguf  (~2.5 GB, handles both interpreter + coach modes)
+Produces ONE GGUF model for the v6 single-model architecture:
+  - Android: josi-v6-q4_k_m.gguf  (~5.0 GB, Qwen3-8B, both modes + /think router)
+  - iPhone:  josi-v6-4b-q4_k_m.gguf  (~2.5 GB, Qwen3-4B variant, planned)
 
-This replaces the v5 dual-model publish (two ~935 MB files → one ~2.5 GB file).
+This replaces the v5 dual-model publish (two ~935 MB files → one file).
 
 Publish target: nginx on the Hetzner training server
   URL: http://<server-ip>/models/
@@ -26,7 +27,7 @@ Requirements:
     - finetune_qwen3.py (merge command)
     - llama.cpp (convert_hf_to_gguf.py + llama-quantize for GGUF conversion)
     - nginx serving /var/www/mivalta-models/ (see training/server/setup_nginx.sh)
-    - GPU with ~16GB VRAM (for merge step of 4B model)
+    - GPU with ~24GB VRAM (for merge step of 8B model) or ~16GB (4B)
 """
 
 import argparse
@@ -101,7 +102,7 @@ def find_llama_cpp() -> Path | None:
 
 
 def merge_lora(lora_path: str) -> str:
-    """Merge LoRA adapter into base Qwen3-4B model. Returns path to merged model."""
+    """Merge LoRA adapter into base Qwen3 model. Returns path to merged model."""
     lora_path = str(Path(lora_path).resolve())
     merged_path = str(Path(lora_path).parent / "merged")
 
@@ -112,13 +113,13 @@ def merge_lora(lora_path: str) -> str:
     run_cmd(
         [sys.executable, str(SCRIPT_DIR / "finetune_qwen3.py"),
          "merge", "--lora_path", lora_path, "--output_path", merged_path],
-        "Merging LoRA into Qwen3-4B base model",
+        "Merging LoRA into Qwen3 base model",
     )
     return merged_path
 
 
 def convert_to_gguf(merged_path: str, output_name: str, quant: str = "q4_k_m") -> str:
-    """Convert merged Qwen3-4B model to GGUF via llama.cpp (2-step: f16 -> quantize)."""
+    """Convert merged Qwen3 model to GGUF via llama.cpp (2-step: f16 -> quantize)."""
     GGUF_DIR.mkdir(parents=True, exist_ok=True)
     output_path = GGUF_DIR / f"{output_name}-{quant}.gguf"
 
@@ -208,12 +209,12 @@ def write_manifest(model_meta: dict, base_url: str):
 
     manifest = {
         "version": "v6",
-        "architecture": "single-model, dual-mode (Qwen3-4B)",
-        "base_model": "Qwen3-4B",
+        "architecture": "single-model, dual-mode (Qwen3)",
+        "base_model": "Qwen3",
         "published": datetime.now().isoformat(),
         "base_url": base_url,
         "model": model_meta,
-        "upgrade_note": "v6 replaces v5 dual-model (2x Qwen2.5-1.5B) with single Qwen3-4B",
+        "upgrade_note": "v6 replaces v5 dual-model (2x Qwen2.5-1.5B) with single Qwen3",
     }
 
     with open(MANIFEST_PATH, "w") as f:
@@ -265,7 +266,7 @@ def main():
 
     print("=" * 60)
     print("  MiValta Josi v6 — Single Model Publish Pipeline")
-    print(f"  Base model: Qwen3-4B")
+    print(f"  Base model: Qwen3")
     print(f"  Architecture: single-model, dual-mode")
     print(f"  Server:     {base_url}")
     print(f"  {datetime.now().strftime('%Y-%m-%d %H:%M')}")
@@ -339,7 +340,7 @@ def main():
     print(f"  Manifest: {base_url}/josi-v6-manifest.json")
     print(f"  Size: {size_bytes / (1024**3):.2f} GB (single file, both modes)")
     print(f"\n  v5 was: ~1.87 GB (two files)")
-    print(f"  v6 is:  ~2.50 GB (one file, 2.7x smarter)")
+    print(f"  v6 is:  single file (8B ~5.0 GB / 4B ~2.5 GB)")
 
     print(f"\n  Developer download:")
     print(f"    curl -LO {model_meta['url']}")

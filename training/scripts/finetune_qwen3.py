@@ -104,13 +104,16 @@ from trl import SFTTrainer, SFTConfig
 # MODEL CONFIGURATION — Qwen3 (8B default for Android, 4B for iPhone)
 # =============================================================================
 
-# Model size configs: 8B (Android default) and 4B (iPhone)
+# Model size configs: 8B (Android, needs >=24GB VRAM) and 4B (iPhone / low-VRAM)
+# Hetzner server: RTX 4000 SFF Ada (19.5 GB VRAM) — fits 4B, not 8B
+# For 8B training, use cloud GPU (A100/H100) or QLoRA (4-bit base)
 MODEL_CONFIGS = {
     "8b": {
         "model_id": "Qwen/Qwen3-8B",
         "local_dir": "Qwen3-8B",
         "params": "8B",
         "gguf_size": "~5.0 GB",
+        "vram_needed": "~24 GB",
         "lr": 1e-5,            # Gentler for 8B
         "batch_size": 1,       # Fits in 24GB VRAM with LoRA
         "grad_accum": 16,      # Effective batch = 16
@@ -123,9 +126,10 @@ MODEL_CONFIGS = {
         "local_dir": "Qwen3-4B",
         "params": "4B",
         "gguf_size": "~2.5 GB",
+        "vram_needed": "~16 GB",
         "lr": 2e-5,            # Slightly higher for smaller model
-        "batch_size": 2,       # More room in VRAM
-        "grad_accum": 8,       # Effective batch = 16
+        "batch_size": 1,       # Safe for 19.5 GB RTX 4000 SFF Ada
+        "grad_accum": 16,      # Effective batch = 16
         "epochs": 3,
         "lora_r": 32,
         "lora_alpha": 64,
@@ -133,6 +137,7 @@ MODEL_CONFIGS = {
 }
 
 # Default: 8B for Android (best quality)
+# NOTE: 8B requires >=24GB VRAM. Use --model-size 4b on RTX 4000 SFF Ada (19.5GB)
 MODEL_SIZE = "8b"
 
 SCRIPT_DIR_FOR_MODEL = Path(__file__).resolve().parent
@@ -428,6 +433,17 @@ def train(
     lr = lr_override or cfg["lr"]
     epochs = epochs_override or cfg["epochs"]
 
+    # VRAM check — warn early if GPU is too small
+    if torch.cuda.is_available():
+        total_vram_gb = torch.cuda.get_device_properties(0).total_mem / (1024**3)
+        size_tag = model_size or MODEL_SIZE
+        if size_tag == "8b" and total_vram_gb < 22:
+            print(f"\n  WARNING: Qwen3-8B needs ~24 GB VRAM, you have {total_vram_gb:.1f} GB")
+            print(f"  Options:")
+            print(f"    1. Use --model-size 4b (fits in {total_vram_gb:.0f} GB, still 2.7x better than v5)")
+            print(f"    2. Use a cloud GPU with >=24 GB VRAM (A100, H100)")
+            print(f"  Continuing anyway — may OOM during training.\n")
+
     if train_path is None:
         if mode == "unified":
             if UNIFIED_TRAIN.exists():
@@ -651,7 +667,7 @@ def merge(
     lora_path: str,
     output_path: str = None,
 ):
-    """Merge LoRA weights with base Qwen3-4B model for GGUF export.
+    """Merge LoRA weights with base Qwen3 model for GGUF export.
 
     Loads the full-precision base model, applies the LoRA weights, and saves
     a single merged model ready for GGUF conversion.
@@ -686,7 +702,8 @@ def merge(
 
     print(f"Merge complete! Ready for GGUF export:")
     print(f"  python /path/to/llama.cpp/convert_hf_to_gguf.py {output_path} --outtype q4_k_m")
-    print(f"  Expected GGUF size: ~2.5 GB (Q4_K_M)")
+    cfg = get_config()
+    print(f"  Expected GGUF size: {cfg['gguf_size']} (Q4_K_M)")
 
     return output_path
 

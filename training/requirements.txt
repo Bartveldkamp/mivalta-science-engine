@@ -1,16 +1,16 @@
 # MiValta Fine-Tuning Requirements
-# Tested on: CUDA 12.1, Python 3.10+
-# Supports: Qwen3-4B (v6), Qwen2.5-1.5B (v5), Gemma 3n E2B (v4), SmolLM2 (v3)
+# Tested on: CUDA 12.8, Python 3.10+, RTX 4000 SFF Ada (19.5 GB VRAM)
+# Supports: Qwen3-8B/4B (v6), Qwen2.5-1.5B (v5), Gemma 3n E2B (v4), SmolLM2 (v3)
 
 # Core ML
 torch>=2.1.0
-transformers>=4.53.0    # >=4.53 required for Qwen3 + Gemma 3n
+transformers>=4.51.0    # >=4.51 required for Qwen3
 accelerate>=0.25.0
 datasets>=2.16.0
 
 # LoRA / PEFT
 peft>=0.7.0
-trl>=0.7.0
+trl>=0.17.0             # >=0.17 required for SFTConfig + completion_only_loss
 
 # Gemma 3n multimodal dependencies (required even for text-only, legacy v4)
 timm>=1.0.0
