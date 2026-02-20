@@ -229,6 +229,8 @@ def write_manifest(models: dict, base_url: str):
 
 
 def main():
+    global PUBLISH_DIR
+
     parser = argparse.ArgumentParser(
         description="Publish Josi v5 models: merge → GGUF → nginx"
     )
@@ -259,11 +261,7 @@ def main():
 
     args = parser.parse_args()
 
-    publish_dir = Path(args.publish_dir)
-
-    # Override global PUBLISH_DIR if custom path given
-    global PUBLISH_DIR
-    PUBLISH_DIR = publish_dir
+    PUBLISH_DIR = Path(args.publish_dir)
 
     # Validate inputs
     if args.publish_only:
