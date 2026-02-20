@@ -84,6 +84,46 @@ def check_tone(text: str) -> str:
     return text
 
 
+def _classify_response(response: str, action: str,
+                       engine_payload: dict | None) -> str:
+    """Classify what kind of response was given, for the feedback loop.
+
+    The interpreter sees this on the NEXT turn so it can adjust. For example:
+    - After a "question" response, short replies are answers to that question
+    - After a "warning" response, the athlete might push back or comply
+    - After "encouragement", dismissive replies may signal frustration
+    """
+    if not response:
+        return "unknown"
+
+    # Check if response ends with a question
+    stripped = response.rstrip()
+    if stripped.endswith("?"):
+        return "question"
+
+    # Red flag / safety warnings
+    if engine_payload and engine_payload.get("red_flag"):
+        return "warning"
+
+    # Injury triage is always a probing response
+    if action == "injury_triage":
+        return "triage_probe"
+
+    # Replan acknowledgements
+    if action == "replan":
+        return "plan_adjustment"
+
+    # Knowledge answers
+    if action in ("explain", "answer_question"):
+        return "advice"
+
+    # Workout creation confirmation
+    if action == "create_workout":
+        return "confirmation"
+
+    return "general"
+
+
 # =============================================================================
 # CONFIGURATION
 # =============================================================================
@@ -328,7 +368,12 @@ _FOLLOWUP_WORDS = {
 
 
 class ConversationState:
-    """Tracks conversation history, topic, triage state, and pending questions."""
+    """Tracks conversation history, topic, triage state, and pending questions.
+
+    This is the shared brain between interpreter and explainer. Both models
+    read from this state, and both contribute back to it — creating a
+    continuous feedback loop where each turn builds on the last.
+    """
 
     def __init__(self, max_turns: int = 6, athlete_id: str = "default"):
         self.max_turns = max_turns
@@ -339,6 +384,12 @@ class ConversationState:
         self.pending_question: str | None = None  # What Josi last asked
         self.triage: InjuryTriage | None = None    # Active injury triage
         self.athlete_store = AthleteStateStore(athlete_id)  # Cross-domain state
+
+        # --- Feedback from explainer → interpreter ---
+        self.last_response_type: str | None = None   # "question", "advice", "warning", "encouragement"
+        self.last_cross_domain_rules: list[str] = []  # Which rules fired last turn
+        self.turn_count: int = 0                       # How many turns in this conversation
+        self.unresolved_issue: str | None = None       # Issue athlete raised but wasn't fully addressed
 
     def add_user(self, message: str):
         self.history.append({"role": "user", "message": message})
@@ -376,7 +427,12 @@ class ConversationState:
         # Don't clear topic for short follow-ups
 
     def format_state_json(self) -> str:
-        """Format conversation state as JSON for the interpreter."""
+        """Format unified conversation state as JSON for the interpreter.
+
+        This is the shared context that connects both models. The interpreter
+        sees everything the explainer knows, plus the athlete's cross-domain
+        state — so it can make smarter classification decisions.
+        """
         state = {
             "last_topic": self.last_topic,
             "last_action": self.last_action,
@@ -384,6 +440,63 @@ class ConversationState:
         }
         if self.triage:
             state["triage"] = self.triage.to_dict()
+
+        # --- Cross-domain athlete awareness ---
+        # Interpreter needs to know about injuries to avoid asking
+        # "what sport?" when it should ask "how's your knee?"
+        store = self.athlete_store
+        active = store.active_injuries()
+        if active:
+            state["active_injuries"] = [
+                {"area": i["area"], "severity": i["severity"]}
+                for i in active
+            ]
+
+        # Interpreter needs readiness to adjust classification
+        # (tired athlete saying "give me a workout" → maybe suggest recovery)
+        current_readiness = store.current_readiness()
+        if current_readiness:
+            state["readiness_level"] = current_readiness
+            trend = store.readiness_trend()
+            if trend != "unknown":
+                state["readiness_trend"] = trend
+
+        # Interpreter needs load context to decide if "I'm tired" is
+        # fatigue-from-training vs general complaint
+        load = store.training_load
+        if load.get("this_week_sessions", 0) > 0:
+            state["training_load"] = {
+                "sessions_this_week": load["this_week_sessions"],
+                "trend": load["trend"],
+            }
+
+        # Interpreter needs preferences to skip clarification
+        # (athlete always runs → don't ask "what sport?")
+        prefs = store.preferences
+        if prefs.get("primary_sport"):
+            state["known_sport"] = prefs["primary_sport"]
+        if prefs.get("last_fatigue_hint"):
+            state["recent_fatigue"] = prefs["last_fatigue_hint"]
+
+        # High-confidence correlations the interpreter should know about
+        warnings = [c for c in store.correlations if c["confidence"] >= 0.6]
+        if warnings:
+            state["known_patterns"] = [
+                f"{c['trigger']} causes {c['result']}"
+                for c in warnings[:3]
+            ]
+
+        # --- Feedback from last explainer response ---
+        # Tells interpreter what kind of response was given so it can
+        # adjust classification (e.g., after a warning, "ok" = acknowledgement)
+        if self.last_response_type:
+            state["last_response_type"] = self.last_response_type
+        if self.last_cross_domain_rules:
+            state["last_rules_fired"] = self.last_cross_domain_rules
+        if self.unresolved_issue:
+            state["unresolved_issue"] = self.unresolved_issue
+        state["turn_count"] = self.turn_count
+
         return json.dumps(state)
 
     def format_history_block(self) -> str:
@@ -462,6 +575,33 @@ STATE HANDLING:
 - STATE.triage shows active injury triage data already collected
 - If user message is short ("ok", "why?", "so?") and STATE has context, use it
 
+CROSS-DOMAIN AWARENESS (in STATE):
+- STATE.active_injuries: athlete has known injuries. Factor this into classification.
+  Example: if athlete has active knee injury and asks for a workout, add constraints.injury="knee"
+- STATE.readiness_level + readiness_trend: athlete's recovery state.
+  Example: if Orange + declining, "give me a hard workout" should get goal="recovery" not "threshold"
+- STATE.training_load: how much training this week.
+  Example: if 5+ sessions and trend=increasing, athlete saying "I'm tired" is load-related fatigue
+- STATE.known_sport: skip clarification — use this sport when athlete doesn't specify
+- STATE.known_patterns: correlations like "long_run causes knee_pain". Add constraints if relevant.
+- STATE.recent_fatigue: athlete recently reported fatigue. Factor into goal selection.
+
+Use cross-domain state to FILL IN missing fields instead of clarifying.
+Use it to ADJUST goal/constraints when the athlete's body state contradicts their request.
+
+FEEDBACK FROM LAST RESPONSE (in STATE):
+- STATE.last_response_type tells you what Josi said last:
+  "question" → user's reply is an answer to that question. Classify accordingly.
+  "warning" → user might push back ("I'm fine") or comply ("ok I'll stop").
+  "triage_probe" → user is providing triage info. Continue injury_triage.
+  "advice" → user may follow up with "why?" or "ok". Use last_topic.
+  "confirmation" → user may say "thanks" (ack) or ask to adjust.
+- STATE.last_rules_fired: cross-domain rules that fired. Don't re-trigger same rules.
+- STATE.unresolved_issue: something Josi asked that wasn't answered yet.
+  If user ignores the question, consider it still unresolved.
+- STATE.turn_count: how deep in conversation. After 3+ turns on same topic,
+  avoid repetitive classification — progress the conversation forward.
+
 WHEN TO USE injury_triage:
 - Any mention of pain, hurt, ache, soreness, injury in any body part
 - Do NOT use clarify for pain — use injury_triage instead
@@ -481,34 +621,50 @@ RULES:
 - ALWAYS include free_text with the original user message
 - NEVER output markdown fences — raw JSON only
 - NEVER invent workouts, zones, durations, paces, or power numbers
-- Infer sport from CONTEXT when available"""
+- Infer sport from CONTEXT or STATE.known_sport when available
+- If STATE.active_injuries exists and athlete requests affected sport, include constraints.injury"""
 
 EXPLAINER_SYSTEM_PROMPT = """\
 You are Josi, MiValta's AI coaching assistant. You generate the final user-facing text.
 
-You will receive an ENGINE_PAYLOAD with the decision already made by the system.
-Your job is to VERBALIZE that payload warmly and concisely. Do not override it.
+You receive TWO inputs that work together:
+1. [INTERPRETER] — what the system classified and what it knows about the athlete
+2. ENGINE_PAYLOAD — the coaching decision to verbalize
+
+Your job is to VERBALIZE the payload warmly, using the interpreter context to
+personalize your response. The interpreter and you are one coaching brain.
 
 PERSONALITY:
 - Empathetic and warm — you genuinely care about the athlete
 - Direct and honest — no filler, no corporate speak
 - You ARE the coach — never recommend other apps, coaches, or services
 
-RULES:
+USING [INTERPRETER] CONTEXT:
+- "known_injuries": the athlete has these active injuries — acknowledge naturally
+  Example: if knee injury active and workout requested, weave in: "keeping your knee in mind..."
+- "readiness" + "readiness_trend": shape your tone.
+  Green/improving → energetic. Orange/declining → gentler, validate their fatigue.
+- "load_trend": if increasing, acknowledge their hard work. If declining, normalize the rest.
+- "constraints": the interpreter already factored these in — explain WHY, not just WHAT
+- "last_response_summary": do NOT repeat this. Say something new.
+
+USING ENGINE_PAYLOAD:
 - Verbalize what ENGINE_PAYLOAD contains. Do not invent beyond it.
 - If payload has a "message" field, use it as the core of your response.
 - If payload has a "question" field, end with that question.
-- Keep responses under 80 words. 3-5 lines max.
-- Ask at most ONE question (only if payload includes one).
-- NEVER repeat what you said in previous turns.
-- If the athlete seems frustrated, acknowledge it warmly first.
 
 CROSS-DOMAIN CONTEXT (if present in payload):
-- "cross_domain" contains coaching insights from connecting injury, load, readiness, and history data
-- Weave these insights naturally into your response — like a coach who sees the full picture
-- Prioritize the first cross_domain message (highest priority)
-- Do NOT list them mechanically — integrate them into your coaching advice
-- Example: Instead of "Rule says reduce load", say "Your knee is still bothering you and your training has been ramping up — let's ease off this week."
+- "cross_domain" contains coaching insights from connecting injury, load, readiness, and history
+- Weave these naturally — like a coach who sees the full picture
+- Prioritize the first message (highest priority)
+- Do NOT list them mechanically — integrate into coaching advice
+- Example: "Your knee is still bothering you and your load has been climbing — let's ease off."
+
+RULES:
+- Keep responses under 80 words. 3-5 lines max.
+- Ask at most ONE question (only if payload includes one).
+- NEVER repeat what you said in previous turns (check last_response_summary).
+- If the athlete seems frustrated, acknowledge it warmly first.
 
 SAFETY:
 - If payload says "red_flag": stop training, see a doctor. Be direct.
@@ -516,7 +672,7 @@ SAFETY:
 BOUNDARIES:
 - NEVER prescribe, create, or modify training yourself
 - NEVER invent zones, durations, paces, or power numbers
-- NEVER reference internal systems (algorithm, gatc, ewma, tss, cross_domain, rules, etc.)
+- NEVER reference internal systems (algorithm, interpreter, gatc, cross_domain, rules, etc.)
 - NEVER use jargon: periodization, mesocycle, vo2max, lactate threshold, ftp
 - NEVER output JSON, [INTERPRETER], ENGINE_PAYLOAD, or internal terms
 
@@ -648,15 +804,26 @@ class JosiEngine:
 
     def run_explainer(self, user_message: str,
                       engine_payload: dict,
-                      history: list[dict] | None = None) -> str:
-        """Run the explainer model with ENGINE_PAYLOAD.
+                      history: list[dict] | None = None,
+                      interpreter_handoff: dict | None = None) -> str:
+        """Run the explainer model with ENGINE_PAYLOAD + interpreter handoff.
 
         The explainer verbalizes what the deterministic engine decided.
-        It does NOT make policy decisions.
+        It does NOT make policy decisions. The interpreter_handoff tells
+        the explainer what the interpreter classified and what athlete
+        state influenced the decision — so both models share awareness.
         """
-        # Build current turn: user message + payload
+        # Build current turn: user message + handoff + payload
+        parts = [user_message]
+
+        # Interpreter handoff: tells explainer what was decided and why
+        if interpreter_handoff:
+            handoff_str = json.dumps(interpreter_handoff, indent=None)
+            parts.append(f"\n[INTERPRETER]: {handoff_str}")
+
         payload_str = json.dumps(engine_payload, indent=None)
-        current_msg = f"{user_message}\n\nENGINE_PAYLOAD: {payload_str}"
+        parts.append(f"\nENGINE_PAYLOAD: {payload_str}")
+        current_msg = "\n".join(parts)
 
         if history and len(history) > 1:
             prompt = self._format_chatml_multiturn(
@@ -939,7 +1106,59 @@ class JosiEngine:
                 print(f"    Cross-domain: {len(rules)} rule(s) fired: {rules}")
 
         # =====================================================================
-        # Step 5: Explainer (if needed) — verbalizes ENGINE_PAYLOAD
+        # Step 5: Build interpreter→explainer handoff
+        # =====================================================================
+        # The handoff tells the explainer WHAT the interpreter decided
+        # and WHY — including cross-domain state that influenced the decision.
+        # This is how the two models "work together" instead of in isolation.
+
+        interpreter_handoff = None
+        if interp_parsed and state:
+            interpreter_handoff = {
+                "action": action,
+                "topic": state.last_topic,
+            }
+
+            # Pass interpreter's extracted entities so explainer can reference them
+            if interp_parsed.get("sport"):
+                interpreter_handoff["sport"] = interp_parsed["sport"]
+            if interp_parsed.get("goal"):
+                interpreter_handoff["goal"] = interp_parsed["goal"]
+            if interp_parsed.get("constraints"):
+                interpreter_handoff["constraints"] = interp_parsed["constraints"]
+
+            # Tell explainer about athlete state that shaped the decision
+            store = state.athlete_store
+            active = store.active_injuries()
+            if active:
+                interpreter_handoff["known_injuries"] = [
+                    f"{i['area']} ({i['severity']}/10)"
+                    for i in active
+                ]
+
+            trend = store.readiness_trend()
+            current = store.current_readiness()
+            if current:
+                interpreter_handoff["readiness"] = current
+                if trend != "unknown":
+                    interpreter_handoff["readiness_trend"] = trend
+
+            load = store.training_load
+            if load.get("this_week_sessions", 0) > 0:
+                interpreter_handoff["load_trend"] = load["trend"]
+                interpreter_handoff["sessions_this_week"] = load["this_week_sessions"]
+
+            # Pass last assistant response so explainer avoids repetition
+            last_response = None
+            for turn in reversed(state.history):
+                if turn["role"] == "assistant":
+                    last_response = turn["message"][:100]
+                    break
+            if last_response:
+                interpreter_handoff["last_response_summary"] = last_response
+
+        # =====================================================================
+        # Step 6: Explainer (if needed) — verbalizes ENGINE_PAYLOAD
         # =====================================================================
 
         if needs_explainer and engine_payload:
@@ -948,17 +1167,39 @@ class JosiEngine:
                 full_message,
                 engine_payload=engine_payload,
                 history=clean_history,
+                interpreter_handoff=interpreter_handoff,
             )
             final_response = explainer_text
 
         # =====================================================================
-        # Step 6: Track state + update cross-domain store
+        # Step 7: Track state + update cross-domain store
         # =====================================================================
 
         if state:
             state.last_action = action
+            state.turn_count += 1
+
             if final_response:
                 state.add_assistant(final_response)
+
+                # --- Feedback loop: classify response for next interpreter turn ---
+                # The interpreter will see this on the next turn, closing the loop.
+                state.last_response_type = _classify_response(
+                    final_response, action, engine_payload
+                )
+
+            # Track which cross-domain rules fired (interpreter sees this next turn)
+            state.last_cross_domain_rules = engine_payload.get(
+                "cross_domain_rules", []
+            ) if engine_payload else []
+
+            # Track unresolved issues — if we asked a question, it's unresolved
+            # until the athlete answers it
+            if state.pending_question:
+                state.unresolved_issue = state.pending_question
+            elif action not in ("clarify", "injury_triage"):
+                state.unresolved_issue = None
+
             # Clear triage if we moved past it
             if state.triage and state.triage.stage == "referred":
                 state.triage = None
@@ -1001,6 +1242,7 @@ class JosiEngine:
             "explainer_text": explainer_text,
             "final_response": final_response,
             "engine_payload": engine_payload,
+            "interpreter_handoff": interpreter_handoff,
         }
 
 
