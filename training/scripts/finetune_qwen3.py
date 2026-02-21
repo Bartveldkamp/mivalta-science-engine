@@ -819,6 +819,9 @@ def chat(model_path: str, model_size: str = None, sport: str = None,
 
     show_raw = True
     force_mode = "auto"  # auto, interpreter, coach
+    conversation_history = []  # Multi-turn memory: list of (user_msg, interpreter_json, coach_response)
+
+    import time as time_mod
 
     def generate(system_prompt, user_content, temperature=0.3, max_tokens=200):
         messages = [
@@ -848,6 +851,20 @@ def chat(model_path: str, model_size: str = None, sport: str = None,
 
         return response
 
+    def build_history_block():
+        """Build a conversation summary from recent turns for context."""
+        if not conversation_history:
+            return ""
+        lines = ["\nCONVERSATION HISTORY:"]
+        # Keep last 5 turns to stay within context limits
+        for user_msg, interp_json, coach_resp in conversation_history[-5:]:
+            lines.append(f"  Athlete: {user_msg}")
+            if interp_json:
+                lines.append(f"  → {interp_json}")
+            if coach_resp:
+                lines.append(f"  Josi: {coach_resp}")
+        return "\n".join(lines)
+
     print("\n" + "=" * 60)
     print("  JOSI v6 — OPEN CHAT TEST")
     print("=" * 60)
@@ -858,6 +875,7 @@ def chat(model_path: str, model_size: str = None, sport: str = None,
     print(f"  Show raw:  {show_raw}")
     print()
     print("  Commands: /sport, /readiness, /mode, /raw, /reset, /quit")
+    print("  NOTE: Coach is called for EVERY message (open test mode)")
     print("=" * 60)
 
     while True:
@@ -902,7 +920,14 @@ def chat(model_path: str, model_size: str = None, sport: str = None,
                 sport = None
                 readiness = "Green"
                 force_mode = "auto"
-                print("  Reset to defaults")
+                conversation_history.clear()
+                print("  Reset to defaults (history cleared)")
+                continue
+            elif cmd == "/history":
+                if conversation_history:
+                    print(build_history_block())
+                else:
+                    print("  (no history yet)")
                 continue
             else:
                 print(f"  Unknown command: {cmd}")
@@ -914,11 +939,16 @@ def chat(model_path: str, model_size: str = None, sport: str = None,
             context_lines.append(f"- Sport: {sport}")
         context_lines.append(f"- Readiness: {readiness}")
         context = "\n\nCONTEXT:\n" + "\n".join(context_lines)
-        user_with_context = user_input + context
 
-        import time as time_mod
+        # Add conversation history for multi-turn awareness
+        history_block = build_history_block()
+        user_with_context = user_input + context + history_block
 
         # ─── Step 1: Interpreter call ────────────────────────────────────
+        interpreter_response = None
+        action = None
+        parsed = None
+
         if force_mode != "coach":
             t0 = time_mod.time()
             interpreter_response = generate(
@@ -942,22 +972,15 @@ def chat(model_path: str, model_size: str = None, sport: str = None,
                 print(f"  ⚠ Interpreter returned invalid JSON")
 
             if force_mode == "interpreter":
+                conversation_history.append((user_input, interpreter_response, None))
                 continue
 
-        # ─── Step 2: Router — does this need a coach call? ───────────────
-        if force_mode == "auto":
-            needs_coach = action in ACTIONS_NEEDING_COACH
-            if not needs_coach:
-                if show_raw:
-                    print(f"  Router: action={action} → no coach call needed")
-                continue
-        else:
-            # force_mode == "coach", skip interpreter
-            action = "answer_question"
-            interpreter_response = json.dumps({"action": action, "question": user_input, "free_text": user_input})
+        # ─── Step 2: Always call coach in open chat mode ─────────────────
+        if force_mode == "coach" or interpreter_response is None:
+            # Coach-only mode: synthesize interpreter context
+            interpreter_response = json.dumps({"action": "answer_question", "question": user_input, "free_text": user_input})
 
-        # ─── Step 3: Coach call ──────────────────────────────────────────
-        coach_input = f"{user_input}{context}\n\n[INTERPRETER]\n{interpreter_response}"
+        coach_input = f"{user_input}{context}{history_block}\n\n[INTERPRETER]\n{interpreter_response}"
 
         t0 = time_mod.time()
         coach_response = generate(
@@ -969,6 +992,9 @@ def chat(model_path: str, model_size: str = None, sport: str = None,
         print(f"\n  ┌─ JOSI ({t_coach:.1f}s) ──────────────────────────────")
         print(f"  │ {coach_response}")
         print(f"  └{'─' * 50}")
+
+        # Save to conversation history
+        conversation_history.append((user_input, interpreter_response, coach_response))
 
 
 def sanity(model_path: str, mode: str = "interpreter"):
