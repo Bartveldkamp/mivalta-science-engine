@@ -2,32 +2,43 @@
 set -euo pipefail
 
 # =============================================================================
-# MiValta Josi v6 — Hetzner Server Setup
+# MiValta Josi v7 — Hetzner Server Setup
 #
 # Run this on the Hetzner GPU server to:
 #   1. Check GPU & VRAM availability
 #   2. Create Python venv + install dependencies
-#   3. Verify all imports work
+#   3. Download Qwen3 base model from HuggingFace
+#   4. Verify all imports work
 #
 # Prerequisites:
 #   - CUDA GPU with >=16GB VRAM (4B) or >=24GB VRAM (8B)
 #   - Python 3.10+
 #
 # Usage:
-#   # Full setup (creates venv + installs deps):
+#   # Full setup (creates venv + installs deps + downloads model):
 #   bash training/scripts/setup_hetzner.sh
+#
+#   # Full setup with 8B model (needs >=24GB VRAM):
+#   bash training/scripts/setup_hetzner.sh --model-size 8b
 #
 #   # Just check GPU:
 #   bash training/scripts/setup_hetzner.sh --check-only
 #
 #   # Reinstall deps into existing venv:
 #   bash training/scripts/setup_hetzner.sh --deps-only
+#
+#   # Just download model:
+#   bash training/scripts/setup_hetzner.sh --model-only
 # =============================================================================
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 TRAINING_DIR="$REPO_DIR/training"
 VENV_DIR="$TRAINING_DIR/venv"
+MODELS_DIR="$TRAINING_DIR/models"
+
+# Default model size: 4B (fits RTX 4000 SFF Ada 19.5 GB VRAM)
+MODEL_SIZE="${MODEL_SIZE:-4b}"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -156,29 +167,114 @@ if torch.cuda.is_available():
 }
 
 # =============================================================================
+# Step 4: Download Qwen3 base model from HuggingFace
+# =============================================================================
+download_model() {
+    echo ""
+    echo "============================================================"
+    echo "  Step 4: Download Qwen3 Base Model"
+    echo "============================================================"
+    echo ""
+
+    VENV_PYTHON="$VENV_DIR/bin/python"
+
+    if [ ! -f "$VENV_PYTHON" ]; then
+        error "Venv not found. Run full setup first."
+        exit 1
+    fi
+
+    # Determine model based on size
+    if [ "$MODEL_SIZE" = "8b" ]; then
+        HF_MODEL="Qwen/Qwen3-8B"
+        LOCAL_DIR="Qwen3-8B"
+    else
+        HF_MODEL="Qwen/Qwen3-4B"
+        LOCAL_DIR="Qwen3-4B"
+    fi
+
+    TARGET_DIR="$MODELS_DIR/$LOCAL_DIR"
+
+    if [ -d "$TARGET_DIR" ] && [ -f "$TARGET_DIR/config.json" ]; then
+        info "Model already downloaded: $TARGET_DIR"
+        info "  $(ls "$TARGET_DIR"/*.safetensors 2>/dev/null | wc -l) safetensors files found"
+        return 0
+    fi
+
+    mkdir -p "$MODELS_DIR"
+
+    info "Downloading $HF_MODEL → $TARGET_DIR"
+    info "This may take 10-30 minutes depending on network speed..."
+    echo ""
+
+    # Use huggingface-cli (installed via huggingface_hub in requirements.txt)
+    "$VENV_DIR/bin/huggingface-cli" download "$HF_MODEL" \
+        --local-dir "$TARGET_DIR" \
+        --local-dir-use-symlinks False
+
+    # Verify download
+    if [ -f "$TARGET_DIR/config.json" ]; then
+        info "Download complete: $TARGET_DIR"
+        info "  $(du -sh "$TARGET_DIR" | cut -f1) total size"
+        info "  $(ls "$TARGET_DIR"/*.safetensors 2>/dev/null | wc -l) safetensors files"
+    else
+        error "Download failed — config.json not found in $TARGET_DIR"
+        exit 1
+    fi
+}
+
+# =============================================================================
 # Print usage summary
 # =============================================================================
 print_ready() {
     VENV_PYTHON="$VENV_DIR/bin/python"
+
+    # Determine which model dir to show
+    if [ "$MODEL_SIZE" = "8b" ]; then
+        LOCAL_DIR="Qwen3-8B"
+        SIZE_TAG="8b"
+    else
+        LOCAL_DIR="Qwen3-4B"
+        SIZE_TAG="4b"
+    fi
+
     echo ""
     echo "============================================================"
-    echo "  SETUP COMPLETE"
+    echo "  SETUP COMPLETE — Josi v7"
     echo "============================================================"
     echo ""
-    echo "  Venv python: $VENV_PYTHON"
+    echo "  Venv python:  $VENV_PYTHON"
+    echo "  Model:        $MODELS_DIR/$LOCAL_DIR"
+    echo "  Model size:   $MODEL_SIZE"
     echo ""
-    echo "  To train (use screen so it survives SSH disconnect):"
+    echo "  ── STEP 1: TRAIN ──────────────────────────────────────────"
+    echo "  (use screen so it survives SSH disconnect)"
     echo ""
-    echo "    screen -dmS train bash -c 'cd $REPO_DIR && $VENV_PYTHON training/scripts/finetune_qwen3.py train --mode unified --model-size 4b 2>&1 | tee training.log'"
+    echo "    screen -dmS train bash -c 'cd $REPO_DIR && \\"
+    echo "      $VENV_PYTHON training/scripts/finetune_qwen3.py train \\"
+    echo "        --mode unified --model-size $SIZE_TAG 2>&1 | tee training.log'"
     echo ""
     echo "  Check progress:"
-    echo ""
     echo "    tail -3 $REPO_DIR/training.log"
     echo ""
-    echo "  After training finishes:"
+    echo "  ── STEP 2: MERGE ──────────────────────────────────────────"
     echo ""
-    echo "    $VENV_PYTHON training/scripts/finetune_qwen3.py merge --lora_path ./models/josi-v6-qwen3-4b-unified-*/lora_weights --model-size 4b"
-    echo "    $VENV_PYTHON training/scripts/publish_models_v6.py --model ./models/josi-v6-qwen3-4b-unified-*/final"
+    echo "    $VENV_PYTHON training/scripts/finetune_qwen3.py merge \\"
+    echo "      --lora_path ./models/josi-v6-qwen3-${SIZE_TAG}-unified-*/lora_weights \\"
+    echo "      --model-size $SIZE_TAG"
+    echo ""
+    echo "  ── STEP 3: TEST ───────────────────────────────────────────"
+    echo ""
+    echo "    $VENV_PYTHON training/scripts/finetune_qwen3.py sanity \\"
+    echo "      --model_path ./models/josi-v6-qwen3-${SIZE_TAG}-unified-*/merged \\"
+    echo "      --mode interpreter"
+    echo ""
+    echo "    $VENV_PYTHON training/scripts/finetune_qwen3.py chat \\"
+    echo "      --model_path ./models/josi-v6-qwen3-${SIZE_TAG}-unified-*/merged"
+    echo ""
+    echo "  ── STEP 4: PUBLISH ────────────────────────────────────────"
+    echo ""
+    echo "    $VENV_PYTHON training/scripts/publish_models_v6.py \\"
+    echo "      --model ./models/josi-v6-qwen3-${SIZE_TAG}-unified-*/final"
     echo ""
     echo "============================================================"
 }
@@ -187,17 +283,36 @@ print_ready() {
 # Main
 # =============================================================================
 
-case "${1:-}" in
-    --check-only)
+# Parse arguments
+ACTION=""
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --check-only)   ACTION="check" ;;
+        --deps-only)    ACTION="deps" ;;
+        --model-only)   ACTION="model" ;;
+        --model-size)   shift; MODEL_SIZE="${1:-4b}" ;;
+        *)              ;; # ignore unknown
+    esac
+    shift
+done
+
+info "Model size: $MODEL_SIZE"
+
+case "$ACTION" in
+    check)
         check_gpu
         ;;
-    --deps-only)
+    deps)
         install_deps
+        ;;
+    model)
+        download_model
         ;;
     *)
         check_gpu
         setup_venv
         install_deps
+        download_model
         print_ready
         ;;
 esac
