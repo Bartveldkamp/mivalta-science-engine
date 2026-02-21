@@ -785,7 +785,7 @@ SANITY_PROMPTS = [
 # OPEN CHAT — Interactive testing with full v6 pipeline
 # =============================================================================
 
-def chat(model_path: str, model_size: str = None, sport: str = "running",
+def chat(model_path: str, model_size: str = None, sport: str = None,
          readiness: str = "Green"):
     """Interactive open chat with the v6 model.
 
@@ -852,7 +852,7 @@ def chat(model_path: str, model_size: str = None, sport: str = "running",
     print("  JOSI v6 — OPEN CHAT TEST")
     print("=" * 60)
     print(f"  Model:     {model_path}")
-    print(f"  Sport:     {sport}")
+    print(f"  Sport:     {sport or '(none — model will infer or clarify)'}")
     print(f"  Readiness: {readiness}")
     print(f"  Mode:      {force_mode}")
     print(f"  Show raw:  {show_raw}")
@@ -880,8 +880,8 @@ def chat(model_path: str, model_size: str = None, sport: str = "running",
                 print("  Bye!")
                 break
             elif cmd == "/sport":
-                sport = arg or "running"
-                print(f"  Sport → {sport}")
+                sport = arg or None
+                print(f"  Sport → {sport or '(none)'}")
                 continue
             elif cmd == "/readiness":
                 readiness = arg or "Green"
@@ -899,7 +899,7 @@ def chat(model_path: str, model_size: str = None, sport: str = "running",
                 print(f"  Show raw → {show_raw}")
                 continue
             elif cmd == "/reset":
-                sport = "running"
+                sport = None
                 readiness = "Green"
                 force_mode = "auto"
                 print("  Reset to defaults")
@@ -908,8 +908,12 @@ def chat(model_path: str, model_size: str = None, sport: str = "running",
                 print(f"  Unknown command: {cmd}")
                 continue
 
-        # Build context block
-        context = f"\n\nCONTEXT:\n- Sport: {sport}\n- Readiness: {readiness}"
+        # Build context block — only include sport if explicitly set
+        context_lines = []
+        if sport:
+            context_lines.append(f"- Sport: {sport}")
+        context_lines.append(f"- Readiness: {readiness}")
+        context = "\n\nCONTEXT:\n" + "\n".join(context_lines)
         user_with_context = user_input + context
 
         import time as time_mod
@@ -1086,7 +1090,7 @@ def main():
     chat_parser.add_argument("--model_path", required=True, help="Path to merged model")
     chat_parser.add_argument("--model-size", choices=["8b", "4b"],
                              help="Model size (auto-detected from path if omitted)")
-    chat_parser.add_argument("--sport", default="running", help="Initial sport context")
+    chat_parser.add_argument("--sport", default=None, help="Initial sport context (omit to let model infer)")
     chat_parser.add_argument("--readiness", default="Green", help="Initial readiness (Green/Yellow/Red)")
 
     args = parser.parse_args()
