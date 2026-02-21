@@ -666,6 +666,7 @@ def train(
 def merge(
     lora_path: str,
     output_path: str = None,
+    model_size: str = None,
 ):
     """Merge LoRA weights with base Qwen3 model for GGUF export.
 
@@ -677,7 +678,15 @@ def merge(
     if output_path is None:
         output_path = str(Path(lora_path).parent / "merged")
 
-    model_id = resolve_model_id()
+    # Auto-detect model size from lora_path (e.g. "josi-v6-qwen3-4b-unified-...")
+    if model_size is None:
+        lora_str = str(lora_path)
+        if "-4b-" in lora_str:
+            model_size = "4b"
+        elif "-8b-" in lora_str:
+            model_size = "8b"
+
+    model_id = resolve_model_id(model_size)
     print(f"Loading base model: {model_id} (full precision for merge)")
     base_model = AutoModelForCausalLM.from_pretrained(
         model_id,
@@ -702,7 +711,7 @@ def merge(
 
     print(f"Merge complete! Ready for GGUF export:")
     print(f"  python /path/to/llama.cpp/convert_hf_to_gguf.py {output_path} --outtype q4_k_m")
-    cfg = get_config()
+    cfg = get_config(model_size)
     print(f"  Expected GGUF size: {cfg['gguf_size']} (Q4_K_M)")
 
     return output_path
@@ -877,6 +886,8 @@ def main():
     merge_parser = subparsers.add_parser("merge", help="Merge LoRA weights into base model")
     merge_parser.add_argument("--lora_path", required=True, help="Path to LoRA weights")
     merge_parser.add_argument("--output_path", help="Output path for merged model")
+    merge_parser.add_argument("--model-size", choices=["8b", "4b"],
+                              help="Model size (auto-detected from lora_path if omitted)")
 
     # Sanity
     sanity_parser = subparsers.add_parser("sanity", help="Quick sanity check on model")
@@ -901,6 +912,7 @@ def main():
         merge(
             lora_path=args.lora_path,
             output_path=args.output_path,
+            model_size=getattr(args, "model_size", None),
         )
     elif args.command == "sanity":
         sanity(
