@@ -821,9 +821,54 @@ def chat(model_path: str, model_size: str = None, sport: str = None,
     force_mode = "auto"  # auto, interpreter, coach
     conversation_history = []  # Multi-turn memory: list of (user_msg, interpreter_json, coach_response)
     pending_workout = {}  # Accumulates workout fields across turns until GATC has enough
+    conversation_state = {}  # Short-term memory: tracks key facts (illness, injury, etc.)
 
     import time as time_mod
     import re as re_mod_chat
+
+    def update_conversation_state(parsed_response, coach_text):
+        """Update short-term memory after each turn.
+
+        Tracks key facts like illness, injury, fatigue so that
+        subsequent turns are aware of the conversation context.
+        The interpreter is single-turn, so it needs this state
+        injected into its CONTEXT to make coherent decisions.
+        """
+        if not parsed_response:
+            return
+
+        act = parsed_response.get("action")
+        rtype = parsed_response.get("replan_type")
+        free = parsed_response.get("free_text", "")
+
+        if act == "replan" and rtype == "illness":
+            conversation_state["status"] = "illness"
+            conversation_state["status_detail"] = free
+        elif act == "replan" and rtype == "skip_today":
+            conversation_state["status"] = "rest_day"
+        elif act == "replan" and rtype == "reduce_intensity":
+            conversation_state["status"] = "reduced"
+        elif act == "clarify" and "medical" in str(parsed_response.get("missing", [])):
+            conversation_state["status"] = "medical_concern"
+            conversation_state["status_detail"] = free
+        elif act == "create_workout":
+            # Workout was created — clear illness/rest status
+            conversation_state.pop("status", None)
+            conversation_state.pop("status_detail", None)
+
+    def build_state_context():
+        """Build context lines from conversation state for injection."""
+        lines = []
+        status = conversation_state.get("status")
+        if status == "illness":
+            lines.append("- Athlete status: SICK (reported illness this conversation — advise rest, no training)")
+        elif status == "medical_concern":
+            lines.append("- Athlete status: MEDICAL CONCERN (seek professional help)")
+        elif status == "rest_day":
+            lines.append("- Athlete status: rest day (chose to skip training)")
+        elif status == "reduced":
+            lines.append("- Athlete status: reducing intensity")
+        return lines
 
     def generate(system_prompt, user_content, temperature=0.3, max_tokens=200):
         messages = [
@@ -947,7 +992,7 @@ def chat(model_path: str, model_size: str = None, sport: str = None,
     print(f"  Mode:      {force_mode}")
     print(f"  Show raw:  {show_raw}")
     print()
-    print("  Commands: /sport, /readiness, /mode, /raw, /pending, /reset, /quit")
+    print("  Commands: /sport, /readiness, /mode, /raw, /state, /pending, /reset, /quit")
     print("  Pipeline: Interpreter → Gathering → GATC Sessionmaker → Coach")
     print("=" * 60)
 
@@ -995,7 +1040,8 @@ def chat(model_path: str, model_size: str = None, sport: str = None,
                 force_mode = "auto"
                 conversation_history.clear()
                 pending_workout.clear()
-                print("  Reset to defaults (history + pending cleared)")
+                conversation_state.clear()
+                print("  Reset to defaults (history + pending + state cleared)")
                 continue
             elif cmd == "/history":
                 if conversation_history:
@@ -1009,6 +1055,12 @@ def chat(model_path: str, model_size: str = None, sport: str = None,
                 else:
                     print("  (no pending workout)")
                 continue
+            elif cmd == "/state":
+                if conversation_state:
+                    print(f"  Conversation state: {json.dumps(conversation_state, indent=2)}")
+                else:
+                    print("  (clean state — no flags)")
+                continue
             else:
                 print(f"  Unknown command: {cmd}")
                 continue
@@ -1018,6 +1070,8 @@ def chat(model_path: str, model_size: str = None, sport: str = None,
         if sport:
             context_lines.append(f"- Sport: {sport}")
         context_lines.append(f"- Readiness: {readiness}")
+        # Inject conversation state (short-term memory)
+        context_lines.extend(build_state_context())
         context = "\n\nCONTEXT:\n" + "\n".join(context_lines)
 
         # Build conversation history (for coach only — interpreter is single-turn)
@@ -1186,7 +1240,10 @@ def chat(model_path: str, model_size: str = None, sport: str = None,
             print(f"  GATC Session: {session_str}")
 
         # Coach gets history (for multi-turn awareness) + interpreter result
-        coach_input = f"{user_input}{coach_context}{history_block}\n\n[INTERPRETER]\n{interpreter_response}"
+        # Reminder: respond in plain text only, never JSON
+        coach_input = (f"{user_input}{coach_context}{history_block}"
+                       f"\n\n[INTERPRETER]\n{interpreter_response}"
+                       f"\n\nRespond as Josi in plain coaching text. No JSON. No markdown fences.")
 
         # Coach gets more tokens for real coaching responses
         coach_max_tokens = 400
@@ -1211,6 +1268,9 @@ def chat(model_path: str, model_size: str = None, sport: str = None,
         if line.strip("│ "):
             print(line)
         print(f"  └{'─' * 50}")
+
+        # Update short-term memory from this turn's decisions
+        update_conversation_state(parsed, coach_response)
 
         # Save to conversation history
         conversation_history.append((user_input, interpreter_response, coach_response))
