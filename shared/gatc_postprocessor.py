@@ -176,9 +176,16 @@ def _repair_truncated_json(text: str) -> Optional[dict]:
 def parse_gatc_response(raw: str) -> Optional[dict]:
     """Parse raw model output string into a GATCRequest dict.
 
-    Handles markdown fences, noisy output, and truncated JSON.
+    Handles markdown fences, reasoning prefix lines (> ...), noisy output,
+    and truncated JSON.
     """
     cleaned = strip_markdown_fences(raw)
+
+    # Strip reasoning lines (> prefix) from chain-of-thought scaffold.
+    # The interpreter may emit "> Wants workout. Green readiness." before JSON.
+    lines = cleaned.split("\n")
+    non_reasoning = [l for l in lines if not l.strip().startswith(">")]
+    cleaned = "\n".join(non_reasoning).strip()
 
     # Fast path: direct parse
     try:
@@ -243,9 +250,33 @@ def postprocess_gatc_request(parsed: dict, user_message: str) -> dict:
     if action == "create_workout":
         sport = result.get("sport", "")
         has_sport_ctx = _has_sport_context(user_message)
+        has_any_ctx = _has_any_context(user_message)
 
-        # sport="other" or missing sport, and no CONTEXT with Sport → clarify
+        # Case A: sport="other" or missing sport, and no CONTEXT with Sport → clarify
+        # Case B: model hallucinated a sport but there's NO CONTEXT block at all
+        #         AND user didn't mention the sport in their message
+        needs_clarify = False
         if (sport == "other" or not sport) and not has_sport_ctx:
+            needs_clarify = True
+        elif sport and not has_any_ctx:
+            # No CONTEXT block — did the user actually mention this sport?
+            msg_lower = user_message.split("\n\nCONTEXT:")[0].strip().lower()
+            _SPORT_KEYWORDS = {
+                "run": ["run", "running", "jog", "jogging"],
+                "bike": ["bike", "cycling", "cycle", "ride", "biking"],
+                "ski": ["ski", "skiing"],
+                "skate": ["skate", "skating"],
+                "strength": ["strength", "gym", "weights", "lifting", "lift"],
+            }
+            sport_mentioned = False
+            for keywords in _SPORT_KEYWORDS.values():
+                if any(kw in msg_lower for kw in keywords):
+                    sport_mentioned = True
+                    break
+            if not sport_mentioned:
+                needs_clarify = True
+
+        if needs_clarify:
             result["action"] = "clarify"
             result["missing"] = ["sport"]
             result["clarify_message"] = (
@@ -258,13 +289,33 @@ def postprocess_gatc_request(parsed: dict, user_message: str) -> dict:
             result.pop("goal", None)
             result.pop("constraints", None)
 
-    # --- Fix 4: Enforce clarify for ambiguous intent without context ---
-    if action in ("explain", "answer_question") and not _has_any_context(user_message):
-        # Use user message (sans CONTEXT) for ambiguity check — the model's
-        # free_text can be wrong (e.g. "answer_question" instead of the message)
-        msg = user_message.split("\n\nCONTEXT:")[0].strip().lower()
-        ambiguous = len(msg.split()) <= 4 and "?" not in msg
-        if ambiguous:
+    # --- Fix 4: Enforce clarify for ambiguous / ultra-short messages ---
+    if action in ("explain", "answer_question"):
+        msg = user_message.split("\n\nCONTEXT:")[0].strip()
+        msg_lower = msg.lower()
+        msg_words = msg_lower.split()
+
+        # Ultra-short acknowledgements that are not real questions
+        _ACK_WORDS = {
+            "ok", "okay", "k", "sure", "yes", "yeah", "yep", "alright",
+            "right", "cool", "fine", "thanks", "thank you", "cheers",
+            "so", "so?", "and?", "then?", "hm", "hmm",
+        }
+        is_ack = msg_lower.rstrip("?!. ") in _ACK_WORDS
+
+        # Short follow-ups like "why?", "how?", "what?" with no TOPIC context
+        is_bare_question = (
+            len(msg_words) <= 2
+            and msg.rstrip().endswith("?")
+            and "\nTOPIC:" not in user_message  # no topic hint injected
+            and "\nHISTORY:" not in user_message  # no conversation history
+        )
+
+        # Ambiguous: short non-question without context
+        has_ctx = _has_any_context(user_message)
+        is_ambiguous = len(msg_words) <= 4 and "?" not in msg and not has_ctx
+
+        if is_ack or is_bare_question or is_ambiguous:
             result["action"] = "clarify"
             result["missing"] = ["intent"]
             result["clarify_message"] = (
@@ -287,7 +338,18 @@ def postprocess_gatc_request(parsed: dict, user_message: str) -> dict:
         result.pop("sport", None)
         result.pop("question", None)
 
-    # --- Fix 6: Ensure free_text is always present and valid ---
+    # --- Fix 6: Validate required fields per action ---
+    action = result.get("action", "")  # re-read after possible overrides
+    if action in ("answer_question", "explain"):
+        question = result.get("question", "")
+        if not question or not question.strip():
+            # Model produced answer_question/explain with no question —
+            # backfill from the user's actual message
+            msg = user_message.split("\n\nCONTEXT:")[0].strip()
+            if msg:
+                result["question"] = msg
+
+    # --- Fix 7: Ensure free_text is always present and valid ---
     msg = user_message.split("\n\nCONTEXT:")[0].strip()
     if msg:
         free = result.get("free_text", "")

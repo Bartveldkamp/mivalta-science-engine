@@ -1,0 +1,78 @@
+# Josi v6 Interpreter — GBNF Grammar for GATCRequest JSON
+#
+# Use with llama.cpp --grammar-file flag to constrain interpreter output
+# to valid GATCRequest JSON. Eliminates malformed JSON entirely.
+#
+# On Android (llama.android), pass this grammar string to the generate() call.
+# The model can ONLY produce tokens that match this grammar.
+#
+# This grammar enforces:
+#   - Valid JSON structure
+#   - Correct enum values for action, sport, replan_type, goal, fatigue_hint
+#   - Required free_text field
+#   - Proper nesting of constraints object
+#   - No markdown fences, no preamble text
+
+root ::= "{" ws members ws "}"
+
+members ::= pair (ws "," ws pair)*
+
+pair ::= action-pair | sport-pair | date-pair | time-pair | goal-pair | constraints-pair | replan-pair | question-pair | missing-pair | clarify-pair | freetext-pair
+
+# Action (required) — the core intent classification
+action-pair ::= "\"action\"" ws ":" ws action-value
+action-value ::= "\"create_workout\"" | "\"replan\"" | "\"explain\"" | "\"answer_question\"" | "\"clarify\""
+
+# Sport
+sport-pair ::= "\"sport\"" ws ":" ws sport-value
+sport-value ::= "\"run\"" | "\"bike\"" | "\"ski\"" | "\"skate\"" | "\"strength\"" | "\"other\""
+
+# Date (ISO format)
+date-pair ::= "\"date\"" ws ":" ws "\"" [0-9] [0-9] [0-9] [0-9] "-" [0-9] [0-9] "-" [0-9] [0-9] "\""
+
+# Time available (integer)
+time-pair ::= "\"time_available_min\"" ws ":" ws integer
+
+# Goal
+goal-pair ::= "\"goal\"" ws ":" ws goal-value
+goal-value ::= "\"endurance\"" | "\"threshold\"" | "\"vo2\"" | "\"recovery\"" | "\"strength\"" | "\"race_prep\""
+
+# Constraints object
+constraints-pair ::= "\"constraints\"" ws ":" ws "{" ws constraint-members ws "}"
+constraint-members ::= constraint-pair (ws "," ws constraint-pair)*
+constraint-pair ::= injury-pair | fatigue-pair | nointensity-pair
+
+injury-pair ::= "\"injury\"" ws ":" ws injury-value
+injury-value ::= "\"none\"" | "\"knee\"" | "\"back\"" | "\"ankle\"" | "\"shoulder\"" | "\"other\""
+
+fatigue-pair ::= "\"fatigue_hint\"" ws ":" ws fatigue-value
+fatigue-value ::= "\"fresh\"" | "\"ok\"" | "\"tired\"" | "\"very_tired\""
+
+nointensity-pair ::= "\"no_intensity\"" ws ":" ws ("true" | "false")
+
+# Replan type
+replan-pair ::= "\"replan_type\"" ws ":" ws replan-value
+replan-value ::= "\"skip_today\"" | "\"swap_days\"" | "\"reschedule\"" | "\"reduce_intensity\"" | "\"illness\"" | "\"travel\"" | "\"goal_change\""
+
+# Question (free text string)
+question-pair ::= "\"question\"" ws ":" ws string
+
+# Missing fields (array of strings)
+missing-pair ::= "\"missing\"" ws ":" ws "[" ws string-list ws "]"
+string-list ::= string (ws "," ws string)*
+
+# Clarify message
+clarify-pair ::= "\"clarify_message\"" ws ":" ws string
+
+# Free text (required — original user message)
+freetext-pair ::= "\"free_text\"" ws ":" ws string
+
+# Primitives
+string ::= "\"" characters "\""
+characters ::= character*
+character ::= [^"\\] | "\\" escape-char
+escape-char ::= "\"" | "\\" | "/" | "b" | "f" | "n" | "r" | "t"
+
+integer ::= [1-9] [0-9]* | "0"
+
+ws ::= [ \t\n]*

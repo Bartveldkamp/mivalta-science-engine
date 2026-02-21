@@ -12,197 +12,182 @@ The model is downloaded by users on first app launch and runs locally on their d
 
 **Model versions:**
 
-| Version | Model | Size (Q4_K_M) | Status |
-|---------|-------|---------------|--------|
-| **v4 (current)** | Gemma 3n E2B-it | ~2.8 GB | **Production** |
-| v3 (legacy) | SmolLM2-1.7B / 360M | ~1.0 GB / ~210 MB | Archived |
+| Version | Model | Size (Q4_K_M) | Architecture | Status |
+|---------|-------|---------------|-------------|--------|
+| **v6 Android** | **Qwen3-8B** | **~5.0 GB (single file)** | Single-model, dual-mode, /think router | **Production** |
+| v6 iPhone (planned) | Qwen3-4B | ~2.5 GB (single file) | Same architecture, smaller model | Planned |
+| v5 (legacy) | Qwen2.5-1.5B-Instruct | ~935 MB x 2 (~1.87 GB total) | Dual-model (interpreter + explainer) | Archived |
+| v4 (legacy) | Gemma 3n E2B-it | ~2.8 GB x 2 (~5.6 GB total) | Dual-model | Archived |
+| v3 (legacy) | SmolLM2-1.7B / 360M | ~1.0 GB / ~210 MB | Single-model | Archived |
+
+### Why v6
+
+| | v5 (dual Qwen2.5-1.5B) | v6 Android (single Qwen3-8B) |
+|--|--|--|
+| Download | 1.87 GB (2 files) | 5.0 GB (1 file) |
+| Model intelligence | 1.5B per task | 8B per task (5.3x) |
+| Dutch quality | Basic | Excellent (100+ languages native) |
+| JSON accuracy | Good (fine-tuned) | Guaranteed (GBNF grammar-constrained) |
+| Coaching warmth | Okay | Natural, human-like, with deep reasoning |
+| Thinking mode | None | Router-controlled /think for complex questions |
+| Management | 2 GGUFs, 2 manifests | 1 GGUF, 1 manifest |
+| Target | All phones | Android 12GB+ (iPhone 4B planned) |
 
 ---
 
-## Gemma 3n E2B Pipeline (v4)
+## Qwen3-8B Pipeline (v6 — Current, Android)
 
 ### Step 1: Prepare Training Data
 
-v4 uses a **dual-model architecture** — interpreter and explainer trained separately.
-Training data is already prepared. To regenerate or modify:
+v6 uses a **single-model architecture** — one Qwen3-8B model trained on both interpreter (JSON) and coach (text) tasks. The model switches mode based on the system prompt. Router-controlled `/think` enables deep reasoning for complex questions.
 
 ```bash
 cd training/scripts
 
-# Convert v3 data to v4 dual-mode format (interpreter + explainer)
-python convert_training_data_v4.py --stats          # preview only
-python convert_training_data_v4.py                    # generate files
+# Create unified dataset (merges interpreter + coach data)
+python prepare_v6_data.py
 
-# Augment with edge cases (personas, rare intents)
-python augment_training_data_v4.py
-
-# Add memory-enriched examples (~85 examples with athlete_memory context)
-python augment_memory_training_data.py --dry-run     # preview
-python augment_memory_training_data.py                # append to training data
+# Optional: update system prompts to v6 versions in the data
+python prepare_v6_data.py --update-prompts
 ```
 
-Output files in `training/data/`:
-- `train_interpreter.jsonl` — GATCRequest JSON training examples
-- `train_explainer.jsonl` — Plain coaching text training examples
-- `val_interpreter.jsonl` / `val_explainer.jsonl` — Validation splits
+Output:
+- `train_v6_unified.jsonl` — merged + shuffled (~2262 examples)
+- `val_v6_unified.jsonl` — merged + shuffled (~241 examples)
 
 ### Step 2: Fine-Tune on Hetzner Server
 
 SSH into the Hetzner server and run:
 
 ```bash
-ssh hetzner
-su - cockpit2
-cd ~/mivalta-science-engine/training
+ssh root@<server-ip>
+cd ~/mivalta/mivalta-science-engine
 
-# Install dependencies (first time only)
-pip install -r requirements.txt
+# First time: create venv + install deps
+bash training/scripts/setup_hetzner.sh
 
-# Fine-tune INTERPRETER (GATCRequest JSON output)
-python scripts/finetune_gemma3n.py train --mode interpreter
+# Train in screen (survives SSH disconnect):
+screen -dmS train bash -c 'cd ~/mivalta/mivalta-science-engine && ./training/venv/bin/python training/scripts/finetune_qwen3.py train --mode unified --model-size 4b 2>&1 | tee training.log'
 
-# Fine-tune EXPLAINER (plain coaching text output)
-python scripts/finetune_gemma3n.py train --mode explainer
+# Check progress:
+tail -3 training.log
 
-# Custom params
-python scripts/finetune_gemma3n.py train --mode interpreter --lr 3e-5 --epochs 4
+# Or use the all-in-one script (train + merge + sanity check):
+screen -dmS train bash -c 'cd ~/mivalta/mivalta-science-engine && bash training/scripts/train_v6.sh --model-size 4b 2>&1 | tee training.log'
 
-# Without W&B tracking
-python scripts/finetune_gemma3n.py train --mode explainer --no-wandb
+# 8B Android model (needs 24GB+ VRAM):
+screen -dmS train bash -c 'cd ~/mivalta/mivalta-science-engine && bash training/scripts/train_v6.sh --model-size 8b 2>&1 | tee training.log'
 ```
 
-Training takes ~1-2 hours per model on a GPU server (requires ~16GB VRAM).
-Output goes to `./models/josi-v4-gemma3n-{interpreter,explainer}-<timestamp>/`.
+> **Important**: Always use `./training/venv/bin/python` (full path) instead of
+> `python` or `source venv/bin/activate`. The system `python` command may not
+> exist, and `source activate` doesn't work inside `screen` sessions.
+
+Training takes ~45-90 min on GPU (8B requires ~24GB VRAM with LoRA, 4B requires ~16GB).
+Output goes to `./models/josi-v6-qwen3-{8b,4b}-{unified,interpreter,coach}-<timestamp>/`.
 
 ### Step 3: Merge LoRA Weights
 
 ```bash
-python scripts/finetune_gemma3n.py merge \
-  --lora_path ./models/josi-v4-gemma3n-<timestamp>/lora_weights
+python scripts/finetune_qwen3.py merge \
+  --lora_path ./models/josi-v6-qwen3-unified-<timestamp>/lora_weights
 ```
 
-Output: `./models/josi-v4-gemma3n-<timestamp>/merged/`
+Output: `./models/josi-v6-qwen3-unified-<timestamp>/merged/`
 
 ### Step 4: Export to GGUF
 
-```bash
-python scripts/convert_gemma3n.py \
-  --model_path ./models/josi-v4-gemma3n-<timestamp>/merged
+Two-step process via llama.cpp (Qwen3 uses standard architecture, natively supported):
 
-# Output: ./models/gguf/merged-q4_k_m.gguf (~2.8 GB)
+```bash
+# Step 1: Convert to GGUF F16
+python ~/llama.cpp/convert_hf_to_gguf.py ./models/.../merged \
+  --outfile ./models/gguf/josi-v6-f16.gguf --outtype f16
+
+# Step 2: Quantize to Q4_K_M
+~/llama.cpp/build/bin/llama-quantize \
+  ./models/gguf/josi-v6-f16.gguf \
+  ./models/gguf/josi-v6-q4_k_m.gguf Q4_K_M
+
+# Clean up F16 intermediate
+rm ./models/gguf/*-f16.gguf
 ```
 
-### Step 5: Evaluate
+Expected size: ~5.0 GB (8B Q4_K_M) or ~2.5 GB (4B Q4_K_M).
 
-v4 evaluates interpreter and explainer separately:
+### Step 5: Sanity Check
 
 ```bash
-# Evaluate both models with separate fine-tuned checkpoints
-python scripts/evaluate_gemma3n_v4.py \
-  --interpreter models/josi-v4-gemma3n-interpreter-<timestamp>/final \
-  --explainer models/josi-v4-gemma3n-explainer-<timestamp>/final \
-  --verbose
-
-# Evaluate a single mode with GGUF
-python scripts/evaluate_gemma3n_v4.py \
-  --model ./models/gguf/josi-v4-interpreter-q4_k_m.gguf \
-  --mode interpreter --verbose
-
-python scripts/evaluate_gemma3n_v4.py \
-  --model ./models/gguf/josi-v4-explainer-q4_k_m.gguf \
-  --mode explainer --verbose
-
-# Quick sanity check on merged model (before GGUF export)
-python scripts/finetune_gemma3n.py sanity \
-  --model_path ./models/josi-v4-gemma3n-interpreter-<timestamp>/merged \
+# Test interpreter mode (JSON output)
+python scripts/finetune_qwen3.py sanity \
+  --model_path ./models/josi-v6-qwen3-unified-<timestamp>/merged \
   --mode interpreter
+
+# Test coach mode (coaching text output)
+python scripts/finetune_qwen3.py sanity \
+  --model_path ./models/josi-v6-qwen3-unified-<timestamp>/merged \
+  --mode coach
 ```
 
 Key metrics:
-- **Interpreter**: Valid JSON > 95%, action accuracy > 90%, sport/time accuracy > 85%
-- **Explainer**: Pass rate > 80%, avg warmth > 3.5/5, avg brevity > 3.5/5
-- No forbidden word leaks
-- Pushback rate 5/5 on unrealistic goals
-- **Governor compliance > 90%** (answer-first, max 1 question)
+- **Interpreter**: eval_loss < 0.01, 6/6 sanity checks (including Dutch)
+- **Coach**: eval_loss < 1.5, 3/3 sanity checks (including Dutch response)
 
-### Step 6: Publish Models (Merge → GGUF → Upload)
+### Step 6: Publish Model (Merge -> GGUF -> Upload)
 
-v4 uses a **dual-model architecture** — interpreter + explainer as separate GGUF files:
+v6 produces a **single GGUF file** per platform:
 
-| Model | File | Purpose |
-|-------|------|---------|
-| Interpreter | `josi-v4-interpreter-q4_k_m.gguf` | GATCRequest JSON structured output |
-| Explainer | `josi-v4-explainer-q4_k_m.gguf` | Plain coaching text output |
+| Platform | File | Size | Purpose |
+|----------|------|------|---------|
+| **Android** | `josi-v6-q4_k_m.gguf` | ~5.0 GB | Qwen3-8B, both modes + /think router |
+| iPhone (future) | `josi-v6-4b-q4_k_m.gguf` | ~2.5 GB | Qwen3-4B variant |
 
 **Automated publish (recommended):**
 
 ```bash
-# Full pipeline: merge LoRA → GGUF Q4_K_M → upload to Hetzner Object Storage
-python scripts/publish_models.py \
-  --interpreter models/josi-v4-gemma3n-<timestamp>/final \
-  --explainer models/josi-v4-gemma3n-<timestamp>/final
+# Full pipeline: merge LoRA -> GGUF Q4_K_M -> publish via nginx
+python scripts/publish_models_v6.py \
+  --model models/josi-v6-qwen3-unified-<timestamp>/final
 
-# Run in background (persists after terminal close)
-nohup python scripts/publish_models.py \
-  --interpreter models/josi-v4-gemma3n-<timestamp>/final \
-  --explainer models/josi-v4-gemma3n-<timestamp>/final \
-  > publish.log 2>&1 &
+# Publish pre-built GGUF file only
+python scripts/publish_models_v6.py \
+  --gguf models/gguf/josi-v6-q4_k_m.gguf \
+  --publish-only
 
-# Merge + convert only (skip upload)
-python scripts/publish_models.py \
-  --interpreter models/josi-v4-gemma3n-<timestamp>/final \
-  --explainer models/josi-v4-gemma3n-<timestamp>/final \
-  --no-upload
-```
-
-**Manual upload (if needed):**
-
-```bash
-s3cmd put ./models/gguf/josi-v4-interpreter-q4_k_m.gguf \
-  s3://mivalta-models/josi-v4-interpreter-q4_k_m.gguf --acl-public
-s3cmd put ./models/gguf/josi-v4-explainer-q4_k_m.gguf \
-  s3://mivalta-models/josi-v4-explainer-q4_k_m.gguf --acl-public
-
-# Verify
-curl -I https://objects.mivalta.com/models/josi-v4-interpreter-q4_k_m.gguf
-curl -I https://objects.mivalta.com/models/josi-v4-explainer-q4_k_m.gguf
+# Merge + convert only (skip publish)
+python scripts/publish_models_v6.py \
+  --model models/josi-v6-qwen3-unified-<timestamp>/final \
+  --no-publish
 ```
 
 **Developer download:**
 
 ```bash
-# Automated download with checksum verification
-python training/scripts/download_models.py
-
-# Download to custom directory
-python training/scripts/download_models.py --output-dir /path/to/models
-
-# Download only one model
-python training/scripts/download_models.py --interpreter-only
-python training/scripts/download_models.py --explainer-only
-
-# Direct download (no script needed)
-curl -LO https://objects.mivalta.com/models/josi-v4-interpreter-q4_k_m.gguf
-curl -LO https://objects.mivalta.com/models/josi-v4-explainer-q4_k_m.gguf
+# Direct download
+curl -LO http://<server-ip>/models/josi-v6-q4_k_m.gguf
 ```
 
 **App download flow:**
 1. User installs app (~50 MB, no models bundled)
 2. First launch: "Setting up your coach..." progress bar
-3. Both models download from Hetzner Object Storage (~5.6 GB total)
+3. Single model downloads from Hetzner server (~5.0 GB Android / ~2.5 GB iPhone)
 4. Cached locally, never re-downloaded unless model version updates
 5. All inference runs on-device via llama.cpp — **NO network calls during chat**
 
 ---
 
-## Android Integration Notes (Gemma v4)
+## Android Integration Notes (Qwen3 v6)
 
-- Gemma uses `gemma2` architecture — supported by llama.cpp since mid-2024
-- Chat format: Gemma (`<start_of_turn>user\n...<end_of_turn>`)
-- **No native system role** — system prompt prepended to first user message
-- Max generation tokens: 150
-- Temperature: 0.45 (range: 0.4-0.5)
-- Context cap: 1024 tokens
+- Qwen3 uses `qwen3` architecture — natively supported by llama.cpp
+- Chat format: ChatML (`<|im_start|>role\ncontent<|im_end|>`) — same as Qwen2.5
+- **Native system role** — ChatML supports system messages directly
+- **Single model, two modes** — same GGUF loaded once, different system prompt per mode
+- **GBNF grammar** for interpreter — guarantees valid JSON (see `shared/schemas/gatc_request.gbnf`)
+- **Router-controlled thinking** — `/think` for complex questions, `/no_think` for fast answers
+- Interpreter: max 200 tokens, temperature 0.3, top_p 0.9, /no_think + GBNF grammar
+- Coach simple: max 200 tokens, temperature 0.5, top_p 0.9, /no_think
+- Coach complex: max 400 tokens, temperature 0.5, top_p 0.9, /think
+- Context cap: 4096 tokens (up from 2048 in v5)
 - Dialogue governor: answer-first, max 1 follow-up question per turn
 
 See `docs/JOSI_INTEGRATION_GUIDE.md` for full Kotlin integration spec.
@@ -214,49 +199,48 @@ See `docs/JOSI_INTEGRATION_GUIDE.md` for full Kotlin integration spec.
 ```
 training/
   scripts/
-    finetune_gemma3n.py            # QLoRA fine-tuning (Gemma 3n E2B, dual-mode)
-    evaluate_gemma3n_v4.py         # Validation suite (interpreter + explainer, memory eval)
-    convert_gemma3n.py             # GGUF conversion & quantization
-    convert_training_data_v4.py    # v3 → v4 data conversion (LLMIntent → dual-mode)
-    augment_training_data_v4.py    # Dataset augmentation (edge cases, diversity)
-    augment_memory_training_data.py # Memory-enriched training examples
-    publish_models.py              # End-to-end: merge → GGUF → upload to Hetzner
+    finetune_qwen3.py              # v6: Qwen3-4B LoRA fine-tuning (single-model architecture)
+    prepare_v6_data.py             # v6: Merge interpreter + coach data into unified dataset
+    publish_models_v6.py           # v6: merge -> GGUF -> upload (single model)
+    finetune_qwen25.py             # v5 (legacy): Qwen2.5-1.5B dual-model fine-tuning
+    prepare_sequential_data.py     # v5 (legacy): Generate sequential explainer data
+    publish_models.py              # v5 (legacy): dual-model publish
     download_models.py             # Developer model download with checksum verify
-    finetune_smollm2.py            # Legacy: SmolLM2 fine-tuning
-    evaluate_smollm2.py            # Legacy: SmolLM2 validation
-    export_gguf.py                 # Legacy: GGUF conversion
+    finetune_gemma3n.py            # Legacy v4: Gemma 3n E2B fine-tuning
+    finetune_smollm2.py            # Legacy v3: SmolLM2 fine-tuning
   prompts/
-    interpreter_system.txt         # System prompt for interpreter model
-    explainer_system.txt           # System prompt for explainer model
+    josi_v6_interpreter.txt        # v6: Interpreter system prompt (multilingual)
+    josi_v6_coach.txt              # v6: Coach system prompt (multilingual)
+    interpreter_system.txt         # v5 (legacy): Interpreter prompt
+    explainer_system.txt           # v5 (legacy): Explainer prompt
+    explainer_sequential_system.txt # v5 (legacy): Sequential explainer prompt
   data/
-    train_interpreter.jsonl        # v4 Interpreter training set (~1450 examples)
-    train_explainer.jsonl          # v4 Explainer training set (~1120 examples)
-    val_interpreter.jsonl          # v4 Interpreter validation set
-    val_explainer.jsonl            # v4 Explainer validation set
-    train_v3.jsonl                 # Legacy v3 source data (8,574 LLMIntent examples)
-    val_v3.jsonl                   # Legacy v3 validation data
+    train_v6_unified.jsonl         # v6: Unified training set (interpreter + coach merged)
+    val_v6_unified.jsonl           # v6: Unified validation set
+    train_interpreter.jsonl        # Interpreter training set (~1450 examples)
+    val_interpreter.jsonl          # Interpreter validation set (~149 examples)
+    train_explainer_sequential.jsonl  # v5 Sequential explainer training set (~812 examples)
+    val_explainer_sequential.jsonl    # v5 Sequential explainer validation set (~92 examples)
     gold_combined.jsonl            # Source gold data (678 curated)
-    philosophy_enhanced.jsonl      # Coaching persona data
   requirements.txt
 shared/
   llm_intent_parser.py            # JSON post-processor (v3 LLMIntent production)
-  gatc_postprocessor.py            # v4 GATCRequest post-processor
-  memory_extractor.py              # Rule-based fact extraction (v1)
+  gatc_postprocessor.py            # v4/v5/v6 GATCRequest post-processor
   dialogue_governor.py             # Answer-first, max 1 question enforcement
   schemas/
-    llm_intent.schema.json         # Legacy v3 output contract
-    gatc_request.schema.json       # v4 Interpreter output contract
-    chat_context.schema.json       # v4 Input contract (with athlete_memory)
+    gatc_request.schema.json       # Interpreter output contract (v4/v5/v6 — unchanged)
+    gatc_request.gbnf              # v6: GBNF grammar for llama.cpp (guaranteed valid JSON)
+    chat_context.schema.json       # Input contract (with athlete_memory)
 ```
 
 ---
 
-## SmolLM2 Pipeline (v3, Legacy)
+## Qwen2.5-1.5B Pipeline (v5, Legacy)
 
-The SmolLM2 pipeline is preserved for reference and fallback. See the legacy scripts:
-- `finetune_smollm2.py` — LoRA fine-tuning
-- `evaluate_smollm2.py` — Validation suite
-- `export_gguf.py` — GGUF conversion
+The v5 dual-model pipeline is preserved for reference:
+- `finetune_qwen25.py` — LoRA fine-tuning (interpreter + explainer separately)
+- `publish_models.py` — Dual-model GGUF publish
+- `prepare_sequential_data.py` — Explainer data with interpreter context
 
 ---
 
@@ -270,10 +254,6 @@ shutil.copy2(sys.argv[1], sys.argv[2])
 with open(sys.argv[2], 'r+b') as f:
     f.seek(4)
     f.write(b'\x02\x00\x00\x00')
-```
-
-```bash
-python3 -c "..." input.gguf output-v2.gguf
 ```
 
 This changes only the header version number — model weights are identical.

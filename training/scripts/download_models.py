@@ -1,27 +1,26 @@
 #!/usr/bin/env python3
 """
-MiValta Josi v4 — Model Download Script
+MiValta Josi v6 — Bundle Download Script
 
-Downloads the published Josi v4 GGUF models from Hetzner Object Storage.
-Intended for developers who need the models for local evaluation or integration.
+Downloads the Josi v6 bundle from the Hetzner training server.
+ONE file: josi-v6-bundle.zip containing model GGUF + knowledge.json.
 
-Downloads:
-  - josi-v4-interpreter-q4_k_m.gguf  (~2.8 GB) — GATCRequest JSON output
-  - josi-v4-explainer-q4_k_m.gguf    (~2.8 GB) — Plain coaching text output
-  - josi-v4-manifest.json             — Model metadata and checksums
+After download, extracts both files to the output directory:
+  - josi-v6-q4_k_m.gguf    (~5.0 GB) — single GGUF model
+  - knowledge.json           (~153 KB, 114 coaching context cards)
+
+The knowledge cards ship WITH the model — one download, one package.
+On-device, the app injects relevant cards into prompts at inference time.
 
 Usage:
-    # Download both models to default location (models/gguf/)
+    # Download and extract bundle
     python download_models.py
 
     # Download to custom directory
     python download_models.py --output-dir /path/to/models
 
-    # Download only the interpreter
-    python download_models.py --interpreter-only
-
-    # Download only the explainer
-    python download_models.py --explainer-only
+    # Use a different server URL
+    python download_models.py --server http://my-server/models
 
     # Skip checksum verification
     python download_models.py --no-verify
@@ -31,7 +30,7 @@ Usage:
 
 Requirements:
     - Python 3.8+ (no external dependencies)
-    - Internet connection
+    - Network access to the Hetzner training server
 """
 
 import argparse
@@ -41,21 +40,14 @@ import os
 import sys
 import urllib.request
 import urllib.error
+import zipfile
 from pathlib import Path
 
-S3_PUBLIC_URL = "https://objects.mivalta.com/models"
+# Hetzner training server — models served via nginx
+SERVER_URL = "http://144.76.62.249/models"
 
-# Fallback model definitions (used if manifest download fails)
-DEFAULT_MODELS = {
-    "interpreter": {
-        "file": "josi-v4-interpreter-q4_k_m.gguf",
-        "url": f"{S3_PUBLIC_URL}/josi-v4-interpreter-q4_k_m.gguf",
-    },
-    "explainer": {
-        "file": "josi-v4-explainer-q4_k_m.gguf",
-        "url": f"{S3_PUBLIC_URL}/josi-v4-explainer-q4_k_m.gguf",
-    },
-}
+# Bundle filename
+BUNDLE_FILE = "josi-v6-bundle.zip"
 
 
 def sha256_file(path: str) -> str:
@@ -97,7 +89,7 @@ def download_file(url: str, dest: str, desc: str = ""):
                         total_mb = total / (1024 * 1024)
                         bar_len = 30
                         filled = int(bar_len * downloaded / total)
-                        bar = "█" * filled + "░" * (bar_len - filled)
+                        bar = "\u2588" * filled + "\u2591" * (bar_len - filled)
                         print(
                             f"\r    [{bar}] {pct:5.1f}% ({size_mb:.0f}/{total_mb:.0f} MB)",
                             end="", flush=True,
@@ -106,25 +98,25 @@ def download_file(url: str, dest: str, desc: str = ""):
             if total > 0:
                 print()  # newline after progress bar
 
-        size_gb = os.path.getsize(dest) / (1024**3)
-        print(f"    ✓ Downloaded ({size_gb:.2f} GB)")
+        size_bytes = os.path.getsize(dest)
+        print(f"    Done ({size_bytes / (1024**3):.2f} GB)")
         return True
 
     except urllib.error.HTTPError as e:
-        print(f"\n    ✗ HTTP Error {e.code}: {e.reason}")
+        print(f"\n    HTTP Error {e.code}: {e.reason}")
         if os.path.exists(dest):
             os.remove(dest)
         return False
     except urllib.error.URLError as e:
-        print(f"\n    ✗ Connection error: {e.reason}")
+        print(f"\n    Connection error: {e.reason}")
         if os.path.exists(dest):
             os.remove(dest)
         return False
 
 
-def fetch_manifest() -> dict | None:
+def fetch_manifest(base_url: str) -> dict | None:
     """Download and parse the model manifest."""
-    manifest_url = f"{S3_PUBLIC_URL}/josi-v4-manifest.json"
+    manifest_url = f"{base_url}/josi-v6-manifest.json"
     try:
         req = urllib.request.Request(manifest_url)
         req.add_header("User-Agent", "MiValta-Download/1.0")
@@ -140,10 +132,10 @@ def verify_checksum(path: str, expected_sha256: str) -> bool:
     print(f"    Verifying checksum...", end=" ", flush=True)
     actual = sha256_file(path)
     if actual == expected_sha256:
-        print(f"✓ OK")
+        print("OK")
         return True
     else:
-        print(f"✗ MISMATCH")
+        print("MISMATCH")
         print(f"      Expected: {expected_sha256}")
         print(f"      Actual:   {actual}")
         return False
@@ -151,123 +143,127 @@ def verify_checksum(path: str, expected_sha256: str) -> bool:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Download Josi v4 GGUF models from Hetzner Object Storage"
+        description="Download Josi v6 bundle (model + knowledge) from the Hetzner training server"
     )
 
     parser.add_argument("--output-dir", type=str, default=None,
                         help="Output directory (default: models/gguf/ in project root)")
-    parser.add_argument("--interpreter-only", action="store_true",
-                        help="Download only the interpreter model")
-    parser.add_argument("--explainer-only", action="store_true",
-                        help="Download only the explainer model")
+    parser.add_argument("--server", type=str, default=SERVER_URL,
+                        help=f"Base URL for model downloads (default: {SERVER_URL})")
     parser.add_argument("--no-verify", action="store_true",
                         help="Skip SHA-256 checksum verification")
     parser.add_argument("--force", action="store_true",
                         help="Force re-download even if files exist")
 
     args = parser.parse_args()
+    base_url = args.server.rstrip("/")
 
     # Determine output directory
     if args.output_dir:
         output_dir = Path(args.output_dir)
     else:
-        # Auto-detect project root
         script_dir = Path(__file__).resolve().parent
         output_dir = script_dir.parent.parent / "models" / "gguf"
 
     output_dir.mkdir(parents=True, exist_ok=True)
 
     print("=" * 60)
-    print("  MiValta Josi v4 — Model Download")
+    print("  MiValta Josi v6 — Bundle Download")
+    print("  One file: model + knowledge cards")
     print("=" * 60)
-    print(f"\n  Output: {output_dir}")
+    print(f"\n  Server: {base_url}")
+    print(f"  Output: {output_dir}")
 
-    # Fetch manifest for checksums and URLs
-    manifest = fetch_manifest()
-    models = (manifest or {}).get("models", DEFAULT_MODELS)
-
+    # Fetch manifest for bundle URL + checksum
+    manifest = fetch_manifest(base_url)
     if manifest:
+        print(f"  Version: {manifest.get('version', 'unknown')}")
         print(f"  Published: {manifest.get('published', 'unknown')}")
 
-    # Determine which models to download
-    roles = []
-    if args.interpreter_only:
-        roles = ["interpreter"]
-    elif args.explainer_only:
-        roles = ["explainer"]
-    else:
-        roles = ["interpreter", "explainer"]
+    bundle_meta = (manifest or {}).get("bundle", {"file": BUNDLE_FILE})
+    bundle_file = bundle_meta.get("file", BUNDLE_FILE)
+    bundle_url = bundle_meta.get("url", f"{base_url}/{bundle_file}")
+    bundle_dest = output_dir / bundle_file
 
-    results = {}
+    # Check if already extracted (model GGUF exists with correct checksum)
+    model_meta = (manifest or {}).get("model", {})
+    model_file = model_meta.get("file", "josi-v6-q4_k_m.gguf")
+    model_path = output_dir / model_file
+    knowledge_path = output_dir / "knowledge.json"
 
-    for role in roles:
-        meta = models.get(role)
-        if not meta:
-            print(f"\n  ✗ No {role} model found in manifest")
-            continue
+    if model_path.exists() and knowledge_path.exists() and not args.force:
+        model_sha = model_meta.get("sha256")
+        if model_sha and not args.no_verify:
+            if verify_checksum(str(model_path), model_sha):
+                size_gb = model_path.stat().st_size / (1024**3)
+                print(f"\n  Already downloaded and verified:")
+                print(f"    Model:     {model_path} ({size_gb:.2f} GB)")
+                print(f"    Knowledge: {knowledge_path}")
+                print(f"\n  Use --force to re-download.")
+                return 0
+        else:
+            size_gb = model_path.stat().st_size / (1024**3)
+            print(f"\n  Already exists ({size_gb:.2f} GB), skipping (use --force to re-download)")
+            return 0
 
-        filename = meta.get("file", DEFAULT_MODELS[role]["file"])
-        url = meta.get("url", DEFAULT_MODELS[role]["url"])
-        dest = output_dir / filename
+    # ── Download the bundle ─────────────────────────────────────
+    print(f"\n{'─'*60}")
+    print(f"  Downloading bundle: {bundle_file}")
+    print(f"{'─'*60}")
 
-        # Check if already downloaded
-        if dest.exists() and not args.force:
-            size_gb = dest.stat().st_size / (1024**3)
-            expected_sha = meta.get("sha256")
+    success = download_file(bundle_url, str(bundle_dest), desc="Josi v6 bundle")
+    if not success:
+        print("\n  Failed to download bundle")
+        return 1
 
-            if expected_sha and not args.no_verify:
-                if verify_checksum(str(dest), expected_sha):
-                    print(f"  ✓ {role} already downloaded and verified ({size_gb:.2f} GB)")
-                    results[role] = str(dest)
-                    continue
-                else:
-                    print(f"  Checksum mismatch, re-downloading...")
-            else:
-                print(f"\n  ✓ {role} already exists ({size_gb:.2f} GB), skipping (use --force to re-download)")
-                results[role] = str(dest)
-                continue
+    # Verify bundle checksum
+    bundle_sha = bundle_meta.get("sha256")
+    if bundle_sha and not args.no_verify:
+        if not verify_checksum(str(bundle_dest), bundle_sha):
+            print("  Bundle checksum failed! File may be corrupted.")
+            print("  Re-run with --force to re-download.")
+            return 1
 
-        # Download
-        success = download_file(url, str(dest), desc=f"{role} model")
-        if not success:
-            print(f"\n  ✗ Failed to download {role} model")
-            continue
+    # ── Extract ─────────────────────────────────────────────────
+    print(f"\n{'─'*60}")
+    print("  Extracting bundle")
+    print(f"{'─'*60}")
 
-        # Verify checksum
-        expected_sha = meta.get("sha256")
-        if expected_sha and not args.no_verify:
-            if not verify_checksum(str(dest), expected_sha):
-                print(f"  ⚠ Checksum verification failed for {role}!")
-                print(f"    File may be corrupted. Re-run with --force to re-download.")
-                continue
+    with zipfile.ZipFile(str(bundle_dest), "r") as zf:
+        names = zf.namelist()
+        print(f"    Contents: {', '.join(names)}")
 
-        results[role] = str(dest)
+        for name in names:
+            info = zf.getinfo(name)
+            size_mb = info.file_size / (1024 * 1024)
+            print(f"    Extracting {name} ({size_mb:.1f} MB)...")
+            zf.extract(name, str(output_dir))
 
-    # Summary
+    # Remove the zip after extraction
+    bundle_dest.unlink()
+    print(f"    Removed {bundle_file} (extracted)")
+
+    # ── Summary ─────────────────────────────────────────────────
     print(f"\n{'='*60}")
-    if len(results) == len(roles):
-        print("  Download Complete!")
-    else:
-        print("  Download finished with errors")
+    print("  Bundle Complete!")
     print(f"{'='*60}")
 
-    for role, path in results.items():
-        size_gb = os.path.getsize(path) / (1024**3)
-        print(f"\n  {role}: {path} ({size_gb:.2f} GB)")
+    if model_path.exists():
+        size_gb = model_path.stat().st_size / (1024**3)
+        print(f"\n  Model:     {model_path} ({size_gb:.2f} GB)")
 
-    if results:
-        print(f"\n  Next steps:")
-        if "interpreter" in results:
-            print(f"    Evaluate interpreter:")
-            print(f"      python training/scripts/evaluate_gemma3n_v4.py \\")
-            print(f"        --interpreter {results['interpreter']} --verbose")
-        if "explainer" in results:
-            print(f"    Evaluate explainer:")
-            print(f"      python training/scripts/evaluate_gemma3n_v4.py \\")
-            print(f"        --explainer {results['explainer']} --verbose")
+    if knowledge_path.exists():
+        size_kb = knowledge_path.stat().st_size / 1024
+        try:
+            with open(knowledge_path) as f:
+                kdata = json.load(f)
+            entries = kdata.get("total_entries", len(kdata.get("entries", [])))
+            print(f"  Knowledge: {knowledge_path} ({size_kb:.0f} KB, {entries} cards)")
+        except Exception:
+            print(f"  Knowledge: {knowledge_path} ({size_kb:.0f} KB)")
+
     print()
-
-    return 0 if len(results) == len(roles) else 1
+    return 0
 
 
 if __name__ == "__main__":
