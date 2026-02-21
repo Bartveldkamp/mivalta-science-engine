@@ -871,6 +871,12 @@ def chat(model_path: str, model_size: str = None, sport: str = None,
         return lines
 
     def generate(system_prompt, user_content, temperature=0.3, max_tokens=200):
+        """Generate a response. Returns (clean_response, thinking).
+
+        thinking is the chain-of-thought text if the model produced one,
+        or None. This allows the interpreter's reasoning to be passed
+        to the coach as grounding context.
+        """
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_content},
@@ -892,18 +898,25 @@ def chat(model_path: str, model_size: str = None, sport: str = None,
         new_tokens = output_ids[0][inputs["input_ids"].shape[1]:]
         response = tokenizer.decode(new_tokens, skip_special_tokens=True).strip()
 
-        # Strip thinking tags — Qwen3 sometimes omits the opening <think>
+        # Extract thinking (chain-of-thought) before stripping
+        thinking = None
         if "</think>" in response:
-            # Case 1: <think>...</think> present
-            response = re_mod.sub(r"<think>.*?</think>", "", response, flags=re_mod.DOTALL).strip()
-            # Case 2: no <think> but </think> exists — model started thinking immediately
-            if "</think>" in response:
-                response = response.split("</think>", 1)[-1].strip()
+            # Case 1: <think>...</think>
+            think_match = re_mod.search(r"<think>(.*?)</think>", response, flags=re_mod.DOTALL)
+            if think_match:
+                thinking = think_match.group(1).strip()
+                response = re_mod.sub(r"<think>.*?</think>", "", response, flags=re_mod.DOTALL).strip()
+            else:
+                # Case 2: no <think> tag — everything before </think> is thinking
+                parts = response.split("</think>", 1)
+                thinking = parts[0].strip()
+                response = parts[1].strip() if len(parts) > 1 else ""
         elif "<think>" in response:
-            # Orphan opening tag — strip it and everything after
-            response = response.split("<think>", 1)[0].strip()
+            parts = response.split("<think>", 1)
+            response = parts[0].strip()
+            thinking = parts[1].strip() if len(parts) > 1 else None
 
-        return response
+        return response, thinking
 
     def rpe_to_goal(rpe):
         """Map RPE (0-10) to a training goal for the GATC."""
@@ -1119,21 +1132,31 @@ def chat(model_path: str, model_size: str = None, sport: str = None,
 
         # ─── Step 1: Interpreter call ────────────────────────────────────
         interpreter_response = None
+        interpreter_thinking = None
         action = None
         parsed = None
 
         if force_mode != "coach":
             t0 = time_mod.time()
-            interpreter_response = generate(
+            interpreter_response, interpreter_thinking = generate(
                 interpreter_prompt, interpreter_input,
                 temperature=INTERPRETER_TEMPERATURE, max_tokens=INFERENCE_MAX_TOKENS
             )
             t_interp = time_mod.time() - t0
 
             if show_raw:
-                print(f"\n  ┌─ INTERPRETER ({t_interp:.1f}s) ─────────────────────")
-                print(f"  │ {interpreter_response}")
-                print(f"  └{'─' * 50}")
+                if interpreter_thinking:
+                    print(f"\n  ┌─ INTERPRETER REASONING ({t_interp:.1f}s) ────────────")
+                    # Word-wrap thinking for readability
+                    for tline in interpreter_thinking.split("\n"):
+                        print(f"  │ {tline.strip()}")
+                    print(f"  ├─ DECISION ──────────────────────────────────")
+                    print(f"  │ {interpreter_response}")
+                    print(f"  └{'─' * 50}")
+                else:
+                    print(f"\n  ┌─ INTERPRETER ({t_interp:.1f}s) ─────────────────────")
+                    print(f"  │ {interpreter_response}")
+                    print(f"  └{'─' * 50}")
 
             # Parse the interpreter JSON
             try:
@@ -1262,17 +1285,22 @@ def chat(model_path: str, model_size: str = None, sport: str = None,
         if session_str and show_raw:
             print(f"  GATC Session: {session_str}")
 
-        # Coach gets history (for multi-turn awareness) + interpreter result
-        # Reminder: respond in plain text only, never JSON
+        # Coach gets history + interpreter decision + interpreter reasoning
+        # The reasoning is the chain-of-thought handoff from interpreter → coach
+        reasoning_block = ""
+        if interpreter_thinking:
+            reasoning_block = f"\n\n[REASONING]\n{interpreter_thinking}"
+
         coach_input = (f"{user_input}{coach_context}{history_block}"
                        f"\n\n[INTERPRETER]\n{interpreter_response}"
+                       f"{reasoning_block}"
                        f"\n\nRespond as Josi in plain coaching text. No JSON. No markdown fences.")
 
         # Coach gets more tokens for real coaching responses
         coach_max_tokens = 400
 
         t0 = time_mod.time()
-        coach_response = generate(
+        coach_response, coach_thinking = generate(
             coach_prompt, coach_input,
             temperature=COACH_TEMPERATURE, max_tokens=coach_max_tokens
         )
