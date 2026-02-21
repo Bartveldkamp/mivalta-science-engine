@@ -940,9 +940,11 @@ def chat(model_path: str, model_size: str = None, sport: str = None,
         context_lines.append(f"- Readiness: {readiness}")
         context = "\n\nCONTEXT:\n" + "\n".join(context_lines)
 
-        # Add conversation history for multi-turn awareness
+        # Build conversation history (for coach only — interpreter is single-turn)
         history_block = build_history_block()
-        user_with_context = user_input + context + history_block
+
+        # Interpreter gets ONLY the current message + context (no history)
+        interpreter_input = user_input + context
 
         # ─── Step 1: Interpreter call ────────────────────────────────────
         interpreter_response = None
@@ -952,7 +954,7 @@ def chat(model_path: str, model_size: str = None, sport: str = None,
         if force_mode != "coach":
             t0 = time_mod.time()
             interpreter_response = generate(
-                interpreter_prompt, user_with_context,
+                interpreter_prompt, interpreter_input,
                 temperature=INTERPRETER_TEMPERATURE, max_tokens=INFERENCE_MAX_TOKENS
             )
             t_interp = time_mod.time() - t0
@@ -980,17 +982,31 @@ def chat(model_path: str, model_size: str = None, sport: str = None,
             # Coach-only mode: synthesize interpreter context
             interpreter_response = json.dumps({"action": "answer_question", "question": user_input, "free_text": user_input})
 
+        # Coach gets history (for multi-turn awareness) + interpreter result
         coach_input = f"{user_input}{context}{history_block}\n\n[INTERPRETER]\n{interpreter_response}"
+
+        # Coach gets more tokens for real coaching responses
+        coach_max_tokens = 400
 
         t0 = time_mod.time()
         coach_response = generate(
             coach_prompt, coach_input,
-            temperature=COACH_TEMPERATURE, max_tokens=INFERENCE_MAX_TOKENS
+            temperature=COACH_TEMPERATURE, max_tokens=coach_max_tokens
         )
         t_coach = time_mod.time() - t0
 
         print(f"\n  ┌─ JOSI ({t_coach:.1f}s) ──────────────────────────────")
-        print(f"  │ {coach_response}")
+        # Word-wrap long responses for readability
+        words = coach_response.split()
+        line = "  │ "
+        for word in words:
+            if len(line) + len(word) + 1 > 70:
+                print(line)
+                line = "  │ " + word
+            else:
+                line += (" " if line != "  │ " else "") + word
+        if line.strip("│ "):
+            print(line)
         print(f"  └{'─' * 50}")
 
         # Save to conversation history
