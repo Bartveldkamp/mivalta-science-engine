@@ -89,51 +89,76 @@ From the user's perspective, this is **one Josi AI coach**. Behind the scenes:
 
 ---
 
-## Step 1: Download the Model + Knowledge Bundle
+## Step 1: Download the Bundle
 
-The app downloads **two files** as one atomic bundle. Both are required — the model generates text, the knowledge cards provide coaching context that gets injected into prompts.
+**One download.** The model and knowledge cards ship together as `josi-v6-bundle.zip`. The app downloads one file and stream-extracts it.
 
-| File | Size | Purpose |
-|------|------|---------|
-| `josi-v6-q4_k_m.gguf` | ~5.0 GB (8B) / ~2.5 GB (4B) | GGUF model for llama.cpp inference |
-| `knowledge.json` | ~153 KB (114 cards) | Coaching context cards, injected into prompts at inference time |
-| `josi-v6-manifest.json` | ~1 KB | Version, checksums, download URLs |
+| What | File | Size |
+|------|------|------|
+| **Bundle** (what the app downloads) | `josi-v6-bundle.zip` | ~5.0 GB |
+| Contains: GGUF model | `josi-v6-q4_k_m.gguf` | ~5.0 GB (stored, no compression) |
+| Contains: Knowledge cards | `knowledge.json` | ~153 KB (114 coaching context cards) |
+| Version check (fetched first) | `josi-v6-manifest.json` | ~1 KB |
 
 ### Download
 
 **Direct HTTP download from training server:**
 ```bash
 # Replace <SERVER_IP> with the IP provided by Bart
-curl -LO http://<SERVER_IP>/models/josi-v6-q4_k_m.gguf
-curl -LO http://<SERVER_IP>/models/knowledge.json
+# One file — model + knowledge bundled together
+curl -LO http://<SERVER_IP>/models/josi-v6-bundle.zip
+unzip josi-v6-bundle.zip  # extracts: josi-v6-q4_k_m.gguf + knowledge.json
 ```
 
-**In the Kotlin app — download both files together:**
+**In the Kotlin app — one download, stream-extract:**
 ```kotlin
 val BASE_URL = "http://<SERVER_IP>/models"
 
-// Both files are required — download as one bundle
-val modelUrl = "$BASE_URL/josi-v6-q4_k_m.gguf"
-val knowledgeUrl = "$BASE_URL/knowledge.json"
+// One bundle URL — model + knowledge in one file
+val bundleUrl = "$BASE_URL/josi-v6-bundle.zip"
 
-// Local storage on device (same directory)
+// Local files (extracted from the bundle)
 val modelFile = File(context.filesDir, "josi-v6-q4_k_m.gguf")
 val knowledgeFile = File(context.filesDir, "knowledge.json")
+
+// Download and stream-extract in one pass (no double storage)
+fun downloadBundle(url: String, destDir: File, onProgress: (Float) -> Unit) {
+    val connection = URL(url).openConnection() as HttpURLConnection
+    val totalBytes = connection.contentLengthLong
+    var downloaded = 0L
+
+    ZipInputStream(BufferedInputStream(connection.inputStream)).use { zis ->
+        var entry = zis.nextEntry
+        while (entry != null) {
+            val outFile = File(destDir, entry.name)
+            outFile.outputStream().buffered().use { out ->
+                val buf = ByteArray(1024 * 1024)  // 1 MB chunks
+                var len: Int
+                while (zis.read(buf).also { len = it } > 0) {
+                    out.write(buf, 0, len)
+                    downloaded += len
+                    if (totalBytes > 0) onProgress(downloaded.toFloat() / totalBytes)
+                }
+            }
+            zis.closeEntry()
+            entry = zis.nextEntry
+        }
+    }
+}
 ```
 
 **Manifest URL:** `http://<SERVER_IP>/models/josi-v6-manifest.json`
-The manifest contains checksums for BOTH the model and knowledge.json. Use it to check for updates — when either file changes, re-download both.
+The manifest contains the bundle checksum + individual file checksums. Fetch it first to check for updates.
 
 **App download flow (end user):**
 1. User installs app (~50 MB, no models bundled)
 2. First launch: "Setting up your coach..." progress bar
-3. App fetches manifest to get current version + checksums
-4. App downloads model GGUF (~5.0 GB) + knowledge.json (~153 KB) together
-5. Verify SHA-256 checksums for both files (from manifest)
-6. Both cached locally, re-downloaded together when version updates
-7. All inference runs on-device via llama.cpp — no network calls
-
-**The knowledge cards are NOT optional.** Without them, the coach has no sport science context and gives generic answers. They must always be downloaded alongside the model.
+3. App fetches manifest to get current version + bundle checksum
+4. App downloads `josi-v6-bundle.zip` (~5.0 GB) — **one HTTP request**
+5. Stream-extract zip directly to files (no double storage on device)
+6. Verify SHA-256 checksum of extracted model GGUF
+7. Cached locally, re-downloaded when manifest version changes
+8. All inference runs on-device via llama.cpp — no network calls
 
 Load model with [llama.android](https://github.com/ggerganov/llama.cpp/tree/master/examples/llama.android) or equivalent llama.cpp Kotlin/JNI bindings. Load knowledge.json with standard JSON parsing.
 

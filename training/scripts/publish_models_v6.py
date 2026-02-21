@@ -4,13 +4,14 @@ MiValta Josi v6 — Single Model Publish Script
 
 End-to-end pipeline: LoRA adapter → merge → GGUF Q4_K_M → publish via nginx.
 
-Produces ONE model bundle for the v6 single-model architecture:
-  - GGUF model: josi-v6-q4_k_m.gguf  (~5.0 GB Android / ~2.5 GB iPhone)
-  - Knowledge:  knowledge.json  (~153 KB, coaching context for on-device injection)
-  - Manifest:   josi-v6-manifest.json  (version, checksums, download URLs)
+Produces ONE downloadable file for the v6 single-model architecture:
+  - josi-v6-bundle.zip  (~5.0 GB) — contains:
+      - josi-v6-q4_k_m.gguf  (GGUF model, stored without compression)
+      - knowledge.json  (~153 KB, coaching context cards, deflated)
+  - josi-v6-manifest.json  (version, checksums, download URL — fetched separately)
 
-The app downloads model + knowledge as one versioned bundle.
-Knowledge is updated atomically with the model — same version, same download.
+The app downloads ONE zip file. Model + knowledge ship together as one package.
+Knowledge is updated atomically with the model — same version, same download, same file.
 
 Publish target: nginx on the Hetzner training server
   URL: http://<server-ip>/models/
@@ -41,6 +42,7 @@ import shutil
 import socket
 import subprocess
 import sys
+import zipfile
 from datetime import datetime
 from pathlib import Path
 
@@ -207,8 +209,9 @@ def publish_file(local_path: str, filename: str) -> str:
     return url
 
 
-def write_manifest(model_meta: dict, knowledge_meta: dict | None, base_url: str):
-    """Write manifest.json with model + knowledge metadata and download URLs."""
+def write_manifest(model_meta: dict, knowledge_meta: dict | None,
+                   bundle_meta: dict, base_url: str):
+    """Write manifest.json with bundle download URL + individual file metadata."""
     GGUF_DIR.mkdir(parents=True, exist_ok=True)
 
     manifest = {
@@ -217,6 +220,7 @@ def write_manifest(model_meta: dict, knowledge_meta: dict | None, base_url: str)
         "base_model": "Qwen3",
         "published": datetime.now().isoformat(),
         "base_url": base_url,
+        "bundle": bundle_meta,
         "model": model_meta,
         "upgrade_note": "v6 replaces v5 dual-model (2x Qwen2.5-1.5B) with single Qwen3",
     }
@@ -347,31 +351,56 @@ def main():
         print(f"  Run: python knowledge/scripts/export_knowledge_json.py")
         print(f"  Continuing without knowledge bundle...")
 
-    # Step 3: Publish to nginx directory
+    # Step 3: Create single zip bundle (model + knowledge in one file)
+    print(f"\n{'='*60}")
+    print("  Step 3: Create bundle zip (one file download)")
+    print(f"{'='*60}")
+
+    bundle_name = "josi-v6-bundle.zip"
+    bundle_path = GGUF_DIR / bundle_name
+
+    print(f"\n  -> Creating {bundle_name}")
+    print(f"    Model:     {os.path.basename(gguf_path)}")
+    if KNOWLEDGE_JSON.exists():
+        print(f"    Knowledge: knowledge.json")
+
+    with zipfile.ZipFile(str(bundle_path), "w") as zf:
+        # GGUF is already compressed (quantized) — store without compression
+        print(f"    Adding model (stored, no compression)...")
+        zf.write(gguf_path, os.path.basename(gguf_path), compress_type=zipfile.ZIP_STORED)
+
+        # Knowledge.json is small text — compress it
+        if KNOWLEDGE_JSON.exists():
+            print(f"    Adding knowledge.json (deflated)...")
+            zf.write(str(KNOWLEDGE_JSON), "knowledge.json", compress_type=zipfile.ZIP_DEFLATED)
+
+    bundle_size = os.path.getsize(str(bundle_path))
+    bundle_checksum = sha256_file(str(bundle_path))
+    print(f"  Bundle: {bundle_path} ({bundle_size / (1024**3):.2f} GB)")
+    print(f"  SHA-256: {bundle_checksum}")
+
+    bundle_meta = {
+        "file": bundle_name,
+        "size_bytes": bundle_size,
+        "sha256": bundle_checksum,
+    }
+
+    # Step 4: Publish to nginx directory
     if not args.no_publish:
         print(f"\n{'='*60}")
-        print(f"  Step 3: Publish to {PUBLISH_DIR}")
+        print(f"  Step 4: Publish to {PUBLISH_DIR}")
         print(f"{'='*60}")
 
-        filename = os.path.basename(gguf_path)
-        url = publish_file(gguf_path, filename)
-        model_meta["url"] = url
-
-        # Publish knowledge.json alongside the model
-        if KNOWLEDGE_JSON.exists():
-            knowledge_url = publish_file(str(KNOWLEDGE_JSON), "knowledge.json")
-            knowledge_meta["url"] = knowledge_url
+        bundle_url = publish_file(str(bundle_path), bundle_name)
+        bundle_meta["url"] = bundle_url
     else:
         print("\n  Skipping publish (--no-publish)")
-        filename = os.path.basename(gguf_path)
-        model_meta["url"] = f"{base_url}/{filename}"
-        if knowledge_meta:
-            knowledge_meta["url"] = f"{base_url}/knowledge.json"
+        bundle_meta["url"] = f"{base_url}/{bundle_name}"
 
-    # Write manifest
-    manifest = write_manifest(model_meta, knowledge_meta, base_url)
+    # Write manifest (bundle-based: one download URL)
+    manifest = write_manifest(model_meta, knowledge_meta, bundle_meta, base_url)
 
-    # Publish manifest too
+    # Publish manifest
     if not args.no_publish:
         publish_file(str(MANIFEST_PATH), "josi-v6-manifest.json")
 
@@ -379,18 +408,14 @@ def main():
     print(f"\n{'='*60}")
     print("  Publish Complete!")
     print(f"{'='*60}")
-    print(f"\n  Model:     {model_meta['url']}")
-    if knowledge_meta:
-        print(f"  Knowledge: {knowledge_meta.get('url', 'not published')}")
-    print(f"  Manifest:  {base_url}/josi-v6-manifest.json")
-    print(f"\n  Bundle size: {size_bytes / (1024**3):.2f} GB model + {knowledge_size / 1024:.1f} KB knowledge")
-    print(f"  Total files: 3 (model GGUF + knowledge.json + manifest.json)")
+    print(f"\n  Bundle:   {bundle_meta.get('url', bundle_name)} ({bundle_size / (1024**3):.2f} GB)")
+    print(f"  Contains: {os.path.basename(gguf_path)} + knowledge.json")
+    print(f"  Manifest: {base_url}/josi-v6-manifest.json")
 
     print(f"\n  App downloads on first launch:")
-    print(f"    1. {base_url}/josi-v6-manifest.json  (version check)")
-    print(f"    2. {model_meta['url']}  (model)")
-    if knowledge_meta:
-        print(f"    3. {knowledge_meta.get('url', base_url + '/knowledge.json')}  (coaching knowledge)")
+    print(f"    1. GET {base_url}/josi-v6-manifest.json  (version check, ~1 KB)")
+    print(f"    2. GET {bundle_meta.get('url', base_url + '/' + bundle_name)}  (model + knowledge, one file)")
+    print(f"    3. Stream-extract zip -> GGUF + knowledge.json on device")
 
     print()
 
