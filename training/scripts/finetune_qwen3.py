@@ -892,9 +892,16 @@ def chat(model_path: str, model_size: str = None, sport: str = None,
         new_tokens = output_ids[0][inputs["input_ids"].shape[1]:]
         response = tokenizer.decode(new_tokens, skip_special_tokens=True).strip()
 
-        # Strip thinking tags
-        if "<think>" in response:
+        # Strip thinking tags — Qwen3 sometimes omits the opening <think>
+        if "</think>" in response:
+            # Case 1: <think>...</think> present
             response = re_mod.sub(r"<think>.*?</think>", "", response, flags=re_mod.DOTALL).strip()
+            # Case 2: no <think> but </think> exists — model started thinking immediately
+            if "</think>" in response:
+                response = response.split("</think>", 1)[-1].strip()
+        elif "<think>" in response:
+            # Orphan opening tag — strip it and everything after
+            response = response.split("<think>", 1)[0].strip()
 
         return response
 
@@ -1064,6 +1071,22 @@ def chat(model_path: str, model_size: str = None, sport: str = None,
             else:
                 print(f"  Unknown command: {cmd}")
                 continue
+
+        # ─── Pre-step: Detect recovery from illness/rest ────────────────
+        # If user says they feel better, clear illness state BEFORE building
+        # context, so interpreter and coach don't see stale "SICK" flag
+        if conversation_state.get("status") in ("illness", "medical_concern", "rest_day"):
+            lower_input = user_input.lower()
+            recovery_keywords = ("feel good", "feel great", "feeling good", "feeling great",
+                                 "feeling better", "feel better", "i'm good", "i'm fine",
+                                 "much better", "all good", "back to normal",
+                                 "voel me goed", "voel me beter", "gaat goed", "weer fit",
+                                 "lekker", "fris")
+            if any(kw in lower_input for kw in recovery_keywords):
+                old_status = conversation_state.get("status")
+                conversation_state.clear()
+                if show_raw:
+                    print(f"  ✓ Recovery detected — cleared '{old_status}' state")
 
         # Build context block — only include sport if explicitly set
         context_lines = []
@@ -1254,6 +1277,22 @@ def chat(model_path: str, model_size: str = None, sport: str = None,
             temperature=COACH_TEMPERATURE, max_tokens=coach_max_tokens
         )
         t_coach = time_mod.time() - t0
+
+        # Post-process: if coach accidentally outputs JSON, extract the text
+        if coach_response.strip().startswith("{"):
+            try:
+                coach_json = json.loads(coach_response)
+                # Extract text from common JSON shapes the model produces
+                extracted = (coach_json.get("response")
+                             or coach_json.get("message")
+                             or coach_json.get("text")
+                             or coach_json.get("answer"))
+                if extracted and isinstance(extracted, str):
+                    if show_raw:
+                        print(f"  ⚠ Coach outputted JSON — extracted text")
+                    coach_response = extracted
+            except json.JSONDecodeError:
+                pass  # Not valid JSON, use as-is
 
         print(f"\n  ┌─ JOSI ({t_coach:.1f}s) ──────────────────────────────")
         # Word-wrap long responses for readability
