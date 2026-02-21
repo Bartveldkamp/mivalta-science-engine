@@ -89,45 +89,53 @@ From the user's perspective, this is **one Josi AI coach**. Behind the scenes:
 
 ---
 
-## Step 1: Download the Model
+## Step 1: Download the Model + Knowledge Bundle
 
-**Total size:** ~5.0 GB (single file, Android 8B)
-**Format:** GGUF Q4_K_M (4-bit quantized, for llama.cpp / llama.android)
+The app downloads **two files** as one atomic bundle. Both are required — the model generates text, the knowledge cards provide coaching context that gets injected into prompts.
+
+| File | Size | Purpose |
+|------|------|---------|
+| `josi-v6-q4_k_m.gguf` | ~5.0 GB (8B) / ~2.5 GB (4B) | GGUF model for llama.cpp inference |
+| `knowledge.json` | ~153 KB (114 cards) | Coaching context cards, injected into prompts at inference time |
+| `josi-v6-manifest.json` | ~1 KB | Version, checksums, download URLs |
 
 ### Download
-
-| Platform | File | Size | Purpose |
-|----------|------|------|---------|
-| **Android** | `josi-v6-q4_k_m.gguf` | ~5.0 GB | Qwen3-8B, both modes, router-controlled thinking |
-| iPhone (future) | `josi-v6-4b-q4_k_m.gguf` | ~2.5 GB | Qwen3-4B variant |
 
 **Direct HTTP download from training server:**
 ```bash
 # Replace <SERVER_IP> with the IP provided by Bart
 curl -LO http://<SERVER_IP>/models/josi-v6-q4_k_m.gguf
+curl -LO http://<SERVER_IP>/models/knowledge.json
 ```
 
-**In the Kotlin app:**
+**In the Kotlin app — download both files together:**
 ```kotlin
-// Model URL
-val modelUrl = "http://<SERVER_IP>/models/josi-v6-q4_k_m.gguf"
+val BASE_URL = "http://<SERVER_IP>/models"
 
-// Local storage on device
+// Both files are required — download as one bundle
+val modelUrl = "$BASE_URL/josi-v6-q4_k_m.gguf"
+val knowledgeUrl = "$BASE_URL/knowledge.json"
+
+// Local storage on device (same directory)
 val modelFile = File(context.filesDir, "josi-v6-q4_k_m.gguf")
+val knowledgeFile = File(context.filesDir, "knowledge.json")
 ```
 
 **Manifest URL:** `http://<SERVER_IP>/models/josi-v6-manifest.json`
-The manifest contains current file name, size, and SHA-256 checksum. Use it to check for updates.
+The manifest contains checksums for BOTH the model and knowledge.json. Use it to check for updates — when either file changes, re-download both.
 
 **App download flow (end user):**
 1. User installs app (~50 MB, no models bundled)
 2. First launch: "Setting up your coach..." progress bar
-3. Single model downloads (~5.0 GB on Android, ~2.5 GB on iPhone)
-4. Verify SHA-256 checksum after download
-5. Cached locally, never re-downloaded unless model version updates (check manifest)
-6. All inference runs on-device via llama.cpp — no network calls
+3. App fetches manifest to get current version + checksums
+4. App downloads model GGUF (~5.0 GB) + knowledge.json (~153 KB) together
+5. Verify SHA-256 checksums for both files (from manifest)
+6. Both cached locally, re-downloaded together when version updates
+7. All inference runs on-device via llama.cpp — no network calls
 
-Load with [llama.android](https://github.com/ggerganov/llama.cpp/tree/master/examples/llama.android) or equivalent llama.cpp Kotlin/JNI bindings.
+**The knowledge cards are NOT optional.** Without them, the coach has no sport science context and gives generic answers. They must always be downloaded alongside the model.
+
+Load model with [llama.android](https://github.com/ggerganov/llama.cpp/tree/master/examples/llama.android) or equivalent llama.cpp Kotlin/JNI bindings. Load knowledge.json with standard JSON parsing.
 
 ---
 
@@ -191,6 +199,108 @@ fun buildContextString(ctx: ChatContext): String {
     return sb.toString()
 }
 ```
+
+### Knowledge Card Injection
+
+The knowledge cards from `knowledge.json` provide sport science context. The app selects relevant cards based on the user's message and injects them into the prompt. This is what makes Josi a knowledgeable coach instead of a generic chatbot.
+
+```kotlin
+/**
+ * Simple keyword-based knowledge selector.
+ * Picks the most relevant coaching cards for this conversation turn.
+ * Mirrors shared/knowledge_selector.py logic.
+ */
+class KnowledgeSelector(private val entries: List<KnowledgeEntry>) {
+
+    data class KnowledgeEntry(
+        val id: String,
+        val card: String,
+        val section: String,
+        val topics: List<String>,
+        val keywords: List<String>,
+        val content: String,
+        val sport: String? = null,
+    )
+
+    companion object {
+        fun fromJson(jsonFile: File): KnowledgeSelector {
+            val data = JSONObject(jsonFile.readText())
+            val arr = data.getJSONArray("entries")
+            val entries = (0 until arr.length()).map { i ->
+                val obj = arr.getJSONObject(i)
+                KnowledgeEntry(
+                    id = obj.getString("id"),
+                    card = obj.getString("card"),
+                    section = obj.getString("section"),
+                    topics = obj.getJSONArray("topics").let { t ->
+                        (0 until t.length()).map { t.getString(it) }
+                    },
+                    keywords = obj.getJSONArray("keywords").let { k ->
+                        (0 until k.length()).map { k.getString(it) }
+                    },
+                    content = obj.getString("content"),
+                    sport = obj.optString("sport", null),
+                )
+            }
+            return KnowledgeSelector(entries)
+        }
+    }
+
+    fun select(userMessage: String, sport: String? = null, maxCards: Int = 3): List<KnowledgeEntry> {
+        val msgLower = userMessage.lowercase()
+
+        return entries
+            .map { entry -> Pair(scoreEntry(entry, msgLower, sport), entry) }
+            .filter { it.first > 0 }
+            .sortedByDescending { it.first }
+            .distinctBy { it.second.card }  // one card per domain
+            .take(maxCards)
+            .map { it.second }
+    }
+
+    fun formatBlock(cards: List<KnowledgeEntry>): String {
+        if (cards.isEmpty()) return ""
+        return "[KNOWLEDGE]\n\n" + cards.joinToString("\n\n") { it.content }
+    }
+
+    private fun scoreEntry(entry: KnowledgeEntry, msgLower: String, sport: String?): Float {
+        var score = 0f
+
+        // Sport match
+        if (sport != null && entry.sport != null) {
+            if (sport == entry.sport) score += 3f else score -= 5f
+        }
+
+        // Keyword hits
+        val hits = entry.keywords.count { it in msgLower }
+        score += minOf(hits.toFloat(), 6f)
+
+        // Exclude internal cards
+        if (entry.card in setOf("josi_personas_v1", "planner_policy_v4")) return 0f
+
+        return score
+    }
+}
+```
+
+**Load at app startup (once):**
+```kotlin
+// Load knowledge alongside the model — both from the same download
+val knowledgeFile = File(context.filesDir, "knowledge.json")
+val knowledgeSelector = KnowledgeSelector.fromJson(knowledgeFile)
+```
+
+**Inject into prompts (every turn):**
+```kotlin
+// Select relevant cards for this message
+val cards = knowledgeSelector.select(userMessage, sport = ctx.profileSummary?.sport)
+val knowledgeBlock = knowledgeSelector.formatBlock(cards)
+
+// Append to context string (before the prompt is built)
+val fullContext = buildContextString(ctx) + "\n\n" + knowledgeBlock
+```
+
+The knowledge block is injected into BOTH interpreter and coach prompts. It gives the model grounding in zone physiology, periodization, recovery science, etc. — without this, Josi can only give generic coaching answers.
 
 ---
 
@@ -344,11 +454,16 @@ fun shouldThink(gatcRequest: GATCRequest?): Boolean {
 suspend fun runJosi(userMessage: String, ctx: ChatContext): JosiResult {
     val contextStr = buildContextString(ctx)
 
+    // Select relevant knowledge cards for this turn
+    val cards = knowledgeSelector.select(userMessage, sport = ctx.profileSummary?.sport)
+    val knowledgeBlock = knowledgeSelector.formatBlock(cards)
+    val fullContext = contextStr + "\n\n" + knowledgeBlock
+
     // Step 1: Interpreter call (always /no_think + GBNF grammar)
     val interpreterPrompt = buildChatMLPrompt(
         INTERPRETER_SYSTEM_PROMPT, ctx.history,
         userMessage + "\n/no_think",  // Force no thinking for interpreter
-        contextStr)
+        fullContext)
     val interpreterRaw = model.generate(interpreterPrompt, interpreterParams)
     val gatcRequest = parseGATCRequest(interpreterRaw)
 
@@ -361,8 +476,8 @@ suspend fun runJosi(userMessage: String, ctx: ChatContext): JosiResult {
         val thinkTag = if (useThinking) "/think" else "/no_think"
         val params = if (useThinking) coachComplexParams else coachSimpleParams
 
-        // Build coach prompt with interpreter context + thinking control
-        val coachContext = contextStr + "\n\n[INTERPRETER]\n" + interpreterRaw.trim()
+        // Build coach prompt with interpreter context + knowledge + thinking control
+        val coachContext = fullContext + "\n\n[INTERPRETER]\n" + interpreterRaw.trim()
         val coachPrompt = buildChatMLPrompt(
             COACH_SYSTEM_PROMPT, ctx.history,
             userMessage + "\n$thinkTag",  // Router controls thinking
@@ -655,10 +770,12 @@ Since v6 uses a single ~2.5 GB model (vs two ~2.6 GB models in v4), memory manag
 ```kotlin
 class JosiModelManager(private val context: Context) {
     private var model: LlamaModel? = null
+    lateinit var knowledgeSelector: KnowledgeSelector
 
-    // Load model once — used for both interpreter and coach calls
+    // Load model + knowledge once — both from the same download bundle
     fun loadModel() {
         model = LlamaModel(modelFile.absolutePath, LlamaParams(nCtx = 4096))
+        knowledgeSelector = KnowledgeSelector.fromJson(knowledgeFile)
     }
 
     // Run interpreter call
