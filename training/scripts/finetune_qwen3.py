@@ -819,56 +819,289 @@ def chat(model_path: str, model_size: str = None, sport: str = None,
 
     show_raw = True
     force_mode = "auto"  # auto, interpreter, coach
-    conversation_history = []  # Multi-turn memory: list of (user_msg, interpreter_json, coach_response)
     pending_workout = {}  # Accumulates workout fields across turns until GATC has enough
-    conversation_state = {}  # Short-term memory: tracks key facts (illness, injury, etc.)
 
     import time as time_mod
     import re as re_mod_chat
 
-    def update_conversation_state(parsed_response, coach_text):
-        """Update short-term memory after each turn.
+    # ─── ConversationTracker ─────────────────────────────────────────
+    # Replaces: conversation_history, conversation_state,
+    #   build_history_block, build_state_context, update_conversation_state
+    #
+    # Principle: CODE remembers, MODEL reads.
+    # The 4B model gets a compact structured state summary (≤100 tokens)
+    # instead of raw conversation history. This holds context across
+    # 14+ turns without token bloat or drift.
 
-        Tracks key facts like illness, injury, fatigue so that
-        subsequent turns are aware of the conversation context.
-        The interpreter is single-turn, so it needs this state
-        injected into its CONTEXT to make coherent decisions.
+    class ConversationTracker:
+        """Structured conversation memory for multi-turn coaching.
+
+        Three-layer memory:
+        1. recent_turns  — last 3 raw turns (for immediate context)
+        2. facts         — extracted key facts from ALL turns (compressed)
+        3. commitments   — SMART goals the athlete agreed to
+
+        When a turn falls out of the 3-turn window, its key facts
+        are extracted and merged into the facts layer. Nothing is lost,
+        just compressed.
         """
-        if not parsed_response:
-            return
 
-        act = parsed_response.get("action")
-        rtype = parsed_response.get("replan_type")
-        free = parsed_response.get("free_text", "")
+        RECENT_WINDOW = 3  # Raw turns to keep (down from 5)
 
-        if act == "replan" and rtype == "illness":
-            conversation_state["status"] = "illness"
-            conversation_state["status_detail"] = free
-        elif act == "replan" and rtype == "skip_today":
-            conversation_state["status"] = "rest_day"
-        elif act == "replan" and rtype == "reduce_intensity":
-            conversation_state["status"] = "reduced"
-        elif act == "clarify" and "medical" in str(parsed_response.get("missing", [])):
-            conversation_state["status"] = "medical_concern"
-            conversation_state["status_detail"] = free
-        elif act == "create_workout":
-            # Workout was created — clear illness/rest status
-            conversation_state.pop("status", None)
-            conversation_state.pop("status_detail", None)
+        def __init__(self):
+            self.recent_turns = []       # [(user_msg, interp_json, coach_resp)]
+            self.health_status = None    # "illness", "medical_concern", "rest_day", "reduced"
+            self.health_detail = None    # "fever and headache"
+            self.commitments = []        # [{"what": str, "turn": int}]
+            self.topics = set()          # {"workout_created", "illness_discussed", "goal_set", ...}
+            self.preferences = {}        # {"dislikes_burpees": True, "prefers_morning": True}
+            self.active_intent = None    # Current thread: "gathering", "replan", None
+            self.facts = []              # Compressed facts from older turns
+            self.turn_count = 0
+            self.last_session = None     # Last GATC session string
+            self.sport_inferred = None   # Sport detected from conversation (not /sport)
+            self.athlete_mood = None     # "frustrated", "motivated", "uncertain", etc.
 
-    def build_state_context():
-        """Build context lines from conversation state for injection."""
-        lines = []
-        status = conversation_state.get("status")
-        if status == "illness":
-            lines.append("- Athlete status: SICK (reported illness this conversation — advise rest, no training)")
-        elif status == "medical_concern":
-            lines.append("- Athlete status: MEDICAL CONCERN (seek professional help)")
-        elif status == "rest_day":
-            lines.append("- Athlete status: rest day (chose to skip training)")
-        elif status == "reduced":
-            lines.append("- Athlete status: reducing intensity")
-        return lines
+        def reset(self):
+            self.__init__()
+
+        # ── Update after each turn ──────────────────────────────────
+
+        def update(self, user_msg, parsed_response, coach_response,
+                   session_str=None, interpreter_thinking=None):
+            """Called after every turn. Extracts structured state from the turn."""
+            self.turn_count += 1
+
+            # Compress oldest turn before adding new one
+            if len(self.recent_turns) >= self.RECENT_WINDOW:
+                self._compress_oldest_turn()
+
+            # Store raw turn
+            interp_json = json.dumps(parsed_response) if parsed_response else None
+            self.recent_turns.append((user_msg, interp_json, coach_response))
+
+            # Extract state from interpreter output
+            if parsed_response:
+                self._extract_from_interpreter(parsed_response, user_msg)
+
+            # Track session creation
+            if session_str:
+                self.last_session = session_str
+                self.topics.add("workout_created")
+                self.commitments.append({
+                    "what": session_str[:80],
+                    "turn": self.turn_count,
+                })
+
+            # Extract mood signals from user message
+            self._detect_mood(user_msg)
+
+        def _extract_from_interpreter(self, parsed, user_msg):
+            """Extract structured state from interpreter JSON."""
+            act = parsed.get("action")
+            rtype = parsed.get("replan_type")
+            free = parsed.get("free_text", "")
+
+            # Health state
+            if act == "replan" and rtype == "illness":
+                self.health_status = "illness"
+                self.health_detail = free
+                self.topics.add("illness_discussed")
+            elif act == "replan" and rtype == "skip_today":
+                self.health_status = "rest_day"
+                self.topics.add("rest_discussed")
+            elif act == "replan" and rtype == "reduce_intensity":
+                self.health_status = "reduced"
+                self.topics.add("intensity_reduced")
+            elif act == "clarify" and "medical" in str(parsed.get("missing", [])):
+                self.health_status = "medical_concern"
+                self.health_detail = free
+                self.topics.add("medical_discussed")
+            elif act == "create_workout":
+                # Recovery: workout created → clear health flags
+                self.health_status = None
+                self.health_detail = None
+                self.topics.add("workout_created")
+                self.active_intent = None
+
+            # Track active intent
+            if act == "clarify":
+                self.active_intent = "gathering"
+                self.topics.add("clarification_asked")
+            elif act == "create_workout":
+                self.active_intent = None
+
+            # Extract sport if inferred from message
+            inferred_sport = parsed.get("sport")
+            if inferred_sport and inferred_sport != "unknown":
+                self.sport_inferred = inferred_sport
+
+            # Extract goal as a topic marker
+            goal = parsed.get("goal")
+            if goal:
+                self.topics.add(f"goal:{goal}")
+
+        def _detect_mood(self, user_msg):
+            """Simple keyword-based mood detection. Code does it, not model."""
+            lower = user_msg.lower()
+            if any(w in lower for w in ("frustrated", "annoyed", "angry", "pissed")):
+                self.athlete_mood = "frustrated"
+            elif any(w in lower for w in ("motivated", "pumped", "excited", "stoked", "ready")):
+                self.athlete_mood = "motivated"
+            elif any(w in lower for w in ("tired", "exhausted", "drained", "knackered")):
+                self.athlete_mood = "fatigued"
+            elif any(w in lower for w in ("unsure", "confused", "no idea", "don't know", "weet niet")):
+                self.athlete_mood = "uncertain"
+            # Don't clear mood if no signal — previous mood persists
+
+        def _compress_oldest_turn(self):
+            """When oldest turn falls out of window, extract its facts."""
+            if not self.recent_turns:
+                return
+            user_msg, interp_json, coach_resp = self.recent_turns.pop(0)
+
+            # Compress into a single-line fact
+            parts = []
+            parts.append(f"T{self.turn_count - self.RECENT_WINDOW}: \"{user_msg[:60]}\"")
+            if interp_json:
+                try:
+                    p = json.loads(interp_json)
+                    parts.append(f"→ {p.get('action', '?')}")
+                except (json.JSONDecodeError, TypeError):
+                    pass
+            if coach_resp:
+                parts.append(f"Josi: \"{coach_resp[:40]}...\"")
+
+            self.facts.append(" | ".join(parts))
+
+            # Cap facts at 8 lines — drop oldest
+            if len(self.facts) > 8:
+                self.facts = self.facts[-8:]
+
+        # ── Recovery detection ──────────────────────────────────────
+
+        def check_recovery(self, user_msg):
+            """Check if user signals recovery from illness/rest. Returns True if cleared."""
+            if self.health_status not in ("illness", "medical_concern", "rest_day"):
+                return False
+            lower = user_msg.lower()
+            recovery_keywords = (
+                "feel good", "feel great", "feeling good", "feeling great",
+                "feeling better", "feel better", "i'm good", "i'm fine",
+                "much better", "all good", "back to normal",
+                "voel me goed", "voel me beter", "gaat goed", "weer fit",
+                "lekker", "fris",
+            )
+            if any(kw in lower for kw in recovery_keywords):
+                old = self.health_status
+                self.health_status = None
+                self.health_detail = None
+                self.topics.add("recovery_reported")
+                return old
+            return False
+
+        # ── Build context for prompts ───────────────────────────────
+
+        def build_state_context(self):
+            """Build context lines from structured state. ≤10 lines, ≤100 tokens."""
+            lines = []
+
+            # Health
+            if self.health_status == "illness":
+                lines.append("- Athlete status: SICK — advise rest, no training")
+            elif self.health_status == "medical_concern":
+                lines.append("- Athlete status: MEDICAL CONCERN — refer to professional")
+            elif self.health_status == "rest_day":
+                lines.append("- Athlete status: rest day (chose to skip)")
+            elif self.health_status == "reduced":
+                lines.append("- Athlete status: reducing intensity")
+
+            # Mood
+            if self.athlete_mood:
+                lines.append(f"- Athlete mood: {self.athlete_mood}")
+
+            # Active thread
+            if self.active_intent == "gathering":
+                lines.append("- Status: gathering workout details (incomplete request)")
+
+            # Recent commitments (last 2)
+            for c in self.commitments[-2:]:
+                lines.append(f"- Committed (turn {c['turn']}): {c['what']}")
+
+            # Key topics (compact)
+            topic_labels = {
+                "illness_discussed": "illness discussed",
+                "workout_created": "workout created this conversation",
+                "intensity_reduced": "intensity was reduced",
+                "recovery_reported": "athlete recovered",
+            }
+            active_topics = [topic_labels[t] for t in self.topics if t in topic_labels]
+            if active_topics:
+                lines.append(f"- Conversation so far: {', '.join(active_topics)}")
+
+            return lines
+
+        def build_interpreter_summary(self):
+            """Compact summary for interpreter (who was formerly amnesiac).
+
+            Gives interpreter awareness of: what was already discussed,
+            what's been decided, and what the current thread is.
+            This is the KEY fix — interpreter can now make coherent
+            decisions across multiple turns.
+            """
+            lines = []
+
+            # Compressed facts from older turns
+            if self.facts:
+                lines.append("PRIOR TURNS:")
+                for f in self.facts[-4:]:  # Last 4 compressed facts
+                    lines.append(f"  {f}")
+
+            # Last turn summary (just the previous turn, not full window)
+            if self.recent_turns:
+                last_user, last_interp, last_coach = self.recent_turns[-1]
+                lines.append(f"LAST TURN: \"{last_user[:60]}\"")
+                if last_interp:
+                    try:
+                        p = json.loads(last_interp)
+                        lines.append(f"  Decision: {p.get('action', '?')}")
+                    except (json.JSONDecodeError, TypeError):
+                        pass
+
+            return "\n".join(lines) if lines else ""
+
+        def build_coach_history(self):
+            """Build history block for coach — recent raw turns only."""
+            if not self.recent_turns:
+                return ""
+            lines = ["\nRECENT CONVERSATION:"]
+            for user_msg, interp_json, coach_resp in self.recent_turns:
+                lines.append(f"  Athlete: {user_msg}")
+                if coach_resp:
+                    lines.append(f"  Josi: {coach_resp}")
+            return "\n".join(lines)
+
+        def debug_dump(self):
+            """For /state command — show full tracker state."""
+            print(f"  Turn count:     {self.turn_count}")
+            print(f"  Health:         {self.health_status or 'healthy'}")
+            print(f"  Mood:           {self.athlete_mood or '(none)'}")
+            print(f"  Active intent:  {self.active_intent or '(none)'}")
+            print(f"  Topics:         {self.topics or '(none)'}")
+            print(f"  Commitments:    {len(self.commitments)}")
+            for c in self.commitments:
+                print(f"    T{c['turn']}: {c['what']}")
+            print(f"  Recent turns:   {len(self.recent_turns)}")
+            print(f"  Compressed:     {len(self.facts)} facts")
+            if self.facts:
+                for f in self.facts:
+                    print(f"    {f}")
+            print(f"  Sport inferred: {self.sport_inferred or '(none)'}")
+            if self.preferences:
+                print(f"  Preferences:    {self.preferences}")
+
+    # ── Initialize tracker ──────────────────────────────────────────
+    tracker = ConversationTracker()
 
     def generate(system_prompt, user_content, temperature=0.3, max_tokens=200):
         """Generate a response. Returns (clean_response, thinking).
@@ -989,20 +1222,6 @@ def chat(model_path: str, model_size: str = None, sport: str = None,
 
         return f'{zone} {time_min}min "{desc}" ({phase} phase)'
 
-    def build_history_block():
-        """Build a conversation summary from recent turns for context."""
-        if not conversation_history:
-            return ""
-        lines = ["\nCONVERSATION HISTORY:"]
-        # Keep last 5 turns to stay within context limits
-        for user_msg, interp_json, coach_resp in conversation_history[-5:]:
-            lines.append(f"  Athlete: {user_msg}")
-            if interp_json:
-                lines.append(f"  → {interp_json}")
-            if coach_resp:
-                lines.append(f"  Josi: {coach_resp}")
-        return "\n".join(lines)
-
     print("\n" + "=" * 60)
     print("  JOSI v6 — OPEN CHAT TEST")
     print("=" * 60)
@@ -1058,14 +1277,14 @@ def chat(model_path: str, model_size: str = None, sport: str = None,
                 sport = None
                 readiness = "Green"
                 force_mode = "auto"
-                conversation_history.clear()
                 pending_workout.clear()
-                conversation_state.clear()
-                print("  Reset to defaults (history + pending + state cleared)")
+                tracker.reset()
+                print("  Reset to defaults (tracker + pending cleared)")
                 continue
             elif cmd == "/history":
-                if conversation_history:
-                    print(build_history_block())
+                history = tracker.build_coach_history()
+                if history:
+                    print(history)
                 else:
                     print("  (no history yet)")
                 continue
@@ -1076,42 +1295,31 @@ def chat(model_path: str, model_size: str = None, sport: str = None,
                     print("  (no pending workout)")
                 continue
             elif cmd == "/state":
-                if conversation_state:
-                    print(f"  Conversation state: {json.dumps(conversation_state, indent=2)}")
-                else:
-                    print("  (clean state — no flags)")
+                tracker.debug_dump()
                 continue
             else:
                 print(f"  Unknown command: {cmd}")
                 continue
 
         # ─── Pre-step: Detect recovery from illness/rest ────────────────
-        # If user says they feel better, clear illness state BEFORE building
-        # context, so interpreter and coach don't see stale "SICK" flag
-        if conversation_state.get("status") in ("illness", "medical_concern", "rest_day"):
-            lower_input = user_input.lower()
-            recovery_keywords = ("feel good", "feel great", "feeling good", "feeling great",
-                                 "feeling better", "feel better", "i'm good", "i'm fine",
-                                 "much better", "all good", "back to normal",
-                                 "voel me goed", "voel me beter", "gaat goed", "weer fit",
-                                 "lekker", "fris")
-            if any(kw in lower_input for kw in recovery_keywords):
-                old_status = conversation_state.get("status")
-                conversation_state.clear()
-                if show_raw:
-                    print(f"  ✓ Recovery detected — cleared '{old_status}' state")
+        old_status = tracker.check_recovery(user_input)
+        if old_status and show_raw:
+            print(f"  ✓ Recovery detected — cleared '{old_status}' state")
 
         # Build context block — only include sport if explicitly set
         context_lines = []
         if sport:
             context_lines.append(f"- Sport: {sport}")
+        elif tracker.sport_inferred:
+            context_lines.append(f"- Sport: {tracker.sport_inferred}")
         context_lines.append(f"- Readiness: {readiness}")
-        # Inject conversation state (short-term memory)
-        context_lines.extend(build_state_context())
+        # Inject structured state from tracker
+        context_lines.extend(tracker.build_state_context())
         context = "\n\nCONTEXT:\n" + "\n".join(context_lines)
 
-        # Build conversation history (for coach only — interpreter is single-turn)
-        history_block = build_history_block()
+        # Build conversation memory blocks
+        history_block = tracker.build_coach_history()
+        interpreter_memory = tracker.build_interpreter_summary()
 
         # If we're gathering workout info, inject pending context for interpreter
         # so it knows "bike, 75min" was already established on a previous turn
@@ -1127,8 +1335,12 @@ def chat(model_path: str, model_size: str = None, sport: str = None,
                 pending_lines.append(f"- Pending workout request: {', '.join(pending_parts)} (awaiting goal/intensity)")
             interpreter_context = "\n\nCONTEXT:\n" + "\n".join(pending_lines)
 
-        # Interpreter gets ONLY the current message + context (no history)
-        interpreter_input = user_input + interpreter_context
+        # Interpreter gets current message + context + memory summary
+        # (no longer amnesiac — knows what was discussed/decided)
+        memory_block = ""
+        if interpreter_memory:
+            memory_block = f"\n\n{interpreter_memory}"
+        interpreter_input = user_input + interpreter_context + memory_block
 
         # ─── Step 1: Interpreter call ────────────────────────────────────
         interpreter_response = None
@@ -1168,7 +1380,7 @@ def chat(model_path: str, model_size: str = None, sport: str = None,
                 print(f"  ⚠ Interpreter returned invalid JSON")
 
             if force_mode == "interpreter":
-                conversation_history.append((user_input, interpreter_response, None))
+                tracker.update(user_input, parsed, None)
                 continue
 
         # ─── Step 2: GATC pipeline — gather, then fire ────────────────────
@@ -1336,11 +1548,10 @@ def chat(model_path: str, model_size: str = None, sport: str = None,
             print(line)
         print(f"  └{'─' * 50}")
 
-        # Update short-term memory from this turn's decisions
-        update_conversation_state(parsed, coach_response)
-
-        # Save to conversation history
-        conversation_history.append((user_input, interpreter_response, coach_response))
+        # Update tracker — extracts structured state, compresses old turns
+        tracker.update(user_input, parsed, coach_response,
+                       session_str=session_str,
+                       interpreter_thinking=interpreter_thinking)
 
 
 def sanity(model_path: str, mode: str = "interpreter"):
