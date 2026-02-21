@@ -782,24 +782,36 @@ SANITY_PROMPTS = [
 
 
 # =============================================================================
-# OPEN CHAT — Interactive testing with full v6 pipeline
+# OPEN CHAT — Interactive testing with full v7 pipeline
 # =============================================================================
 
 def chat(model_path: str, model_size: str = None, sport: str = None,
          readiness: str = "Green"):
-    """Interactive open chat with the v6 model.
+    """Interactive open chat with the v7 model.
 
     Runs the full pipeline for every message:
-      1. Interpreter call → GATCRequest JSON
-      2. Router decides if coach call is needed
-      3. Coach call → coaching text (if needed)
+      1. Interpreter call → GATCRequest JSON (with conversation memory)
+      2. Gathering pipeline → accumulate workout fields across turns
+      3. GATC sessionmaker → generate session when complete
+      4. Coach call → coaching text (with full conversation context)
+
+    Memory architecture (ConversationTracker):
+      Layer 1: recent_turns (last 3 raw turns — immediate context)
+      Layer 2: facts (compressed key facts from ALL older turns)
+      Layer 3: commitments (SMART goals the athlete agreed to)
+
+    Interpreter is no longer amnesiac — gets compact memory summary.
+    Coach gets compressed facts + recent turns + structured state.
 
     Commands:
       /sport <sport>       Change sport context (running, cycling, strength, ...)
       /readiness <level>   Change readiness (Green, Yellow, Red)
       /mode <mode>         Force mode: auto, interpreter, coach
       /raw                 Toggle showing raw model output
-      /reset               Clear conversation history
+      /state               Show full ConversationTracker state
+      /pending             Show pending workout gathering state
+      /history             Show conversation history (facts + recent)
+      /reset               Clear everything (tracker + pending)
       /quit or /exit       Exit chat
     """
     import re as re_mod
@@ -960,9 +972,14 @@ def chat(model_path: str, model_size: str = None, sport: str = None,
                 return
             user_msg, interp_json, coach_resp = self.recent_turns.pop(0)
 
+            # Calculate the actual turn number of this compressed turn
+            # recent_turns currently has RECENT_WINDOW items, and
+            # this is the oldest one — it was added RECENT_WINDOW turns ago
+            compressed_turn = self.turn_count - self.RECENT_WINDOW
+
             # Compress into a single-line fact
             parts = []
-            parts.append(f"T{self.turn_count - self.RECENT_WINDOW}: \"{user_msg[:60]}\"")
+            parts.append(f"T{compressed_turn}: \"{user_msg[:60]}\"")
             if interp_json:
                 try:
                     p = json.loads(interp_json)
@@ -1071,14 +1088,30 @@ def chat(model_path: str, model_size: str = None, sport: str = None,
             return "\n".join(lines) if lines else ""
 
         def build_coach_history(self):
-            """Build history block for coach — recent raw turns only."""
-            if not self.recent_turns:
+            """Build history block for coach — compressed facts + recent raw turns.
+
+            Coach gets the richest context:
+            1. Compressed facts from older turns (what happened before)
+            2. Recent raw turns (immediate conversational context)
+            """
+            if not self.recent_turns and not self.facts:
                 return ""
-            lines = ["\nRECENT CONVERSATION:"]
-            for user_msg, interp_json, coach_resp in self.recent_turns:
-                lines.append(f"  Athlete: {user_msg}")
-                if coach_resp:
-                    lines.append(f"  Josi: {coach_resp}")
+            lines = []
+
+            # Layer 1: compressed facts from older turns
+            if self.facts:
+                lines.append("\nEARLIER IN CONVERSATION:")
+                for f in self.facts:
+                    lines.append(f"  {f}")
+
+            # Layer 2: recent raw turns
+            if self.recent_turns:
+                lines.append("\nRECENT EXCHANGES:")
+                for user_msg, interp_json, coach_resp in self.recent_turns:
+                    lines.append(f"  Athlete: {user_msg}")
+                    if coach_resp:
+                        lines.append(f"  Josi: {coach_resp}")
+
             return "\n".join(lines)
 
         def debug_dump(self):
@@ -1223,15 +1256,16 @@ def chat(model_path: str, model_size: str = None, sport: str = None,
         return f'{zone} {time_min}min "{desc}" ({phase} phase)'
 
     print("\n" + "=" * 60)
-    print("  JOSI v6 — OPEN CHAT TEST")
+    print("  JOSI v7 — OPEN CHAT (ConversationTracker)")
     print("=" * 60)
     print(f"  Model:     {model_path}")
     print(f"  Sport:     {sport or '(none — model will infer or clarify)'}")
     print(f"  Readiness: {readiness}")
     print(f"  Mode:      {force_mode}")
     print(f"  Show raw:  {show_raw}")
+    print(f"  Memory:    3-turn window + compressed facts + commitments")
     print()
-    print("  Commands: /sport, /readiness, /mode, /raw, /state, /pending, /reset, /quit")
+    print("  Commands: /sport, /readiness, /mode, /raw, /state, /pending, /history, /reset, /quit")
     print("  Pipeline: Interpreter → Gathering → GATC Sessionmaker → Coach")
     print("=" * 60)
 
