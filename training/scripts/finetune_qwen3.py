@@ -820,8 +820,10 @@ def chat(model_path: str, model_size: str = None, sport: str = None,
     show_raw = True
     force_mode = "auto"  # auto, interpreter, coach
     conversation_history = []  # Multi-turn memory: list of (user_msg, interpreter_json, coach_response)
+    pending_workout = {}  # Accumulates workout fields across turns until GATC has enough
 
     import time as time_mod
+    import re as re_mod_chat
 
     def generate(system_prompt, user_content, temperature=0.3, max_tokens=200):
         messages = [
@@ -851,12 +853,28 @@ def chat(model_path: str, model_size: str = None, sport: str = None,
 
         return response
 
+    def rpe_to_goal(rpe):
+        """Map RPE (0-10) to a training goal for the GATC."""
+        if rpe <= 2:
+            return "recovery"
+        elif rpe <= 4:
+            return "endurance"
+        elif rpe <= 6:
+            return "threshold"
+        elif rpe <= 8:
+            return "vo2"
+        else:
+            return "race_prep"
+
     def simulate_sessionmaker(parsed_json, readiness_level):
         """Simulate the GATC sessionmaker to give the coach a real session.
 
         In the real app, the GATC engine creates the session.
         This simulator generates a plausible session so we can test
         the coach's ability to present it.
+
+        The GATC considers: athlete profile, readiness, sport, time,
+        goal/RPE, fatigue, and training history to prescribe a session.
         """
         if not parsed_json or parsed_json.get("action") != "create_workout":
             return None
@@ -865,31 +883,40 @@ def chat(model_path: str, model_size: str = None, sport: str = None,
         time_min = parsed_json.get("time_available_min") or parsed_json.get("constraints", {}).get("time_available_min", 60)
         goal = parsed_json.get("goal", "endurance")
         fatigue = parsed_json.get("constraints", {}).get("fatigue_hint", "fresh")
+        rpe = parsed_json.get("rpe")
 
-        # Readiness affects zone selection
+        # RPE overrides goal if provided (user said "RPE 5-6" → threshold)
+        if rpe is not None:
+            goal = rpe_to_goal(rpe)
+
+        # Readiness affects zone selection — safety gate
         if readiness_level == "Red" or fatigue in ("very_tired", "tired"):
             zone, desc = "Z1", f"Continuous Z1 {time_min}min"
             phase = "recovery"
         elif readiness_level == "Yellow" or fatigue == "ok":
             zone, desc = "Z2", f"Continuous Z2 {time_min}min"
             phase = "base"
-        elif goal in ("threshold",):
-            if time_min >= 60:
-                reps = max(3, time_min // 15)
-                zone, desc = "Z4", f"{reps} x 5min Z4 / 3min Z1"
-            else:
-                zone, desc = "Z4", f"3 x 5min Z4 / 3min Z1"
+        elif goal == "threshold":
+            # Threshold intervals: ~5-6min work, ~5min rest
+            work_min = 6
+            rest_min = 5
+            block_min = work_min + rest_min
+            reps = max(3, int(time_min * 0.6) // block_min)  # ~60% of session is work+rest
+            zone, desc = "Z4", f"{reps} x {work_min}min Z4 / {rest_min}min Z1"
             phase = "build"
-        elif goal in ("vo2",):
+        elif goal == "vo2":
             reps = max(4, time_min // 8)
             zone, desc = "Z5", f"{reps} x 3min Z5 / 3min Z1"
             phase = "peak"
-        elif goal in ("strength",):
+        elif goal == "strength":
             zone, desc = "Z3", f"2 x 15min Z3 / 5min Z1"
             phase = "build"
         elif goal == "race_prep":
             zone, desc = "Z4", f"4 x 5min Z4 / 3min Z1"
             phase = "peak"
+        elif goal == "recovery":
+            zone, desc = "Z1", f"Continuous Z1 {time_min}min"
+            phase = "recovery"
         else:
             # Default: endurance / Z2
             zone, desc = "Z2", f"Continuous Z2 {time_min}min"
@@ -920,8 +947,8 @@ def chat(model_path: str, model_size: str = None, sport: str = None,
     print(f"  Mode:      {force_mode}")
     print(f"  Show raw:  {show_raw}")
     print()
-    print("  Commands: /sport, /readiness, /mode, /raw, /reset, /quit")
-    print("  NOTE: Coach is called for EVERY message (open test mode)")
+    print("  Commands: /sport, /readiness, /mode, /raw, /pending, /reset, /quit")
+    print("  Pipeline: Interpreter → Gathering → GATC Sessionmaker → Coach")
     print("=" * 60)
 
     while True:
@@ -967,13 +994,20 @@ def chat(model_path: str, model_size: str = None, sport: str = None,
                 readiness = "Green"
                 force_mode = "auto"
                 conversation_history.clear()
-                print("  Reset to defaults (history cleared)")
+                pending_workout.clear()
+                print("  Reset to defaults (history + pending cleared)")
                 continue
             elif cmd == "/history":
                 if conversation_history:
                     print(build_history_block())
                 else:
                     print("  (no history yet)")
+                continue
+            elif cmd == "/pending":
+                if pending_workout:
+                    print(f"  Pending workout: {json.dumps(pending_workout, indent=2)}")
+                else:
+                    print("  (no pending workout)")
                 continue
             else:
                 print(f"  Unknown command: {cmd}")
@@ -989,8 +1023,22 @@ def chat(model_path: str, model_size: str = None, sport: str = None,
         # Build conversation history (for coach only — interpreter is single-turn)
         history_block = build_history_block()
 
+        # If we're gathering workout info, inject pending context for interpreter
+        # so it knows "bike, 75min" was already established on a previous turn
+        interpreter_context = context
+        if pending_workout:
+            pending_lines = list(context_lines)  # copy base context
+            pending_parts = []
+            if pending_workout.get("sport"):
+                pending_parts.append(f"sport={pending_workout['sport']}")
+            if pending_workout.get("time_available_min"):
+                pending_parts.append(f"time={pending_workout['time_available_min']}min")
+            if pending_parts:
+                pending_lines.append(f"- Pending workout request: {', '.join(pending_parts)} (awaiting goal/intensity)")
+            interpreter_context = "\n\nCONTEXT:\n" + "\n".join(pending_lines)
+
         # Interpreter gets ONLY the current message + context (no history)
-        interpreter_input = user_input + context
+        interpreter_input = user_input + interpreter_context
 
         # ─── Step 1: Interpreter call ────────────────────────────────────
         interpreter_response = None
@@ -1023,13 +1071,109 @@ def chat(model_path: str, model_size: str = None, sport: str = None,
                 conversation_history.append((user_input, interpreter_response, None))
                 continue
 
-        # ─── Step 2: Always call coach in open chat mode ─────────────────
+        # ─── Step 2: GATC pipeline — gather, then fire ────────────────────
+        #
+        # The GATC pipeline: Interpreter → Gathering → Sessionmaker → Coach
+        #
+        # When interpreter says create_workout but key info is missing
+        # (no goal, no RPE, no feeling), we DON'T fire the sessionmaker yet.
+        # Instead, we accumulate fields in pending_workout and let the coach
+        # ask a follow-up. On the next turn, we merge new info and check again.
+        #
+        # This mirrors the real app flow:
+        #   User: "bike, 75 min"  → Coach asks feeling/intensity
+        #   User: "RPE 5-6"      → GATC fires → Coach presents session
+
         if force_mode == "coach" or interpreter_response is None:
             # Coach-only mode: synthesize interpreter context
             interpreter_response = json.dumps({"action": "answer_question", "question": user_input, "free_text": user_input})
 
-        # Simulate GATC sessionmaker for create_workout actions
-        session_str = simulate_sessionmaker(parsed, readiness) if parsed else None
+        session_str = None  # Will be set only when GATC fires
+
+        # ── 2a: Check if user is answering a gathering follow-up ──────────
+        if pending_workout and parsed:
+            lower_input = user_input.lower()
+
+            # Extract RPE from user input (e.g. "rpe 5", "rpe 5-6")
+            rpe_match = re_mod_chat.search(r'rpe\s*(\d+)', lower_input)
+
+            # Extract goal/intensity keywords
+            goal_from_text = None
+            if rpe_match:
+                rpe_val = int(rpe_match.group(1))
+                goal_from_text = rpe_to_goal(rpe_val)
+                pending_workout["rpe"] = rpe_val
+            elif any(kw in lower_input for kw in ("easy", "chill", "rustig", "endurance")):
+                goal_from_text = "endurance"
+            elif any(kw in lower_input for kw in ("intensive", "intervals", "hard", "threshold", "tempo", "stevig")):
+                goal_from_text = "threshold"
+            elif any(kw in lower_input for kw in ("max", "sprint", "all out", "vo2")):
+                goal_from_text = "vo2"
+            elif any(kw in lower_input for kw in ("recovery", "herstel", "light")):
+                goal_from_text = "recovery"
+
+            # Extract feeling/fatigue from user input
+            if any(kw in lower_input for kw in ("good", "great", "fresh", "goed", "lekker", "fris")):
+                pending_workout["fatigue_hint"] = "fresh"
+            elif any(kw in lower_input for kw in ("okay", "ok", "fine", "prima")):
+                pending_workout["fatigue_hint"] = "ok"
+            elif any(kw in lower_input for kw in ("tired", "moe", "heavy", "zwaar")):
+                pending_workout["fatigue_hint"] = "tired"
+
+            if goal_from_text:
+                pending_workout["goal"] = goal_from_text
+                # We now have enough — build complete create_workout for GATC
+                parsed = {
+                    "action": "create_workout",
+                    "sport": pending_workout.get("sport", sport or "run"),
+                    "time_available_min": pending_workout.get("time_available_min", 60),
+                    "goal": pending_workout["goal"],
+                    "constraints": {
+                        "fatigue_hint": pending_workout.get("fatigue_hint", "fresh"),
+                    },
+                    "free_text": user_input,
+                }
+                if "rpe" in pending_workout:
+                    parsed["rpe"] = pending_workout["rpe"]
+                interpreter_response = json.dumps(parsed)
+                action = "create_workout"
+                if show_raw:
+                    print(f"  ✓ Gathered all info → firing GATC: sport={parsed['sport']}, "
+                          f"time={parsed['time_available_min']}min, goal={parsed['goal']}"
+                          + (f", rpe={parsed.get('rpe')}" if "rpe" in parsed else ""))
+                pending_workout.clear()  # Reset for next conversation
+
+        # ── 2b: Check if create_workout is missing key info ───────────────
+        if parsed and action == "create_workout":
+            has_goal = parsed.get("goal")
+            has_time = (parsed.get("time_available_min")
+                        or parsed.get("constraints", {}).get("time_available_min"))
+
+            if not has_goal and not pending_workout:
+                # Missing goal/intensity — start gathering
+                pending_workout = {
+                    "sport": parsed.get("sport") or sport,
+                    "time_available_min": has_time or 60,
+                }
+                if show_raw:
+                    print(f"  ⏳ Gathering: have sport={pending_workout['sport']}, "
+                          f"time={pending_workout['time_available_min']}min — need goal/intensity")
+                # Override to clarify so coach asks follow-up naturally
+                interpreter_response = json.dumps({
+                    "action": "clarify",
+                    "missing": ["goal"],
+                    "clarify_message": "What kind of workout are you looking for? "
+                                       "Easy, intervals, or something specific? "
+                                       "How hard on a scale of 0-10?",
+                    "free_text": parsed.get("free_text", user_input),
+                })
+                parsed = json.loads(interpreter_response)
+                action = "clarify"
+                session_str = None  # Don't fire GATC yet
+
+        # ── 2c: Fire GATC sessionmaker if we have a complete create_workout ─
+        if session_str is None and parsed and action == "create_workout":
+            session_str = simulate_sessionmaker(parsed, readiness)
 
         # Build coach context — include session if GATC produced one
         coach_context_lines = list(context_lines)  # copy
