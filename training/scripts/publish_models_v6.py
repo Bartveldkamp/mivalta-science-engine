@@ -4,17 +4,19 @@ MiValta Josi v6 — Single Model Publish Script
 
 End-to-end pipeline: LoRA adapter → merge → GGUF Q4_K_M → publish via nginx.
 
-Produces ONE GGUF model for the v6 single-model architecture:
-  - Android: josi-v6-q4_k_m.gguf  (~5.0 GB, Qwen3-8B, both modes + /think router)
-  - iPhone:  josi-v6-4b-q4_k_m.gguf  (~2.5 GB, Qwen3-4B variant, planned)
+Produces ONE model bundle for the v6 single-model architecture:
+  - GGUF model: josi-v6-q4_k_m.gguf  (~5.0 GB Android / ~2.5 GB iPhone)
+  - Knowledge:  knowledge.json  (~153 KB, coaching context for on-device injection)
+  - Manifest:   josi-v6-manifest.json  (version, checksums, download URLs)
 
-This replaces the v5 dual-model publish (two ~935 MB files → one file).
+The app downloads model + knowledge as one versioned bundle.
+Knowledge is updated atomically with the model — same version, same download.
 
 Publish target: nginx on the Hetzner training server
   URL: http://<server-ip>/models/
 
 Usage:
-    # Full pipeline: merge + GGUF + publish
+    # Full pipeline: merge + GGUF + publish (includes knowledge.json)
     python publish_models_v6.py --model models/josi-v6-qwen3-unified-<timestamp>/final
 
     # Merge + GGUF only (no publish)
@@ -28,6 +30,7 @@ Requirements:
     - llama.cpp (convert_hf_to_gguf.py + llama-quantize for GGUF conversion)
     - nginx serving /var/www/mivalta-models/ (see training/server/setup_nginx.sh)
     - GPU with ~24GB VRAM (for merge step of 8B model) or ~16GB (4B)
+    - knowledge/generated/knowledge.json (run export_knowledge_json.py first)
 """
 
 import argparse
@@ -45,6 +48,7 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = SCRIPT_DIR.parent.parent
 GGUF_DIR = PROJECT_ROOT / "models" / "gguf"
 MANIFEST_PATH = GGUF_DIR / "manifest.json"
+KNOWLEDGE_JSON = PROJECT_ROOT / "knowledge" / "generated" / "knowledge.json"
 
 # nginx serve directory — created by training/server/setup_nginx.sh
 PUBLISH_DIR = Path("/var/www/mivalta-models")
@@ -203,8 +207,8 @@ def publish_file(local_path: str, filename: str) -> str:
     return url
 
 
-def write_manifest(model_meta: dict, base_url: str):
-    """Write manifest.json with model metadata and download URLs."""
+def write_manifest(model_meta: dict, knowledge_meta: dict | None, base_url: str):
+    """Write manifest.json with model + knowledge metadata and download URLs."""
     GGUF_DIR.mkdir(parents=True, exist_ok=True)
 
     manifest = {
@@ -216,6 +220,9 @@ def write_manifest(model_meta: dict, base_url: str):
         "model": model_meta,
         "upgrade_note": "v6 replaces v5 dual-model (2x Qwen2.5-1.5B) with single Qwen3",
     }
+
+    if knowledge_meta:
+        manifest["knowledge"] = knowledge_meta
 
     with open(MANIFEST_PATH, "w") as f:
         json.dump(manifest, f, indent=2)
@@ -311,6 +318,35 @@ def main():
         "quant": args.quant,
     }
 
+    # Bundle knowledge.json
+    knowledge_meta = None
+    print(f"\n{'='*60}")
+    print("  Bundling knowledge.json")
+    print(f"{'='*60}")
+
+    if KNOWLEDGE_JSON.exists():
+        knowledge_size = os.path.getsize(str(KNOWLEDGE_JSON))
+        knowledge_checksum = sha256_file(str(KNOWLEDGE_JSON))
+
+        # Read entry count from the JSON
+        with open(KNOWLEDGE_JSON) as f:
+            knowledge_data = json.load(f)
+        entry_count = knowledge_data.get("total_entries", 0)
+
+        knowledge_meta = {
+            "file": "knowledge.json",
+            "size_bytes": knowledge_size,
+            "sha256": knowledge_checksum,
+            "entries": entry_count,
+        }
+        print(f"\n  Knowledge: {KNOWLEDGE_JSON}")
+        print(f"  Size: {knowledge_size / 1024:.1f} KB ({entry_count} entries)")
+        print(f"  SHA-256: {knowledge_checksum}")
+    else:
+        print(f"\n  WARNING: {KNOWLEDGE_JSON} not found!")
+        print(f"  Run: python knowledge/scripts/export_knowledge_json.py")
+        print(f"  Continuing without knowledge bundle...")
+
     # Step 3: Publish to nginx directory
     if not args.no_publish:
         print(f"\n{'='*60}")
@@ -320,13 +356,20 @@ def main():
         filename = os.path.basename(gguf_path)
         url = publish_file(gguf_path, filename)
         model_meta["url"] = url
+
+        # Publish knowledge.json alongside the model
+        if KNOWLEDGE_JSON.exists():
+            knowledge_url = publish_file(str(KNOWLEDGE_JSON), "knowledge.json")
+            knowledge_meta["url"] = knowledge_url
     else:
         print("\n  Skipping publish (--no-publish)")
         filename = os.path.basename(gguf_path)
         model_meta["url"] = f"{base_url}/{filename}"
+        if knowledge_meta:
+            knowledge_meta["url"] = f"{base_url}/knowledge.json"
 
     # Write manifest
-    manifest = write_manifest(model_meta, base_url)
+    manifest = write_manifest(model_meta, knowledge_meta, base_url)
 
     # Publish manifest too
     if not args.no_publish:
@@ -336,14 +379,18 @@ def main():
     print(f"\n{'='*60}")
     print("  Publish Complete!")
     print(f"{'='*60}")
-    print(f"\n  Model: {model_meta['url']}")
-    print(f"  Manifest: {base_url}/josi-v6-manifest.json")
-    print(f"  Size: {size_bytes / (1024**3):.2f} GB (single file, both modes)")
-    print(f"\n  v5 was: ~1.87 GB (two files)")
-    print(f"  v6 is:  single file (8B ~5.0 GB / 4B ~2.5 GB)")
+    print(f"\n  Model:     {model_meta['url']}")
+    if knowledge_meta:
+        print(f"  Knowledge: {knowledge_meta.get('url', 'not published')}")
+    print(f"  Manifest:  {base_url}/josi-v6-manifest.json")
+    print(f"\n  Bundle size: {size_bytes / (1024**3):.2f} GB model + {knowledge_size / 1024:.1f} KB knowledge")
+    print(f"  Total files: 3 (model GGUF + knowledge.json + manifest.json)")
 
-    print(f"\n  Developer download:")
-    print(f"    curl -LO {model_meta['url']}")
+    print(f"\n  App downloads on first launch:")
+    print(f"    1. {base_url}/josi-v6-manifest.json  (version check)")
+    print(f"    2. {model_meta['url']}  (model)")
+    if knowledge_meta:
+        print(f"    3. {knowledge_meta.get('url', base_url + '/knowledge.json')}  (coaching knowledge)")
 
     print()
 

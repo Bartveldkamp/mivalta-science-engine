@@ -1,0 +1,2843 @@
+{
+  "version": "v6",
+  "description": "MiValta coaching knowledge — ships with model for on-device inference",
+  "total_entries": 114,
+  "entries": [
+    {
+      "id": "balance_v4__busy_periods",
+      "card": "balance_v4",
+      "section": "busy_periods",
+      "topics": [
+        "life_balance",
+        "time_management"
+      ],
+      "keywords": [
+        "busy",
+        "time",
+        "balance",
+        "work",
+        "life",
+        "stress",
+        "family",
+        "schedule"
+      ],
+      "content": "Here's something important: scaling back during busy periods is not failing—it's being smart. Life has seasons, and training should flex with them. Work deadlines, family demands, moving house, new baby—these are legitimate reasons to do less, and doing less is the right call.\n\nMaintenance mode exists for exactly these times. Two or three shorter sessions per week can maintain most of your fitness for weeks or even months. You're not going backward—you're holding steady until life calms down. That's a win.\n\nLife stress—work pressure, relationship issues, financial worry—directly affects your training capacity. Stress is stress, and your body doesn't distinguish between sources. When external stress is high, your ability to absorb training stress is lower. You have full permission to do less when life demands more. The training will be there when things calm down. It's not going anywhere."
+    },
+    {
+      "id": "balance_v4__time_constraints",
+      "card": "balance_v4",
+      "section": "time_constraints",
+      "topics": [
+        "life_balance",
+        "time_management"
+      ],
+      "keywords": [
+        "busy",
+        "time",
+        "balance",
+        "work",
+        "life",
+        "stress",
+        "family",
+        "schedule"
+      ],
+      "content": "Quality over quantity, always. This isn't just a nice saying—it's backed by research. Three focused 30-minute sessions will make you fitter than zero \"perfect\" one-hour sessions that never happen because life gets in the way.\n\nThere's a concept called minimum effective dose. Some training is infinitely better than none. A 20-minute run still builds fitness. A 15-minute bike commute still counts. Even a brisk 10-minute walk contributes to your aerobic base. Don't let perfect be the enemy of good.\n\nMicro training—your commute, taking stairs, walking during lunch—can supplement structured sessions. These small doses add up over a week. The research shows that even brief bursts of activity provide real health and fitness benefits. So if you're time-crunched, don't think \"I can't train properly.\" Think \"What can I fit in?\" Something always beats nothing."
+    },
+    {
+      "id": "beginner_v4__common_mistakes",
+      "card": "beginner_v4",
+      "section": "common_mistakes",
+      "topics": [
+        "beginner",
+        "getting_started"
+      ],
+      "keywords": [
+        "beginner",
+        "start",
+        "new",
+        "first",
+        "never",
+        "begin",
+        "getting started",
+        "newbie"
+      ],
+      "content": "Let's talk about the mistakes I see beginners make, so you can avoid them. The biggest one by far is starting too hard too fast. The enthusiasm is great, but your body needs time to adapt. Doing too much too soon leads to injury, burnout, or both.\n\n\"No pain no gain\" is wrong for endurance training. That mindset belongs in short-term strength training, not in building aerobic fitness. Easy work genuinely builds your base—it's not slacking, it's smart training. The athletes who improve most are often the ones who have the discipline to go easy when easy is prescribed.\n\nComparing yourself to others is another trap. You're not them. They have different genetics, different training history, different life circumstances. The only useful comparison is to yesterday's version of yourself. And finally: skipping rest days doesn't make you faster. It makes you tired, then injured. Rest is when adaptation happens."
+    },
+    {
+      "id": "beginner_v4__first_weeks",
+      "card": "beginner_v4",
+      "section": "first_weeks",
+      "topics": [
+        "beginner",
+        "getting_started"
+      ],
+      "keywords": [
+        "beginner",
+        "start",
+        "new",
+        "first",
+        "never",
+        "begin",
+        "getting started",
+        "newbie"
+      ],
+      "content": "Let me tell you what to expect in your first few weeks, because knowing this prevents a lot of unnecessary worry. Feeling slow is normal and correct. If your easy training feels easy, you're doing it right—not wrong.\n\nDuring these early weeks, you should be able to talk easily during training. If you're gasping for breath, you're going too hard. I know it feels unproductive, but this easy effort is building your aerobic foundation—the base that everything else sits on.\n\nBuilding this foundation takes patience. You won't see dramatic changes in weeks one through four, and that's okay. The changes are happening inside—your body is adapting at the cellular level. Everyone starts somewhere, and the fittest athletes you admire? They all began with easy Zone 2 work, feeling slow, wondering if it was enough. It was. And it is for you too."
+    },
+    {
+      "id": "beginner_v4__getting_started",
+      "card": "beginner_v4",
+      "section": "getting_started",
+      "topics": [
+        "beginner",
+        "getting_started"
+      ],
+      "keywords": [
+        "beginner",
+        "start",
+        "new",
+        "first",
+        "never",
+        "begin",
+        "getting started",
+        "newbie"
+      ],
+      "content": "Here's the most important advice for getting started: begin easier than you think you need to. Seriously. The number one mistake new athletes make is starting too hard, getting injured or burnt out, and quitting. Don't be that statistic.\n\nConsistency beats intensity every single time for beginners. Your first six weeks aren't really about building fitness—they're about building the habit. Getting your body used to regular movement. Teaching your brain that training is just part of what you do now.\n\nWe unlock intensity zones progressively for good reason. Your cardiovascular system adapts quickly and will make you feel ready for more. But your tendons and bones adapt much slower—they need months to strengthen. If you push intensity before they're ready, injury follows. Trust the progression. The fittest athletes all started exactly where you are now."
+    },
+    {
+      "id": "cycling_v4__indoor",
+      "card": "cycling_v4",
+      "section": "indoor",
+      "sport": "bike",
+      "topics": [
+        "cycling",
+        "power",
+        "ftp",
+        "indoor"
+      ],
+      "keywords": [
+        "bike",
+        "cycling",
+        "power",
+        "ftp",
+        "watts",
+        "watt",
+        "indoor",
+        "trainer",
+        "turbo",
+        "pedal",
+        "cadence",
+        "ride",
+        "fiets"
+      ],
+      "content": "Indoor training has one nemesis: heat. Without the natural cooling of wind passing over you, your core temperature climbs and power drops. Most cyclists see their indoor FTP run 5 to 10 percent lower than outdoors, even when fitness is identical.\n\nYou have two options. First, you can set a separate indoor FTP at about 90 to 95 percent of your outdoor number and train to those zones. This keeps the relative effort honest. Second—and this is what I'd recommend—get serious about cooling. Two fans minimum, pointed directly at you. Open windows and doors for airflow. Wear minimal clothing. For hard interval sessions, have ice towels ready.\n\nGood cooling closes that gap between indoor and outdoor power. Some riders eliminate it entirely. Don't underestimate how much heat limits your performance. What feels like fitness loss might just be your body overheating."
+    },
+    {
+      "id": "cycling_v4__overview",
+      "card": "cycling_v4",
+      "section": "overview",
+      "sport": "bike",
+      "topics": [
+        "cycling",
+        "power",
+        "ftp",
+        "indoor"
+      ],
+      "keywords": [
+        "bike",
+        "cycling",
+        "power",
+        "ftp",
+        "watts",
+        "watt",
+        "indoor",
+        "trainer",
+        "turbo",
+        "pedal",
+        "cadence",
+        "ride",
+        "fiets"
+      ],
+      "content": "Here's why power meters changed cycling training: they measure exactly how hard you're pushing, every second. Think of it as a speedometer for effort. Unlike heart rate, which bounces around based on caffeine, temperature, and last night's sleep, power is pure—push harder and the number goes up.\n\nYour anchor number is FTP: Functional Threshold Power. It's roughly the maximum wattage you can sustain for about an hour. Every zone gets calculated from this number, so knowing your FTP makes everything else fall into place.\n\nCycling has one major advantage over running: no impact. Every pedal stroke is smooth, with no ground pounding. This means you recover about five percent faster between hard sessions. You can handle slightly more intensity per mesocycle than a runner can. Same training principles, just a bit more capacity."
+    },
+    {
+      "id": "cycling_v4__recovery",
+      "card": "cycling_v4",
+      "section": "recovery",
+      "sport": "bike",
+      "topics": [
+        "cycling",
+        "power",
+        "ftp",
+        "indoor"
+      ],
+      "keywords": [
+        "bike",
+        "cycling",
+        "power",
+        "ftp",
+        "watts",
+        "watt",
+        "indoor",
+        "trainer",
+        "turbo",
+        "pedal",
+        "cadence",
+        "ride",
+        "fiets"
+      ],
+      "content": "Good question about why cyclists recover faster. Every time a runner's foot hits the ground, their muscles absorb the shock—that's eccentric load. Cycling doesn't have this. Your pedal stroke is smooth, with no impact to absorb.\n\nThis translates to about five percent faster recovery between hard sessions compared to running. You can handle more intensity volume per mesocycle, and overuse injuries are less common. Your muscles aren't getting that repeated pounding.\n\nBut here's the thing: faster recovery doesn't mean no recovery. You still need rest days. You still need recovery mesocycles every three to four weeks. The fundamentals of training adaptation haven't changed—your body still rebuilds during rest. Cycling just lets you do a bit more before you hit that limit."
+    },
+    {
+      "id": "cycling_v4__safety",
+      "card": "cycling_v4",
+      "section": "safety",
+      "sport": "bike",
+      "topics": [
+        "cycling",
+        "power",
+        "ftp",
+        "indoor"
+      ],
+      "keywords": [
+        "bike",
+        "cycling",
+        "power",
+        "ftp",
+        "watts",
+        "watt",
+        "indoor",
+        "trainer",
+        "turbo",
+        "pedal",
+        "cadence",
+        "ride",
+        "fiets"
+      ],
+      "content": "A few things to keep in mind for safe, effective cycling training. Your power zones are only as good as your FTP measurement. Test every six to eight weeks—fitness changes, and your zones need to reflect that. If you can't hit Zone 4 targets, your FTP is probably set too high. If Zone 4 feels surprisingly easy, it's too low.\n\nPower tells you how hard you're pushing, but it doesn't tell you if you're ready to push. You still need HRV, perceived effort, and sleep quality to guide your decisions. A tired body produces lower power, but the real danger is ignoring that fatigue and digging deeper anyway.\n\nFor indoor sessions, heat management isn't optional. Overheating tanks your power output and slows recovery afterward. Calibrate your power meter before important sessions—a few percentage points of drift can throw off your entire workout.\n\nAnd here's an obvious one that people forget: no interval sessions in traffic. Save the hard efforts for safe roads or take them indoors. Intensity requires focus, and focus means not watching for cars.\n\nIf you're newer to structured training, the intensity zones unlock progressively—same gates as running. Build your foundation first."
+    },
+    {
+      "id": "cycling_v4__zones",
+      "card": "cycling_v4",
+      "section": "zones",
+      "sport": "bike",
+      "topics": [
+        "cycling",
+        "power",
+        "ftp",
+        "indoor"
+      ],
+      "keywords": [
+        "bike",
+        "cycling",
+        "power",
+        "ftp",
+        "watts",
+        "watt",
+        "indoor",
+        "trainer",
+        "turbo",
+        "pedal",
+        "cadence",
+        "ride",
+        "fiets"
+      ],
+      "content": "Let me walk you through the power zones. They're all based on your FTP, so if you know that number, everything else makes sense.\n\nRecovery zone sits below 45 percent of FTP—just spinning easy, getting blood flowing without real training stress. Zone 1 is 45 to 55 percent, still very light. Zone 2 runs from 55 to 75 percent, your bread-and-butter endurance zone for long rides and base building.\n\nZone 3 tempo is 76 to 90 percent—that sustained effort you'd feel on a group ride. Zone 4 threshold is 91 to 105 percent, right at your FTP where lactate clearance happens. Zone 5 is 106 to 120 percent for VO2max work. Zones 6, 7, and 8 climb progressively higher into anaerobic and sprint territory, reaching over 200 percent of FTP at the very top.\n\nHere's the key insight: all nine zones matter, but most of your riding should live in Zones 1 and 2. The intensity zones are strategic touches, not the bulk of your training."
+    },
+    {
+      "id": "energy_zones_v4__cross_domain",
+      "card": "energy_zones_v4",
+      "section": "cross_domain",
+      "topics": [
+        "zones",
+        "intensity",
+        "heart_rate",
+        "effort"
+      ],
+      "keywords": [
+        "zone",
+        "zones",
+        "z1",
+        "z2",
+        "z3",
+        "z4",
+        "z5",
+        "z6",
+        "z7",
+        "z8",
+        "intensity",
+        "effort",
+        "heart rate",
+        "easy",
+        "hard",
+        "threshold",
+        "tempo",
+        "interval",
+        "warmup",
+        "cooldown"
+      ],
+      "content": "Training zones connect to everything else in your plan. Let me explain how.\n\nYour time in each zone gets tracked as NTIZ—normalized time in zone. This measures your actual training dose. Recovery zone time doesn't count toward this because it's restoration, not training.\n\nThe two-lane recovery model governs what you can do after hard sessions. After Z4 through Z8 work, you need 48 to 72 hours before more intensity. But easy Z1 or Z2 can happen the next day. If your HRV shows red status, stick to recovery or very easy Z1 only.\n\nYour training phase shapes your zone distribution. In base phase, 85 to 90 percent of your training stays in easy zones. Build phase adds more threshold and VO2max work. Peak phase emphasizes the highest intensities. Taper drops volume but keeps some intensity to stay sharp.\n\nIf a prescribed Z1 session feels like a 4 or higher on the effort scale, something's wrong—either you're going too fast or you're carrying fatigue that needs attention.\n\nIf you're newer to training, the higher intensity zones stay locked for your first couple of training blocks. We unlock them progressively as your body adapts. If you're older, your recovery gaps between intensity sessions are automatically extended."
+    },
+    {
+      "id": "energy_zones_v4__day_types",
+      "card": "energy_zones_v4",
+      "section": "day_types",
+      "topics": [
+        "zones",
+        "intensity",
+        "heart_rate",
+        "effort"
+      ],
+      "keywords": [
+        "zone",
+        "zones",
+        "z1",
+        "z2",
+        "z3",
+        "z4",
+        "z5",
+        "z6",
+        "z7",
+        "z8",
+        "intensity",
+        "effort",
+        "heart rate",
+        "easy",
+        "hard",
+        "threshold",
+        "tempo",
+        "interval",
+        "warmup",
+        "cooldown"
+      ],
+      "content": "Different days serve different purposes in your training. Understanding this helps everything make sense.\n\nOff days mean complete rest—no activity at all. You still need four to eight of these per training block. Your body does important repair work when you're truly resting.\n\nRecovery days involve gentle movement in the R zone. This isn't training; it's active restoration that helps your body bounce back faster than sitting on the couch would.\n\nAerobic days are Z1 and Z2—base building work that should feel easy. This is the foundation of your fitness. If it feels hard, you're going too fast.\n\nDevelopment days include Z3 tempo work. You're working, but it's sustainable. These are structured sessions with specific purposes.\n\nLoad days are Z4 and Z5—this is the hard work that drives real fitness gains. Threshold and VO2max efforts.\n\nAnaerobic and sprint days involve Z6 through Z8. Maximum efforts, gasping for air. Short but intense.\n\nHere's the crucial part: after hard days, you need 48 to 72 hours before more intensity. But easy Z1 or Z2 work? That can happen the next day, often within 12 to 24 hours. Recovery blocks more hard stuff—it doesn't block easy stuff."
+    },
+    {
+      "id": "energy_zones_v4__interval_rest",
+      "card": "energy_zones_v4",
+      "section": "interval_rest",
+      "topics": [
+        "zones",
+        "intensity",
+        "heart_rate",
+        "effort"
+      ],
+      "keywords": [
+        "zone",
+        "zones",
+        "z1",
+        "z2",
+        "z3",
+        "z4",
+        "z5",
+        "z6",
+        "z7",
+        "z8",
+        "intensity",
+        "effort",
+        "heart rate",
+        "easy",
+        "hard",
+        "threshold",
+        "tempo",
+        "interval",
+        "warmup",
+        "cooldown"
+      ],
+      "content": "Here's something that surprises many athletes: the rest between hard efforts matters as much as the efforts themselves. Get the rest wrong and you undermine the whole session.\n\nFor easy Z1 and Z2 work, you're usually going continuously. These are aerobic sessions where you find your rhythm and maintain it. If you need a short break, a few minutes is fine—no strict rules here.\n\nTempo work in Z3 involves longer intervals—six to thirty minutes each—with two to eight minutes of recovery between. Something like three times twelve minutes at tempo with four minutes of easy jogging between is a classic format.\n\nThreshold work in Z4 uses intervals of four to twenty minutes with two to ten minutes of rest. The Norwegian style might be four times eight minutes at threshold with three minutes of recovery—long enough to partially recover but not so long that you cool down completely.\n\nVO2max intervals in Z5 are shorter and harder—one to five minutes each—with rest equal to or longer than the work time. Five times three minutes hard with three minutes easy is a common approach. That rest is essential for maintaining quality.\n\nAnaerobic and sprint work in Z6 through Z8 involves very short bursts—seconds to ninety seconds—but requires surprisingly long rest. Two to ten minutes between efforts. This isn't lazy; it's necessary. Without full recovery, you can't generate the maximum power that makes these sessions effective.\n\nWe adjust your rest automatically based on your experience level and age. Beginners need longer rest to maintain quality—up to 60 percent more. Older athletes also need extended recovery between efforts."
+    },
+    {
+      "id": "energy_zones_v4__overview",
+      "card": "energy_zones_v4",
+      "section": "overview",
+      "topics": [
+        "zones",
+        "intensity",
+        "heart_rate",
+        "effort"
+      ],
+      "keywords": [
+        "zone",
+        "zones",
+        "z1",
+        "z2",
+        "z3",
+        "z4",
+        "z5",
+        "z6",
+        "z7",
+        "z8",
+        "intensity",
+        "effort",
+        "heart rate",
+        "easy",
+        "hard",
+        "threshold",
+        "tempo",
+        "interval",
+        "warmup",
+        "cooldown"
+      ],
+      "content": "Think of training zones like gears on a bike—nine different effort levels, each with its own purpose. Let me walk you through them.\n\nRecovery, or R, is barely moving. A gentle walk or easy spin. This isn't training at all—it's active restoration, helping your body recover between real sessions.\n\nZ1 and Z2 are your easy gears. You should be able to chat comfortably in paragraphs at Z1, and in full sentences with slight breathlessness at Z2. Here's what surprises most people: Olympic athletes spend the vast majority of their time right here. Easy training builds your aerobic engine—the foundation for everything else.\n\nZ3 is where it starts to feel like work. Short sentences only. This is the danger zone, though—many athletes accidentally live here because it feels productive. The problem is it's neither easy enough for real recovery nor hard enough for optimal stimulus.\n\nZ4 and Z5 are your hard gears. At Z4, you can manage only a few words between breaths—this is threshold pace. At Z5, talking becomes impossible. Heart pounding, watching the clock. This is where you build maximum aerobic capacity.\n\nZ6 through Z8 are sprinting territory. Seconds to a minute of maximum effort. Gasping for air. Pure power and speed.\n\nHere's the key insight: the best training combines mostly easy work in Z1-Z2 with strategic hard efforts in Z4-Z5. Avoid getting stuck in Z3 where it feels hard but doesn't deliver optimal results."
+    },
+    {
+      "id": "energy_zones_v4__phase_structure",
+      "card": "energy_zones_v4",
+      "section": "phase_structure",
+      "topics": [
+        "zones",
+        "intensity",
+        "heart_rate",
+        "effort"
+      ],
+      "keywords": [
+        "zone",
+        "zones",
+        "z1",
+        "z2",
+        "z3",
+        "z4",
+        "z5",
+        "z6",
+        "z7",
+        "z8",
+        "intensity",
+        "effort",
+        "heart rate",
+        "easy",
+        "hard",
+        "threshold",
+        "tempo",
+        "interval",
+        "warmup",
+        "cooldown"
+      ],
+      "content": "The structure of your workouts changes based on where you are in your training cycle. Same zone, same total time—but different training effect depending on how we structure it.\n\nDuring base phase, you're mostly doing continuous efforts. A single 50 or 60-minute session at easy pace. This builds your aerobic foundation while keeping mental stress low. You just find your rhythm and hold it. No complicated intervals to track.\n\nIn build phase, we introduce more intervals. Maybe three times fifteen minutes with short breaks between. This teaches your body to control tempo and pacing, and to restart effort after brief recoveries. You're building the skills you'll need for racing.\n\nPeak phase increases the fragmentation further—five times ten minutes, six times eight minutes. This simulates race conditions more closely. It's mentally challenging because you're constantly restarting after breaks. But that's exactly the toughness you need when race day comes.\n\nTaper phase returns to simpler continuous work, but shorter. Thirty minutes easy. The goal is maintaining your fitness without adding stress. Fresh legs are what matter now.\n\nYour plan automatically selects the right structure for your current phase. You don't need to figure this out—we handle it based on where you are in your training cycle and what's coming up."
+    },
+    {
+      "id": "energy_zones_v4__safety",
+      "card": "energy_zones_v4",
+      "section": "safety",
+      "topics": [
+        "zones",
+        "intensity",
+        "heart_rate",
+        "effort"
+      ],
+      "keywords": [
+        "zone",
+        "zones",
+        "z1",
+        "z2",
+        "z3",
+        "z4",
+        "z5",
+        "z6",
+        "z7",
+        "z8",
+        "intensity",
+        "effort",
+        "heart rate",
+        "easy",
+        "hard",
+        "threshold",
+        "tempo",
+        "interval",
+        "warmup",
+        "cooldown"
+      ],
+      "content": "A few important things to keep in mind for your safety and long-term progress.\n\nRecovery zone work is not a substitute for complete rest days. You still need four to eight days of true rest per training block. Your body needs both active recovery and complete rest at different times.\n\nYour easy zones must stay truly easy. This is crucial. When Z1 and Z2 start creeping into harder territory, you lose the polarization that makes training effective. If Z1 ever feels hard, that's a signal—fatigue, illness, or dehydration. Pay attention.\n\nThere are limits on how many hard sessions you can do per training block. Recreational athletes max out around eight Z4-Z5 sessions. Highly trained athletes can handle up to twelve. If you're newer to training, four per block is plenty.\n\nAfter Z6 through Z8 work, you need 72 to 96 hours before more intensity—longer than after threshold work. But easy Z1 or Z2 is still fine after 12 to 24 hours. Never do high-intensity work when your HRV is suppressed.\n\nYour zones are sport-specific. Running zones and cycling zones are different because running involves more muscle mass and typically produces higher heart rates. Establish your zones separately for each sport you train.\n\nThreshold values drift over time as your fitness changes. Retest every six to eight weeks. Outdated thresholds mean you're training in the wrong zones without knowing it.\n\nStop immediately if you experience chest pain or pressure, severe breathlessness that doesn't match your effort, dizziness, unusual heart rhythms, or sharp joint pain. These are non-negotiable warning signs."
+    },
+    {
+      "id": "energy_zones_v4__talk_test",
+      "card": "energy_zones_v4",
+      "section": "talk_test",
+      "topics": [
+        "zones",
+        "intensity",
+        "heart_rate",
+        "effort"
+      ],
+      "keywords": [
+        "zone",
+        "zones",
+        "z1",
+        "z2",
+        "z3",
+        "z4",
+        "z5",
+        "z6",
+        "z7",
+        "z8",
+        "intensity",
+        "effort",
+        "heart rate",
+        "easy",
+        "hard",
+        "threshold",
+        "tempo",
+        "interval",
+        "warmup",
+        "cooldown"
+      ],
+      "content": "Here's a simple way to check your zone without any gadgets—just pay attention to how easily you can talk.\n\nIf you can sing comfortably, you're in recovery zone. If you can chat in full paragraphs without thinking about your breathing, that's Z1. At Z2, you can still speak in long sentences but you notice your breathing slightly. Z3 means short sentences only—you need to catch your breath between phrases. Z4 lets you manage just a few words at a time. At Z5 and above, talking becomes impossible.\n\nThis test is surprisingly accurate. Research shows it correlates really well with laboratory thresholds. Your body knows what zone it's in—you just have to listen.\n\nOne important signal: if your prescribed Z1 pace feels hard, something is wrong. You might be fatigued, fighting off illness, or dehydrated. Don't push through that—it's your body asking for attention."
+    },
+    {
+      "id": "energy_zones_v4__warmup_cooldown",
+      "card": "energy_zones_v4",
+      "section": "warmup_cooldown",
+      "topics": [
+        "zones",
+        "intensity",
+        "heart_rate",
+        "effort"
+      ],
+      "keywords": [
+        "zone",
+        "zones",
+        "z1",
+        "z2",
+        "z3",
+        "z4",
+        "z5",
+        "z6",
+        "z7",
+        "z8",
+        "intensity",
+        "effort",
+        "heart rate",
+        "easy",
+        "hard",
+        "threshold",
+        "tempo",
+        "interval",
+        "warmup",
+        "cooldown"
+      ],
+      "content": "Your warmup and cooldown times are personalized based on who you are and what you're doing that day. Let me explain why they matter.\n\nWarmup gradually raises your heart rate and body temperature, preparing your muscles and joints for the effort ahead. It reduces injury risk and mentally prepares you for the session. For intensity days with Z4 through Z8 work, you need fifteen to twenty minutes. For easy Z1 or Z2 days, five to ten minutes is enough. Recovery days need almost no formal warmup—maybe five minutes of gentle movement.\n\nSome people need more warmup time than others. If you're newer to training, your body is still adapting—take extra time, up to 40 percent more than the baseline. If you're 45 or older, your joints and muscles benefit from more preparation time. At 55 and above, we recommend up to 15 percent longer warmup. Cold weather? Add five minutes regardless of age.\n\nCooldown gradually lowers your heart rate, helps clear metabolic waste from your muscles, and begins the recovery process. After intensity work, ten to fifteen minutes of easy movement helps. After easy sessions, five to ten minutes is plenty. After pure recovery days, you don't really need a formal cooldown.\n\nWe calculate your ideal warmup and cooldown automatically based on your profile. If a session ever feels rushed at the start, you can always add a few extra minutes of easy movement before jumping into the main work. Listening to your body trumps any formula."
+    },
+    {
+      "id": "energy_zones_v4__zone_feel",
+      "card": "energy_zones_v4",
+      "section": "zone_feel",
+      "topics": [
+        "zones",
+        "intensity",
+        "heart_rate",
+        "effort"
+      ],
+      "keywords": [
+        "zone",
+        "zones",
+        "z1",
+        "z2",
+        "z3",
+        "z4",
+        "z5",
+        "z6",
+        "z7",
+        "z8",
+        "intensity",
+        "effort",
+        "heart rate",
+        "easy",
+        "hard",
+        "threshold",
+        "tempo",
+        "interval",
+        "warmup",
+        "cooldown"
+      ],
+      "content": "Each zone has a distinct feel that helps you know you're in the right place. Learning to recognize these sensations is one of the most valuable skills you can develop.\n\nRecovery zone feels like a gentle stroll. You could literally sing if you wanted to. This is active rest, not training—your body should feel like it's barely working.\n\nZ1 feels very easy. You can chat freely about your day, your weekend plans, whatever. If you're breathing hard at all, you're going too fast. Most athletes struggle with this because it feels unproductive. It's not.\n\nZ2 feels comfortable but slightly more purposeful than Z1. You can still talk in full sentences but you notice your breathing. There's a sense of working, but it's sustainable for hours.\n\nZ3 feels like you're working now. Short sentences only—you need to catch your breath between thoughts. This feels productive, which is exactly why people accidentally live here. Don't make that mistake.\n\nZ4 is threshold work—hard but controlled. You can say a few words between breaths, maybe a short phrase. Sustainable for thirty to sixty minutes if you're fresh, but definitely challenging.\n\nZ5 is VO2max territory. Talking becomes impossible. Heart pounding, very aware of the clock. This is race-effort intensity.\n\nZ6 through Z8 are short, explosive efforts measured in seconds. Maximum power, gasping for air. You'll know when you're here—it's unmistakable.\n\nHere's the key insight: if prescribed Z1 feels hard, something is wrong. Either you're going too fast, you're fatigued, or you might be fighting off illness. Check in with yourself."
+    },
+    {
+      "id": "goal_modifiers_v4__choosing",
+      "card": "goal_modifiers_v4",
+      "section": "choosing",
+      "topics": [
+        "goals",
+        "race",
+        "weight_loss"
+      ],
+      "keywords": [
+        "goal",
+        "race",
+        "weight",
+        "loss",
+        "5k",
+        "10k",
+        "marathon",
+        "triathlon",
+        "fitness",
+        "choose"
+      ],
+      "content": "Good question about choosing your goal. Here's how to think about it.\n\nIf you're targeting a race personal record, pick that specific distance—5K, 10K, half marathon, whatever you're racing. The training distribution optimizes for that event's demands.\n\nIf you want better energy, better sleep, or general fitness improvements, choose general fitness. It's balanced and sustainable. If body composition is your focus, choose weight loss for the modified training mix.\n\nComing back from a break? Start with base building. Same if you have injury history—build that foundation before adding intensity. When in doubt, start with general fitness. You can always adjust later as you learn how your body responds and your goals clarify."
+    },
+    {
+      "id": "goal_modifiers_v4__overview",
+      "card": "goal_modifiers_v4",
+      "section": "overview",
+      "topics": [
+        "goals",
+        "race",
+        "weight_loss"
+      ],
+      "keywords": [
+        "goal",
+        "race",
+        "weight",
+        "loss",
+        "5k",
+        "10k",
+        "marathon",
+        "triathlon",
+        "fitness",
+        "choose"
+      ],
+      "content": "Your goal shapes how we distribute your training. Different events demand different emphases.\n\nFor shorter races like 5K and 10K, you need more threshold and VO2max work. These events require speed and the ability to hold hard efforts when it counts. Longer races—half marathons, marathons, ultras—flip that equation. Aerobic durability dominates, with most training in Zones 1 and 2 and carefully placed intensity touches.\n\nTriathlon follows similar patterns spread across three sports, with intensity carefully controlled to protect recovery across disciplines. Non-race goals give more flexibility: general fitness stays balanced, weight loss uses strategic HIIT touches, and base building maximizes your aerobic foundation.\n\nHere's the key insight: your goal tells us where to shift emphasis. But your level and recovery capacity determine what's actually safe for you right now."
+    },
+    {
+      "id": "goal_modifiers_v4__safety",
+      "card": "goal_modifiers_v4",
+      "section": "safety",
+      "topics": [
+        "goals",
+        "race",
+        "weight_loss"
+      ],
+      "keywords": [
+        "goal",
+        "race",
+        "weight",
+        "loss",
+        "5k",
+        "10k",
+        "marathon",
+        "triathlon",
+        "fitness",
+        "choose"
+      ],
+      "content": "Some goals require experience before they're safe to pursue. Here's what that means in practice.\n\nMarathon, ultra, and Ironman distances need intermediate level at minimum. The volume and intensity demands are simply too high for beginners. If you're new and want one of these goals, you'll route through base building first—that's not a limitation, it's how we get you there without breaking down.\n\nShorter races like 5K and 10K are allowed for beginners, but the intensity is automatically capped by your current level. You're doing the same event, just with appropriate guardrails. Weight loss goals are allowed early too, but HIIT touches are gated by your readiness and tolerance.\n\nHere's the rule: if your goal exceeds your current capacity, we build you toward it safely. No shortcuts. The fastest path to any goal includes not getting injured along the way."
+    },
+    {
+      "id": "goal_modifiers_v4__weight_loss",
+      "card": "goal_modifiers_v4",
+      "section": "weight_loss",
+      "topics": [
+        "goals",
+        "race",
+        "weight_loss"
+      ],
+      "keywords": [
+        "goal",
+        "race",
+        "weight",
+        "loss",
+        "5k",
+        "10k",
+        "marathon",
+        "triathlon",
+        "fitness",
+        "choose"
+      ],
+      "content": "I hear you on weight loss goals. Let me share what the current evidence actually shows, because it's different from what many people expect.\n\nWeight loss is not endless slow cardio grinding in the so-called fat-burning zone. What actually works is consistency and frequency—showing up matters most. Time-efficient HIIT touches at Zone 4 and Zone 5 can help, but they're not magic. Protecting your muscle with some strength work matters. And critically, avoiding the \"always hard but not hard enough\" trap where you spend too much time in Zone 3 grinding without real recovery.\n\nWhat doesn't work: hours of moderate-intensity slog, excessive intensity that tanks your recovery, or any program you can't actually stick with.\n\nOur approach combines a strong aerobic base with small HIIT touches and prioritizes weekly repeatability. If HIIT sessions hurt your adherence, they fail. The best program is the one you'll actually do."
+    },
+    {
+      "id": "josi_personas_v1__balanced",
+      "card": "josi_personas_v1",
+      "section": "balanced",
+      "topics": [
+        "persona",
+        "coaching_style"
+      ],
+      "keywords": [
+        "persona",
+        "style",
+        "tone",
+        "direct",
+        "encouraging",
+        "technical",
+        "balanced",
+        "dutch"
+      ],
+      "content": "BALANCED COACH\n\nTone: Warm, professional, supportive.\n\nMix encouragement with practical guidance. Be warm but not overly effusive.\nExplain the 'why' when helpful. Adapt to the athlete's needs.\n\nEXAMPLE GREEN DAY:\nYou're well recovered. Today's endurance session (60min, Z2) is well-timed.\n\nEXAMPLE RED DAY:\nRest day. Your body needs recovery. The plan has adjusted accordingly."
+    },
+    {
+      "id": "josi_personas_v1__cheerleader",
+      "card": "josi_personas_v1",
+      "section": "cheerleader",
+      "topics": [
+        "persona",
+        "coaching_style"
+      ],
+      "keywords": [
+        "persona",
+        "style",
+        "tone",
+        "direct",
+        "encouraging",
+        "technical",
+        "balanced",
+        "dutch"
+      ],
+      "content": "MOTIVATOR\n\nTone: Enthusiastic, uplifting, positive!\n\nCelebrate progress. Focus on the positive. Find something to praise.\nUse energetic language. Make training feel exciting.\nKeep spirits high even on tough days.\n\nEXAMPLE GREEN DAY:\nGreat news! You're well recovered! Today's endurance (60min in Z2) is going to feel amazing!\n\nEXAMPLE RED DAY:\nRest days are when the magic happens! Your body is adapting. Enjoy the recovery!"
+    },
+    {
+      "id": "josi_personas_v1__drill_sergeant",
+      "card": "josi_personas_v1",
+      "section": "drill_sergeant",
+      "topics": [
+        "persona",
+        "coaching_style"
+      ],
+      "keywords": [
+        "persona",
+        "style",
+        "tone",
+        "direct",
+        "encouraging",
+        "technical",
+        "balanced",
+        "dutch"
+      ],
+      "content": "DRILL SERGEANT\n\nTone: Direct, commanding, no fluff.\n\nShort sentences. Focus on action. Expect execution.\nSkip excessive praise - acknowledge effort briefly, then move on.\n\nEXAMPLE GREEN DAY:\nZ2, 60min. You're ready. Execute.\n\nEXAMPLE RED DAY:\nRest. Period."
+    },
+    {
+      "id": "josi_personas_v1__dutch_directness",
+      "card": "josi_personas_v1",
+      "section": "dutch_directness",
+      "topics": [
+        "persona",
+        "coaching_style"
+      ],
+      "keywords": [
+        "persona",
+        "style",
+        "tone",
+        "direct",
+        "encouraging",
+        "technical",
+        "balanced",
+        "dutch"
+      ],
+      "content": "DUTCH COACH\n\nTone: Direct, honest, practical.\n\nSay what needs to be said. No sugar-coating, but not harsh.\nIf rest is needed, say so clearly. If they're ready, confirm it.\nRespect the athlete's intelligence.\n\nEXAMPLE GREEN DAY:\nGood readiness. Z2 for 60 minutes. Straightforward.\n\nEXAMPLE RED DAY:\nYou need rest. That's the truth. Take it."
+    },
+    {
+      "id": "josi_personas_v1__frame_templates_balanced",
+      "card": "josi_personas_v1",
+      "section": "frame_templates_balanced",
+      "topics": [
+        "persona",
+        "coaching_style"
+      ],
+      "keywords": [
+        "persona",
+        "style",
+        "tone",
+        "direct",
+        "encouraging",
+        "technical",
+        "balanced",
+        "dutch"
+      ],
+      "content": "| readiness_level | template |\n|-----------------|----------|\n| green | You're well recovered. Today's {intent} session ({duration}min, {zone}) is well-timed. |\n| yellow | Moderate readiness. The planned {intent} ({duration}min) is appropriate - listen to your body. |\n| orange | Recovery building. Today's lighter {intent} maintains fitness while you recover. |\n| red | Rest day. Your body needs recovery. The plan has adjusted accordingly. |"
+    },
+    {
+      "id": "josi_personas_v1__frame_templates_direct",
+      "card": "josi_personas_v1",
+      "section": "frame_templates_direct",
+      "topics": [
+        "persona",
+        "coaching_style"
+      ],
+      "keywords": [
+        "persona",
+        "style",
+        "tone",
+        "direct",
+        "encouraging",
+        "technical",
+        "balanced",
+        "dutch"
+      ],
+      "content": "| readiness_level | template |\n|-----------------|----------|\n| green | {zone}, {duration}min. You're ready. Execute. |\n| yellow | {intent} today. {duration}min. Stay aware. |\n| orange | Easy day. {duration}min max. Don't push. |\n| red | Rest. Period. |"
+    },
+    {
+      "id": "josi_personas_v1__frame_templates_encouraging",
+      "card": "josi_personas_v1",
+      "section": "frame_templates_encouraging",
+      "topics": [
+        "persona",
+        "coaching_style"
+      ],
+      "keywords": [
+        "persona",
+        "style",
+        "tone",
+        "direct",
+        "encouraging",
+        "technical",
+        "balanced",
+        "dutch"
+      ],
+      "content": "| readiness_level | template |\n|-----------------|----------|\n| green | Great news! You're well recovered! Today's {intent} ({duration}min in {zone}) is going to feel amazing! |\n| yellow | You've got this! {intent} session today - {duration} minutes of quality work ahead! |\n| orange | Smart training means knowing when to go easy. Today's lighter session sets you up for success! |\n| red | Rest days are when the magic happens! Your body is adapting. Enjoy the recovery! |"
+    },
+    {
+      "id": "josi_personas_v1__frame_templates_technical",
+      "card": "josi_personas_v1",
+      "section": "frame_templates_technical",
+      "topics": [
+        "persona",
+        "coaching_style"
+      ],
+      "keywords": [
+        "persona",
+        "style",
+        "tone",
+        "direct",
+        "encouraging",
+        "technical",
+        "balanced",
+        "dutch"
+      ],
+      "content": "| readiness_level | template |\n|-----------------|----------|\n| green | Readiness optimal. {intent} session: {duration}min @ {zone}. Aerobic adaptation window open. |\n| yellow | Moderate HRV signal. {intent} ({duration}min) appropriate. Monitor RPE throughout. |\n| orange | Accumulated fatigue detected. Reduced intensity preserves training adaptations. |\n| red | Recovery imperative. Parasympathetic restoration in progress. Training contraindicated. |"
+    },
+    {
+      "id": "josi_personas_v1__i6_contract",
+      "card": "josi_personas_v1",
+      "section": "i6_contract",
+      "topics": [
+        "persona",
+        "coaching_style"
+      ],
+      "keywords": [
+        "persona",
+        "style",
+        "tone",
+        "direct",
+        "encouraging",
+        "technical",
+        "balanced",
+        "dutch"
+      ],
+      "content": "| rule | description |\n|------|-------------|\n| no_prescribe | NEVER invent or prescribe workouts |\n| no_override | NEVER override readiness gates |\n| no_modify | NEVER change A/B/T parameters |\n| no_contradict | NEVER contradict plan zone or duration |\n| explain_only | ONLY explain decisions already made by GATC |"
+    },
+    {
+      "id": "josi_personas_v1__personas",
+      "card": "josi_personas_v1",
+      "section": "personas",
+      "topics": [
+        "persona",
+        "coaching_style"
+      ],
+      "keywords": [
+        "persona",
+        "style",
+        "tone",
+        "direct",
+        "encouraging",
+        "technical",
+        "balanced",
+        "dutch"
+      ],
+      "content": "| persona_id | name | warmth | directness | technical_depth | encouragement | temperature |\n|------------|------|--------|------------|-----------------|---------------|-------------|\n| balanced | Balanced Coach | 0.6 | 0.5 | 0.5 | 0.6 | 0.7 |\n| drill_sergeant | Drill Sergeant | 0.2 | 0.9 | 0.4 | 0.3 | 0.4 |\n| science_nerd | Science Coach | 0.5 | 0.6 | 0.9 | 0.4 | 0.6 |\n| cheerleader | Motivator | 0.9 | 0.3 | 0.3 | 0.95 | 0.8 |\n| zen_master | Mindful Coach | 0.7 | 0.4 | 0.5 | 0.5 | 0.6 |\n| dutch_directness | Dutch Coach | 0.4 | 0.85 | 0.6 | 0.4 | 0.5 |"
+    },
+    {
+      "id": "josi_personas_v1__science_nerd",
+      "card": "josi_personas_v1",
+      "section": "science_nerd",
+      "topics": [
+        "persona",
+        "coaching_style"
+      ],
+      "keywords": [
+        "persona",
+        "style",
+        "tone",
+        "direct",
+        "encouraging",
+        "technical",
+        "balanced",
+        "dutch"
+      ],
+      "content": "SCIENCE COACH\n\nTone: Analytical, educational, curious.\n\nExplain the physiology. Reference concepts like polarized training, HRV trends, adaptation.\nAssume the athlete wants to understand, not just follow.\nUse precise terminology but make it accessible.\n\nEXAMPLE GREEN DAY:\nReadiness optimal. Endurance session: 60min @ Z2. Aerobic adaptation window open.\n\nEXAMPLE RED DAY:\nRecovery imperative. Parasympathetic restoration in progress. Training contraindicated."
+    },
+    {
+      "id": "josi_personas_v1__style_mapping",
+      "card": "josi_personas_v1",
+      "section": "style_mapping",
+      "topics": [
+        "persona",
+        "coaching_style"
+      ],
+      "keywords": [
+        "persona",
+        "style",
+        "tone",
+        "direct",
+        "encouraging",
+        "technical",
+        "balanced",
+        "dutch"
+      ],
+      "content": "| persona_id | template_style | sentence_length | focus |\n|------------|---------------|-----------------|-------|\n| balanced | balanced | medium | what_and_why |\n| drill_sergeant | direct | short | what_and_when |\n| science_nerd | technical | complex | why_physiology |\n| cheerleader | encouraging | varied | positive_feel |\n| zen_master | balanced | flowing | process_feel |\n| dutch_directness | direct | medium | truth_gap |"
+    },
+    {
+      "id": "josi_personas_v1__zen_master",
+      "card": "josi_personas_v1",
+      "section": "zen_master",
+      "topics": [
+        "persona",
+        "coaching_style"
+      ],
+      "keywords": [
+        "persona",
+        "style",
+        "tone",
+        "direct",
+        "encouraging",
+        "technical",
+        "balanced",
+        "dutch"
+      ],
+      "content": "MINDFUL COACH\n\nTone: Calm, measured, reflective.\n\nFocus on the process, not outcomes. Emphasize consistency, patience, listening to the body.\nUse gentle language. Avoid pressure or urgency.\nTraining is a practice, not a performance.\n\nEXAMPLE GREEN DAY:\nYou're well recovered. Today's session flows naturally from your readiness.\n\nEXAMPLE RED DAY:\nRest is part of the practice. Your body speaks; we listen."
+    },
+    {
+      "id": "masters_v4__age_advantage",
+      "card": "masters_v4",
+      "section": "age_advantage",
+      "topics": [
+        "masters",
+        "age",
+        "older"
+      ],
+      "keywords": [
+        "masters",
+        "older",
+        "age",
+        "40",
+        "50",
+        "60",
+        "aging",
+        "mature"
+      ],
+      "content": "Let's talk about what you have that younger athletes often lack: experience and patience. These are genuine advantages, not consolation prizes. You know your body better than someone who's only been training for two years. You've learned what works for you, what warning signs to watch for, how to pace yourself.\n\nMasters athletes often train smarter than their younger counterparts. Less ego, more wisdom. Less \"push through everything,\" more \"train consistently over years.\" This approach actually produces better long-term results than the burn-bright-burn-out pattern common in younger athletes.\n\nPersonal records are absolutely still possible with intelligent training. Many masters athletes set PRs well into their 40s and 50s by training consistently and recovering properly. Your potential hasn't disappeared—it just requires a smarter approach to unlock. And consistency? Consistency beats youthful intensity over time, every time."
+    },
+    {
+      "id": "masters_v4__training_differently",
+      "card": "masters_v4",
+      "section": "training_differently",
+      "topics": [
+        "masters",
+        "age",
+        "older"
+      ],
+      "keywords": [
+        "masters",
+        "older",
+        "age",
+        "40",
+        "50",
+        "60",
+        "aging",
+        "mature"
+      ],
+      "content": "The same training principles that work for younger athletes work for you—just with different timelines. This is really important to understand. You're not doing something different; you're doing the same thing with appropriate adjustments.\n\nRecovery genuinely takes longer as we age, but adaptation absolutely still happens. Studies consistently show that masters athletes continue to improve with proper training. We use shorter mesocycles—21 days instead of 28—to match your physiology. This isn't a limitation; it's optimization for how your body works now.\n\nSpacing intensity sessions further apart is smart, not weak. A 25-year-old might do two hard sessions in a week with 48 hours between them. You might need 72 to 96 hours between those same sessions. Same quality work, just different timing. The adaptation is identical—you're just giving your body the time it needs to actually adapt."
+    },
+    {
+      "id": "micro_training_commute_v4__caps",
+      "card": "micro_training_commute_v4",
+      "section": "caps",
+      "topics": [
+        "micro_training",
+        "commute",
+        "time_efficient"
+      ],
+      "keywords": [
+        "commute",
+        "short",
+        "time",
+        "busy",
+        "micro",
+        "hiit",
+        "snack",
+        "stairs",
+        "quick",
+        "minutes",
+        "10 min",
+        "15 min",
+        "20 min"
+      ],
+      "content": "Your commute helps your training, but it has caps for good reasons.\n\nWhy caps? Commute conditions vary with traffic, weather, and safety constraints. We can't guarantee the same quality as structured sessions where you control the environment. Caps also prevent your plan from becoming all commute with no structured training—that's a path to plateau.\n\nHere's the rule: commute training time counts toward your mesocycle quota, but with limits. Maximum 25 to 40 percent of total meso volume can come from commute, varying by your experience level. Commute sessions cannot replace key workouts in build or peak phases. And an easy commute doesn't count as a recovery day—it's still training load."
+    },
+    {
+      "id": "micro_training_commute_v4__commute_modes",
+      "card": "micro_training_commute_v4",
+      "section": "commute_modes",
+      "topics": [
+        "micro_training",
+        "commute",
+        "time_efficient"
+      ],
+      "keywords": [
+        "commute",
+        "short",
+        "time",
+        "busy",
+        "micro",
+        "hiit",
+        "snack",
+        "stairs",
+        "quick",
+        "minutes",
+        "10 min",
+        "15 min",
+        "20 min"
+      ],
+      "content": "Your commute can serve different purposes depending on what you need.\n\nEasy spin is for recovery and base building. Just ride at Zone 1 to Zone 2, enjoy the fresh air, and let it count toward your aerobic base. No pressure, no targets.\n\nTempo commute is for development. Steady effort slightly harder than easy, Zone 2 to Zone 3. Builds threshold foundation while getting you to work.\n\nInterval commute is focused training. Find safe stretches and do two 10-minute efforts at threshold Zone 4 with easy riding between. This is real training in 30 minutes.\n\nMicro-burst is for when you're time-crunched. Six 10-second sprints at traffic lights or hills with easy riding between. Neuromuscular and VO2max stimulus packed into minimal time.\n\nFartlek is just plain fun. Let traffic dictate the session—sprint away from lights, cruise between, push the hills. Variable, engaging, and surprisingly effective."
+    },
+    {
+      "id": "micro_training_commute_v4__exercise_snacks",
+      "card": "micro_training_commute_v4",
+      "section": "exercise_snacks",
+      "topics": [
+        "micro_training",
+        "commute",
+        "time_efficient"
+      ],
+      "keywords": [
+        "commute",
+        "short",
+        "time",
+        "busy",
+        "micro",
+        "hiit",
+        "snack",
+        "stairs",
+        "quick",
+        "minutes",
+        "10 min",
+        "15 min",
+        "20 min"
+      ],
+      "content": "Can't commute by bike? Exercise snacks throughout your day offer real benefits.\n\nStair sprints using the Jenkins protocol are simple: three times per day, sprint hard up stairs for 20 seconds. This protocol is proven to improve VO2peak even in sedentary adults. The office fire stairs work perfectly.\n\nWalk bursts from VILPA research: five times per day, walk fast for 60 seconds. This is associated with major mortality reduction in population studies. Just pick up the pace during your normal walking.\n\nA 15-minute lunch walk at moderate pace counts as Zone 2 aerobic base. It's better than sitting, and it accumulates over the week into meaningful training time.\n\nThese snacks add up. They support your training without needing dedicated gym time or equipment."
+    },
+    {
+      "id": "micro_training_commute_v4__micro_hiit",
+      "card": "micro_training_commute_v4",
+      "section": "micro_hiit",
+      "topics": [
+        "micro_training",
+        "commute",
+        "time_efficient"
+      ],
+      "keywords": [
+        "commute",
+        "short",
+        "time",
+        "busy",
+        "micro",
+        "hiit",
+        "snack",
+        "stairs",
+        "quick",
+        "minutes",
+        "10 min",
+        "15 min",
+        "20 min"
+      ],
+      "content": "When you only have 10 to 20 minutes, micro-HIIT protocols pack maximum stimulus into minimal time.\n\nTabata takes just four minutes: eight rounds of 20 seconds all out followed by 10 seconds rest. Best on a bike or rowing machine. Brutal but effective. Not for beginners or red readiness days.\n\nSprint 10s takes about six minutes: six sprints of 10 seconds maximal with two minutes easy between. Power and speed focused with high intensity but low total stress.\n\nStair Tabata also takes four minutes: eight rounds of 20 seconds sprinting up stairs followed by 10 seconds walking down. No equipment needed and office-friendly using fire stairs.\n\nImportant warning: these are high intensity sessions. The same spacing rules apply—you need 48 hours before your next hard session. Don't let the short duration fool you into thinking recovery is optional."
+    },
+    {
+      "id": "micro_training_commute_v4__overview",
+      "card": "micro_training_commute_v4",
+      "section": "overview",
+      "topics": [
+        "micro_training",
+        "commute",
+        "time_efficient"
+      ],
+      "keywords": [
+        "commute",
+        "short",
+        "time",
+        "busy",
+        "micro",
+        "hiit",
+        "snack",
+        "stairs",
+        "quick",
+        "minutes",
+        "10 min",
+        "15 min",
+        "20 min"
+      ],
+      "content": "Science confirms something that might surprise you: short bursts count. You don't need an hour to make meaningful improvements.\n\nThe research is remarkably clear. Three daily bursts of one to two minutes of vigorous activity reduces cardiovascular mortality risk by 48 percent. Cycling commutes show 52 percent lower heart disease and 40 percent lower cancer risk. Four-minute Tabata protocols match 60 minutes of steady-state for VO2max gains. Even 10-second sprints prove as effective as 30-second versions for power development.\n\nThat 15-minute bike ride to work? It counts. We track it. It contributes to your fitness in measurable ways.\n\nBut here's where we stay honest with you: micro-doses support your training plan, they don't replace it. They're valuable additions, not substitutes for structured training."
+    },
+    {
+      "id": "micro_training_commute_v4__safety",
+      "card": "micro_training_commute_v4",
+      "section": "safety",
+      "topics": [
+        "micro_training",
+        "commute",
+        "time_efficient"
+      ],
+      "keywords": [
+        "commute",
+        "short",
+        "time",
+        "busy",
+        "micro",
+        "hiit",
+        "snack",
+        "stairs",
+        "quick",
+        "minutes",
+        "10 min",
+        "15 min",
+        "20 min"
+      ],
+      "content": "A few non-negotiable safety rules for commute training.\n\nTraffic awareness always comes first. No intervals in busy traffic—period. Find safe stretches for any intensity work: quiet side streets, bike paths, or parks.\n\nRed readiness means easy commute only or rest. Your body is telling you something, and ignoring it while navigating traffic compounds the risk.\n\nIf you're 50 or older, micro-HIIT is only appropriate on green readiness days. The combination of high intensity and traffic demands requires full capacity.\n\nNever sprint away from traffic lights into traffic. Hills and quiet roads are your friends for intervals.\n\nAn e-bike is valid for red or amber readiness days—it still counts as movement while reducing the load.\n\nWhen in doubt, keep it easy. Tomorrow's scheduled workout matters more than squeezing extra intensity into today's commute."
+    },
+    {
+      "id": "motivation_v4__losing_motivation",
+      "card": "motivation_v4",
+      "section": "losing_motivation",
+      "topics": [
+        "motivation",
+        "mental",
+        "mindset"
+      ],
+      "keywords": [
+        "motivation",
+        "motivated",
+        "setback",
+        "quit",
+        "tired",
+        "bored",
+        "discipline",
+        "mental",
+        "give up",
+        "unmotivated"
+      ],
+      "content": "Here's something important: motivation ebbs and flows naturally, and that's completely normal. Every athlete experiences periods where training feels like a chore rather than a joy. The secret isn't finding constant motivation—it's building consistency that carries you through the low patches.\n\nSmall wins compound over time in ways that aren't always visible day to day. Showing up matters more than showing up perfectly. On days when you really don't feel like training, the \"just show up\" principle works wonders—commit to ten minutes of easy movement. Often you'll feel better once you start, and if you don't, ten easy minutes still maintained the habit.\n\nDiscipline is what carries you when motivation fades. Think of training like brushing your teeth—you don't wait until you feel motivated to do it. You just do it because it's part of who you are."
+    },
+    {
+      "id": "motivation_v4__setbacks",
+      "card": "motivation_v4",
+      "section": "setbacks",
+      "topics": [
+        "motivation",
+        "mental",
+        "mindset"
+      ],
+      "keywords": [
+        "motivation",
+        "motivated",
+        "setback",
+        "quit",
+        "tired",
+        "bored",
+        "discipline",
+        "mental",
+        "give up",
+        "unmotivated"
+      ],
+      "content": "Setbacks are part of every athlete's journey—not a sign that something's wrong with you. One missed week doesn't erase months of work. Your fitness has momentum, and it takes more than a short break to undo what you've built.\n\nThe key is reframing missed sessions without guilt. Life happens: work deadlines, family needs, illness, travel. These aren't failures—they're just life being life. What matters is how you respond. Getting back on track always starts with one easy session. Not a punishing makeup workout, just a gentle return to movement.\n\nBe kind to yourself—you're human. The athletes who thrive long-term aren't the ones who never miss sessions. They're the ones who miss sessions, forgive themselves quickly, and get back to it without drama. That's the real skill."
+    },
+    {
+      "id": "ntiz_dose_v4__all_zones",
+      "card": "ntiz_dose_v4",
+      "section": "all_zones",
+      "topics": [
+        "training_dose",
+        "volume",
+        "time_in_zone"
+      ],
+      "keywords": [
+        "dose",
+        "volume",
+        "ntiz",
+        "time in zone",
+        "how much",
+        "how long",
+        "minutes",
+        "hours",
+        "beginner"
+      ],
+      "content": "Here's something that surprises many athletes: even your easy zones have limits. More isn't always better—there's an optimal dose for everything.\n\nRecovery zone has a range of 60 to 240 minutes per meso. Any less and you're not getting enough active restoration; any more and you're probably avoiding real training.\n\nZ1 easy work ranges from 180 to 1800 minutes per meso. That's a wide range because this is where most of your training should happen, and it scales dramatically with your experience level and available time.\n\nZ2 aerobic work ranges from 150 to 1400 minutes. Z3 tempo caps at 360 minutes per meso for experienced athletes—less for beginners. Z4 threshold and Z5 VO2max each cap at 360 and 180 minutes respectively for elite athletes, much less for everyone else.\n\nThe anaerobic zones Z6 through Z8 combined cap at about 180 minutes per meso for elite athletes. These are potent doses—a little goes a long way.\n\nAll these caps scale based on your experience level and age. An elite 25-year-old has different caps than a novice 55-year-old. We calculate this automatically."
+    },
+    {
+      "id": "ntiz_dose_v4__beginner",
+      "card": "ntiz_dose_v4",
+      "section": "beginner",
+      "topics": [
+        "training_dose",
+        "volume",
+        "time_in_zone"
+      ],
+      "keywords": [
+        "dose",
+        "volume",
+        "ntiz",
+        "time in zone",
+        "how much",
+        "how long",
+        "minutes",
+        "hours",
+        "beginner"
+      ],
+      "content": "If you're newer to training, we unlock intensity gradually. Here's why this matters and what to expect.\n\nYour first mesocycle focuses entirely on easy zones—R, Z1, and Z2 only. This might feel frustratingly slow, but you're building the habit and letting your body adapt to regular training stress.\n\nIn meso two, we introduce Z3 tempo work—just six minutes maximum per session. Your first real taste of working. Meso three brings Z4 threshold work, capped at 20 minutes for the entire meso. Mesos four and five increase those caps as your tolerance builds. By meso six, you graduate to novice level with all zones unlocked.\n\nHere's the thing most people don't realize: different tissues adapt at different speeds. Your muscles adapt relatively quickly—two to four mesos. Your tendons take longer—three to four mesos. Your bones take longest—four to six mesos to fully adapt to new stress.\n\nYou will feel ready before your body actually is ready. Your cardiovascular system adapts fast and makes you feel capable. But your tendons and bones are still catching up. Trust the progression. The athletes who skip ahead are the ones who get injured."
+    },
+    {
+      "id": "ntiz_dose_v4__overview",
+      "card": "ntiz_dose_v4",
+      "section": "overview",
+      "topics": [
+        "training_dose",
+        "volume",
+        "time_in_zone"
+      ],
+      "keywords": [
+        "dose",
+        "volume",
+        "ntiz",
+        "time in zone",
+        "how much",
+        "how long",
+        "minutes",
+        "hours",
+        "beginner"
+      ],
+      "content": "Let me explain how we measure your actual training dose. It's not just about how long you trained—it's about what intensity you spent that time at.\n\nThink of session duration as a container. NTIZ—normalized time in zone—tells us what's inside that container. A 90-minute workout might contain 55 minutes of easy Z1 work, 30 minutes of harder Z3 tempo, and 5 minutes of transitions. Same container, but the contents vary dramatically in their training effect.\n\nWe track all zones because they all matter. Your Z1 and Z2 time builds your aerobic base—this should be 70 to 80 percent of your training. Z3 tempo work adds another 5 to 8 percent. Z4 and Z5 threshold and VO2max work comprises 10 to 18 percent. The anaerobic zones Z6 through Z8 are just 3 to 5 percent—small but potent.\n\nHere's the key insight: every zone has both minimum and maximum amounts. Even easy zones have caps. More isn't always better—optimal dose matters."
+    },
+    {
+      "id": "ntiz_dose_v4__safety",
+      "card": "ntiz_dose_v4",
+      "section": "safety",
+      "topics": [
+        "training_dose",
+        "volume",
+        "time_in_zone"
+      ],
+      "keywords": [
+        "dose",
+        "volume",
+        "ntiz",
+        "time in zone",
+        "how much",
+        "how long",
+        "minutes",
+        "hours",
+        "beginner"
+      ],
+      "content": "A few critical safety principles govern how we manage your training dose.\n\nThe caps I mentioned are maximums, not targets. You don't need to hit them—they're boundaries that protect you from doing too much. Aiming for the maximum every meso is a recipe for breakdown.\n\nIf you're a beginner, your intensity zones unlock progressively over your first six mesos. This isn't arbitrary—it's protecting your tendons and bones while they adapt.\n\nAge multipliers reduce your intensity caps automatically. This isn't about fitness; it's about biology. A 55-year-old's connective tissue recovers differently than a 25-year-old's. We account for this.\n\nRed readiness status means mandatory rest or very easy work only—no override allowed. Your body is telling you something important. Ignoring it doesn't show toughness; it just delays when the breakdown happens.\n\nRamp limits prevent you from increasing too fast. Even if you feel amazing, we cap how quickly your zones can grow meso over meso. Most injuries come from \"too much too soon.\" We build gradually.\n\nFinally, you need 48 to 96 hours between Z4 and higher sessions, depending on your age. This is the recovery time your body needs to actually adapt. Cramming in more intensity doesn't work."
+    },
+    {
+      "id": "ntiz_master_v4__all_zones",
+      "card": "ntiz_master_v4",
+      "section": "all_zones",
+      "topics": [
+        "training_dose",
+        "volume",
+        "distribution"
+      ],
+      "keywords": [
+        "dose",
+        "distribution",
+        "volume",
+        "percentage",
+        "how much",
+        "ntiz",
+        "deload"
+      ],
+      "content": "Good question about where your training time actually goes. The distribution might surprise you.\n\nZone 1 and Zone 2 together make up 65 to 78 percent of your training—this is your aerobic base, and it's supposed to be most of what you do. Zone 3 tempo work adds another 5 to 8 percent in dedicated structured sessions. Zones 4 and 5 for threshold and VO2max intervals run 6 to 10 percent each. The anaerobic zones 6 through 8 are just 3 to 5 percent combined. Recovery zone fills 5 to 15 percent between hard days.\n\nEvery zone has a purpose. Zone 1 builds peripheral adaptations. Zone 2 develops mitochondrial density. Zone 3 improves lactate clearance. Zone 4 raises your threshold. Zone 5 expands VO2max. The high zones develop power and speed. And every zone has limits—maximums that protect you from doing too much."
+    },
+    {
+      "id": "ntiz_master_v4__levels",
+      "card": "ntiz_master_v4",
+      "section": "levels",
+      "topics": [
+        "training_dose",
+        "volume",
+        "distribution"
+      ],
+      "keywords": [
+        "dose",
+        "distribution",
+        "volume",
+        "percentage",
+        "how much",
+        "ntiz",
+        "deload"
+      ],
+      "content": "Your training level determines which zones you have access to. This isn't about fitness—it's about structural capacity. Your tendons and bones adapt slower than your cardiovascular system.\n\nBeginners spend their first two mesocycles in Recovery, Zone 1, and Zone 2 only. This builds the habit and lets connective tissue adapt. Novice level opens Zone 3 tempo and Zone 4 threshold with limited doses. Intermediate unlocks full zone access with more capacity. Advanced athletes have high capacity from one to three years of consistent training. Elite represents maximum caps after three-plus years.\n\nHere's why this matters: you'll feel cardiovascularly ready before your structure actually is. Your lungs recover fast, but your tendons and bones need time. The level system protects you from outrunning your own foundation."
+    },
+    {
+      "id": "ntiz_master_v4__overview",
+      "card": "ntiz_master_v4",
+      "section": "overview",
+      "topics": [
+        "training_dose",
+        "volume",
+        "distribution"
+      ],
+      "keywords": [
+        "dose",
+        "distribution",
+        "volume",
+        "percentage",
+        "how much",
+        "ntiz",
+        "deload"
+      ],
+      "content": "Net Time In Zone measures something crucial: not how long you trained, but what intensity you actually spent time at. It's the difference between watching the clock and understanding your true training dose.\n\nThink of a 90-minute workout as a container. NTIZ tells us what's inside that container—maybe 55 minutes of easy Zone 1 cruising, 30 minutes of hard Zone 3 tempo work, and five minutes of transitions that don't count. Your body adapts to the actual stimulus, not the number on your watch.\n\nWe track all nine zones from Recovery through Zone 8 sprints. Zones 1 and 2 form your aerobic base and should make up most of your training. Zone 3 is tempo work. Zones 4 and 5 are your hard interval zones. Zones 6 through 8 are maximum efforts. Every zone matters, every zone has limits, and NTIZ keeps them all honest."
+    },
+    {
+      "id": "ntiz_master_v4__safety",
+      "card": "ntiz_master_v4",
+      "section": "safety",
+      "topics": [
+        "training_dose",
+        "volume",
+        "distribution"
+      ],
+      "keywords": [
+        "dose",
+        "distribution",
+        "volume",
+        "percentage",
+        "how much",
+        "ntiz",
+        "deload"
+      ],
+      "content": "A few safety principles keep your training sustainable. First, all those caps I mentioned are maximums, not targets. You don't need to hit them—they're guardrails that protect you from doing too much.\n\nBeginner zones unlock progressively, mesocycle by mesocycle. This isn't arbitrary; it's protecting your tendons and bones. Age multipliers automatically reduce intensity caps because older athletes need different dosing. Ramp limits prevent you from increasing too fast—Zone 1 and 2 can grow at most 20 percent per meso, Zone 5 at most 10 percent.\n\nBetween intensity sessions, you need 48 to 72 hours of recovery, longer if you're older. And every mesocycle includes a deload in the final seven days, dropping to about 55 percent of normal load. Your body consolidates gains during that easier period."
+    },
+    {
+      "id": "performance_v4__age_factors",
+      "card": "performance_v4",
+      "section": "age_factors",
+      "topics": [
+        "performance",
+        "goals",
+        "improvement",
+        "progress"
+      ],
+      "keywords": [
+        "improve",
+        "progress",
+        "goal",
+        "target",
+        "faster",
+        "better",
+        "performance",
+        "rate",
+        "realistic",
+        "age",
+        "frequency",
+        "how often",
+        "taper"
+      ],
+      "content": "Age affects training response, but perhaps not how you'd expect. Let me break down what actually changes.\n\nWhat declines: VO2max drops about one percent per year after 35. Recovery takes longer—this is the big one that requires plan adjustments. High-intensity tolerance decreases.\n\nWhat stays: Running and cycling economy remain good well into your 60s. Your ability to build aerobic base persists. Your response to consistent training continues.\n\nHere's what's often overlooked: older athletes frequently have better pacing judgment, greater training consistency, and life experience that translates to mental toughness on race day.\n\nWe adjust your plan for age—more recovery time, potentially shorter training blocks, appropriate intensity distribution. But we never assume you can't improve. Age changes the rate, not the direction."
+    },
+    {
+      "id": "performance_v4__backward_planning",
+      "card": "performance_v4",
+      "section": "backward_planning",
+      "topics": [
+        "performance",
+        "goals",
+        "improvement",
+        "progress"
+      ],
+      "keywords": [
+        "improve",
+        "progress",
+        "goal",
+        "target",
+        "faster",
+        "better",
+        "performance",
+        "rate",
+        "realistic",
+        "age",
+        "frequency",
+        "how often",
+        "taper"
+      ],
+      "content": "Here's how we actually build your plan: we work backwards from your goal date.\n\nWe start at race day. Say you want to run 4:45 per kilometer. We subtract the taper bonus—you'll need about 4:48 fitness before taper starts. Then we work backward mesocycle by mesocycle: meso 4 target might be 4:53, meso 3 target 4:57, and so on.\n\nFinally, we check: does this backward chain match where you are right now?\n\nIf yes, the plan is feasible. If your required starting point is faster than your current fitness, we have options—adjust the goal, extend the timeline, or set intermediate targets.\n\nThis backward planning ensures your peak happens on race day, not three weeks early when it doesn't matter. Every training block serves a specific purpose in the chain leading to that goal."
+    },
+    {
+      "id": "performance_v4__frequency",
+      "card": "performance_v4",
+      "section": "frequency",
+      "topics": [
+        "performance",
+        "goals",
+        "improvement",
+        "progress"
+      ],
+      "keywords": [
+        "improve",
+        "progress",
+        "goal",
+        "target",
+        "faster",
+        "better",
+        "performance",
+        "rate",
+        "realistic",
+        "age",
+        "frequency",
+        "how often",
+        "taper"
+      ],
+      "content": "How often you train affects how quickly you improve, but the relationship isn't linear.\n\nTwo sessions per week is maintenance level—good for recovery periods or very busy life phases. You'll improve at about 55 percent of optimal rate. Three sessions per week is minimum for real progress. Good for beginners or those with tight schedules, improving at about 75 percent of optimal.\n\nFour sessions per week is the sweet spot for most people. Good for novice through intermediate athletes, this is our baseline—100 percent improvement rate.\n\nFive to six sessions per week gives enhanced gains but increased injury risk. Good for experienced athletes with recovery capacity, improving at 112 to 118 percent of baseline.\n\nSeven or more sessions weekly is elite-level training. Requires advanced recovery practices and periodization knowledge. Improvement rate climbs to about 122 percent, but injury risk doubles.\n\nHere's the key insight: more isn't always better. Consistency at four times per week beats sporadic six times per week every time."
+    },
+    {
+      "id": "performance_v4__goal_status",
+      "card": "performance_v4",
+      "section": "goal_status",
+      "topics": [
+        "performance",
+        "goals",
+        "improvement",
+        "progress"
+      ],
+      "keywords": [
+        "improve",
+        "progress",
+        "goal",
+        "target",
+        "faster",
+        "better",
+        "performance",
+        "rate",
+        "realistic",
+        "age",
+        "frequency",
+        "how often",
+        "taper"
+      ],
+      "content": "When we assess your goal, we give it a status so you know exactly where you stand.\n\nHighly feasible means you have plenty of time. Stay consistent and you'll likely exceed this target. Feasible means your timeline matches what's needed—follow the plan and you're on track.\n\nAmbitious means it's achievable but requires strong consistency. Aim for 95 percent or higher adherence to your training plan. Stretch means it's challenging given your timeline. We'll aim for it, but may suggest an intermediate target as a checkpoint.\n\nChallenging means this is a sharp challenge given where you're starting. We'll begin with what's possible and keep building toward it.\n\nHere's our philosophy: we never say impossible. Every goal gets a plan. Some just need more time than others. If your goal is a stretch, we'd rather tell you honestly and build toward it than set you up for disappointment."
+    },
+    {
+      "id": "performance_v4__improvement_rates",
+      "card": "performance_v4",
+      "section": "improvement_rates",
+      "topics": [
+        "performance",
+        "goals",
+        "improvement",
+        "progress"
+      ],
+      "keywords": [
+        "improve",
+        "progress",
+        "goal",
+        "target",
+        "faster",
+        "better",
+        "performance",
+        "rate",
+        "realistic",
+        "age",
+        "frequency",
+        "how often",
+        "taper"
+      ],
+      "content": "The research is clear on realistic weekly improvement rates, and knowing these helps set proper expectations.\n\nIf you're in your first year of structured training, you can improve 0.8 to 1.5 percent per week when consistent. That adds up fast—15 to 25 percent improvement in six months is genuinely achievable.\n\nAt the intermediate level, after two to four years of training, expect 0.2 to 0.4 percent per week. Still meaningful, still adding up to 5 to 10 percent annual improvement.\n\nFor advanced athletes with five-plus years, 0.1 to 0.2 percent per week is excellent. This is why pros celebrate what seem like small wins—at their level, those gains are hard-won.\n\nHere's why this matters for your goal: we use these rates to calculate whether your target is realistic in your timeline. If it's a stretch, we'll tell you honestly and help you set intermediate targets along the way."
+    },
+    {
+      "id": "performance_v4__meso_adaptation",
+      "card": "performance_v4",
+      "section": "meso_adaptation",
+      "topics": [
+        "performance",
+        "goals",
+        "improvement",
+        "progress"
+      ],
+      "keywords": [
+        "improve",
+        "progress",
+        "goal",
+        "target",
+        "faster",
+        "better",
+        "performance",
+        "rate",
+        "realistic",
+        "age",
+        "frequency",
+        "how often",
+        "taper"
+      ],
+      "content": "Training adaptation isn't smooth—it happens in waves. Understanding this changes how you interpret your training.\n\nThe standard 28-day rhythm works like this: weeks one through three are loading. You're accumulating both fatigue and fitness simultaneously. Week four is deload, where fatigue drops faster than fitness, so performance often rises.\n\nThis is why you often feel tired during training but great after rest. It's not magic—it's biology.\n\nWhat to expect per mesocycle: beginners improve 2 to 4 percent per meso. Intermediate athletes see 0.5 to 1.2 percent per meso. Advanced athletes gain 0.3 to 0.6 percent per meso. These are normal rates. Elite athletes might improve 0.1 percent per meso—and that's excellent at their level.\n\nHere's our golden rule: we plan conservatively. If you improve faster, great—we adjust upward. If you improve slower, you're not failing—you're human. Meaningful variability exists between individuals, and we account for it."
+    },
+    {
+      "id": "performance_v4__overview",
+      "card": "performance_v4",
+      "section": "overview",
+      "topics": [
+        "performance",
+        "goals",
+        "improvement",
+        "progress"
+      ],
+      "keywords": [
+        "improve",
+        "progress",
+        "goal",
+        "target",
+        "faster",
+        "better",
+        "performance",
+        "rate",
+        "realistic",
+        "age",
+        "frequency",
+        "how often",
+        "taper"
+      ],
+      "content": "Let me explain how improvement actually works, because understanding this changes everything about your expectations.\n\nYour body's ability to improve depends on several factors, but training age matters most. If you're new to structured training, expect rapid gains—8 to 15 percent in your first year. Been training consistently for two to four years? Solid gains are still possible, maybe 5 to 10 percent. Veteran of five-plus years? Every percent is hard-won, and 2 to 5 percent annually is excellent.\n\nThis isn't discouraging—it's biology. Elite athletes genuinely celebrate a one percent annual improvement because at their level, that's significant.\n\nDifferent adaptations happen on different timelines. Neuromuscular coordination and pacing sense improve in weeks. VO2max and lactate threshold take months. Running economy and structural adaptations take years. We build your plan around these realities."
+    },
+    {
+      "id": "performance_v4__taper_magic",
+      "card": "performance_v4",
+      "section": "taper_magic",
+      "topics": [
+        "performance",
+        "goals",
+        "improvement",
+        "progress"
+      ],
+      "keywords": [
+        "improve",
+        "progress",
+        "goal",
+        "target",
+        "faster",
+        "better",
+        "performance",
+        "rate",
+        "realistic",
+        "age",
+        "frequency",
+        "how often",
+        "taper"
+      ],
+      "content": "Ever wonder why you run a personal record after reducing training? Here's what's actually happening.\n\nTaper doesn't build new fitness. Taper reveals the fitness you've already built. By reducing training volume, fatigue drops faster than fitness declines. What's left is your true capability, unmasked by accumulated tiredness.\n\nThe research from Bosquet and Mujika is clear: one to two weeks of 40 to 50 percent volume reduction, while maintaining some intensity touches, produces a one to two percent performance boost.\n\nThat might sound small, but consider what it means. One to two percent is the difference between a 3:30 marathon and a 3:25. Same fitness, better expression of it. This is why we never skip or compress taper—it's where all your hard work finally shows up."
+    },
+    {
+      "id": "periodization__mesocycles",
+      "card": "periodization",
+      "section": "mesocycles",
+      "topics": [
+        "periodization",
+        "planning",
+        "phases",
+        "taper",
+        "race"
+      ],
+      "keywords": [
+        "phase",
+        "base",
+        "build",
+        "peak",
+        "taper",
+        "race",
+        "plan",
+        "meso",
+        "mesocycle",
+        "block",
+        "season"
+      ],
+      "content": "Training is organized into mesocycles—mesos for short. These are the fundamental planning units, typically three to four weeks long, each with a specific rhythm of loading and recovery.\n\nIf you're under 40, your meso follows a 28-day pattern. The first week eases you in at about 90 percent load. Week two is full development at 100 percent. Week three pushes slightly beyond your normal capacity—about 108 percent—creating the overreach that stimulates adaptation. Week four drops to about 55 percent, giving your body time to absorb and consolidate the gains.\n\nIf you're 40 or older, your meso is shorter—21 days with a 2:1 pattern. One week of introduction, one week of development, then straight to recovery. Why? Recovery capacity decreases with age. Shorter mesos allow better adaptation because you're not outrunning your body's ability to absorb training.\n\nHere's where the two-lane model comes in. Your intensity sessions are spaced 48 to 72 hours apart—that's non-negotiable for recovery. But easy Z1 and Z2 work fills the gaps between them. This is how you train five or six days per week instead of just two or three. Easy work doesn't interfere with intensity recovery; it actually supports it."
+    },
+    {
+      "id": "periodization__overview",
+      "card": "periodization",
+      "section": "overview",
+      "topics": [
+        "periodization",
+        "planning",
+        "phases",
+        "taper",
+        "race"
+      ],
+      "keywords": [
+        "phase",
+        "base",
+        "build",
+        "peak",
+        "taper",
+        "race",
+        "plan",
+        "meso",
+        "mesocycle",
+        "block",
+        "season"
+      ],
+      "content": "Training isn't random—it's organized into phases, each building on the last toward your goal. Let me explain how this works.\n\nBase phase builds your aerobic foundation. Most of your training stays easy—over 78 percent in the lower zones. This might feel slow, but it's where endurance is actually built. The adaptations happening in your mitochondria, capillaries, and connective tissue take time and easy effort.\n\nBuild phase adds race-specific work. More threshold training, more VO2max intervals. You start feeling genuinely race-fit during this phase. The foundation you built in base now supports harder efforts.\n\nPeak phase sharpens everything for race day. The quality of your intensity work reaches its highest point, but overall volume starts dropping. You're honing what you've built, not building more.\n\nTaper is final preparation. Volume drops dramatically—40 to 60 percent—but intensity stays high. This is counterintuitive, but it's how performance is actually realized. Your body finally gets to express the fitness you've been building.\n\nHere's the key insight: we plan backwards from your race day. Your goal date is fixed and immovable. Everything else calculates from there."
+    },
+    {
+      "id": "periodization__safety",
+      "card": "periodization",
+      "section": "safety",
+      "topics": [
+        "periodization",
+        "planning",
+        "phases",
+        "taper",
+        "race"
+      ],
+      "keywords": [
+        "phase",
+        "base",
+        "build",
+        "peak",
+        "taper",
+        "race",
+        "plan",
+        "meso",
+        "mesocycle",
+        "block",
+        "season"
+      ],
+      "content": "A few non-negotiable principles keep your training safe and effective.\n\nEvery mesocycle includes a recovery slice—that easier week where your body consolidates gains. This isn't optional. Skip it and you accumulate fatigue until something breaks.\n\nTaper is never compressed, no matter how tempted you are to squeeze in more training. The research is clear: cutting taper short costs you performance on race day. If your schedule is tight, shorten something else.\n\nIf you're newer to training, we keep the phases simple for your first couple of mesocycles. Complex periodization comes after you've built a foundation and learned how your body responds.\n\nIntensity sessions are never scheduled within 48 hours of each other. Your body needs that recovery window to adapt. This rule holds regardless of how good you feel.\n\nEasy Z1 and Z2 work fills the gaps between intensity sessions. This is exactly how it should be—easy work supports recovery rather than interfering with it."
+    },
+    {
+      "id": "periodization__taper",
+      "card": "periodization",
+      "section": "taper",
+      "topics": [
+        "periodization",
+        "planning",
+        "phases",
+        "taper",
+        "race"
+      ],
+      "keywords": [
+        "phase",
+        "base",
+        "build",
+        "peak",
+        "taper",
+        "race",
+        "plan",
+        "meso",
+        "mesocycle",
+        "block",
+        "season"
+      ],
+      "content": "The taper is where all your training finally becomes performance. This is the magic phase that many athletes get wrong.\n\nVolume drops dramatically—40 to 60 percent of what you've been doing. But here's the critical part that surprises people: intensity is maintained. You still do some hard efforts; you just do fewer of them and with more rest between. This keeps your systems sharp while letting accumulated fatigue clear.\n\nHow long to taper depends on your event. A 5K needs about 7 days. A 10K needs 10 days. Half marathon requires about 14 days. Marathon needs a full 21 days—three weeks of reduced volume before race day.\n\nResearch shows proper tapering improves performance by 2 to 3 percent. That's not a small number. For a 4-hour marathoner, that's nearly 5 minutes. For a 20-minute 5K runner, that's 30 to 40 seconds.\n\nYou'll probably feel restless during taper. You might worry you're losing fitness. You're not. Fatigue clears faster than fitness fades—that's exactly why taper works. Trust the process."
+    },
+    {
+      "id": "planner_policy_v4__validation_explanation",
+      "card": "planner_policy_v4",
+      "section": "validation_explanation",
+      "topics": [
+        "planning",
+        "validation"
+      ],
+      "keywords": [
+        "plan",
+        "validate",
+        "policy"
+      ],
+      "content": "Before we build your plan, we validate all inputs against coaching science thresholds. If something doesn't add up correctly—like training distributions that miss targets or session counts that exceed safe limits—we catch it before planning begins. This prevents plans that look reasonable but violate physiological constraints."
+    },
+    {
+      "id": "recovery_v4__cross_domain",
+      "card": "recovery_v4",
+      "section": "cross_domain",
+      "topics": [
+        "recovery",
+        "rest",
+        "sleep",
+        "illness",
+        "injury"
+      ],
+      "keywords": [
+        "recovery",
+        "rest",
+        "sleep",
+        "tired",
+        "fatigue",
+        "sick",
+        "illness",
+        "injury",
+        "pain",
+        "sore",
+        "overtraining",
+        "herstel",
+        "moe",
+        "rust"
+      ],
+      "content": "Recovery connects to everything else in your training. Active recovery in the R zone is movement without real training stress. Z1 is very light but still counts toward your aerobic development. When you're doing intervals, those rest periods between efforts actually count as light zone training too.\n\nIf you're newer to training, you actually need more recovery time despite doing less overall—your body hasn't built the resilience yet. We account for this automatically.\n\nNo matter what phase of training you're in, recovery weeks happen every three to four weeks. After any high-intensity session, you need 48 to 72 hours before the next one, but easy work can happen the next day. If your perceived effort feels unusually high at a pace that should feel manageable, that's often a sign of incomplete recovery."
+    },
+    {
+      "id": "recovery_v4__illness",
+      "card": "recovery_v4",
+      "section": "illness",
+      "topics": [
+        "recovery",
+        "rest",
+        "sleep",
+        "illness",
+        "injury"
+      ],
+      "keywords": [
+        "recovery",
+        "rest",
+        "sleep",
+        "tired",
+        "fatigue",
+        "sick",
+        "illness",
+        "injury",
+        "pain",
+        "sore",
+        "overtraining",
+        "herstel",
+        "moe",
+        "rust"
+      ],
+      "content": "When you're sick, your immune system needs all available resources to fight the infection. Training diverts energy away from recovery and can actually prolong illness or make it worse. This isn't being weak—it's being smart.\n\nThe rule is simple: no training with fever, period. Your heart is already working harder than normal just to fight the illness. Adding exercise stress on top of that is genuinely risky. Wait until you've been symptom-free for at least 48 hours before any easy movement. Then give it another 48 to 72 hours before any intensity work.\n\nI know it feels like you're losing fitness, but here's the truth: your fitness won't disappear in a week of rest. What will set you back is rushing your return and extending the illness into weeks. A few days of complete rest now prevents weeks of compromised training later. Trust this."
+    },
+    {
+      "id": "recovery_v4__injury",
+      "card": "recovery_v4",
+      "section": "injury",
+      "topics": [
+        "recovery",
+        "rest",
+        "sleep",
+        "illness",
+        "injury"
+      ],
+      "keywords": [
+        "recovery",
+        "rest",
+        "sleep",
+        "tired",
+        "fatigue",
+        "sick",
+        "illness",
+        "injury",
+        "pain",
+        "sore",
+        "overtraining",
+        "herstel",
+        "moe",
+        "rust"
+      ],
+      "content": "Sharp pain means stop immediately—not \"push through,\" not \"see if it goes away,\" just stop. There's a crucial difference between normal training soreness and injury warning signs. Soreness is diffuse, appears a day or two after training, and improves with gentle movement. Injury pain is often sharp, localized, happens during movement, and doesn't improve or gets worse.\n\nWhen in doubt, seek professional help. A sports physio or doctor can diagnose what's actually happening and give you a timeline. Guessing and hoping rarely works out well. If one area is injured, ask about cross-training options that don't stress that area—many injuries allow some form of modified training.\n\nHere's the hardest truth: patience in return is absolutely essential. Coming back too fast is exactly how small injuries become big ones. The week you \"saved\" by rushing back often costs you months in the long run. Respect the healing process."
+    },
+    {
+      "id": "recovery_v4__modifiers",
+      "card": "recovery_v4",
+      "section": "modifiers",
+      "topics": [
+        "recovery",
+        "rest",
+        "sleep",
+        "illness",
+        "injury"
+      ],
+      "keywords": [
+        "recovery",
+        "rest",
+        "sleep",
+        "tired",
+        "fatigue",
+        "sick",
+        "illness",
+        "injury",
+        "pain",
+        "sore",
+        "overtraining",
+        "herstel",
+        "moe",
+        "rust"
+      ],
+      "content": "Your recovery needs are personal—what works for someone else might not work for you. We adjust for several factors automatically.\n\nAge matters, and there's no fighting it. Older athletes need more time between hard sessions. This isn't weakness—your body still adapts and improves, it just needs more time to do so. A 50-year-old can absolutely get faster; they just space their hard days differently than a 25-year-old.\n\nTraining experience matters too. If you're newer to structured training, you actually need more recovery despite doing lighter workloads—your body hasn't built the robustness yet. As you become more advanced, recovery efficiency improves.\n\nYour sport matters as well. Cycling is easier to recover from because there's no impact. Running demands more recovery time because of the eccentric muscle stress from all that pounding. We factor all of this in when building your schedule."
+    },
+    {
+      "id": "recovery_v4__overview",
+      "card": "recovery_v4",
+      "section": "overview",
+      "topics": [
+        "recovery",
+        "rest",
+        "sleep",
+        "illness",
+        "injury"
+      ],
+      "keywords": [
+        "recovery",
+        "rest",
+        "sleep",
+        "tired",
+        "fatigue",
+        "sick",
+        "illness",
+        "injury",
+        "pain",
+        "sore",
+        "overtraining",
+        "herstel",
+        "moe",
+        "rust"
+      ],
+      "content": "Here's the thing about getting fitter: training doesn't actually make you stronger. Training breaks you down—it damages muscle fibers, depletes energy stores, and stresses your systems. Recovery is where the magic happens, where your body rebuilds everything a little bit better than before. Skip the recovery and you skip the gains.\n\nThink of a hard workout as making a withdrawal from your body. Recovery is when you make the deposit that leaves you richer than before. If you only withdraw and never deposit, you eventually go bankrupt.\n\nSleep is the foundation of all recovery. Seven to nine hours, consistent timing, dark room. Nothing fancy beats good sleep—not massage, not compression boots, not ice baths. Those are nice extras, but sleep is where the real rebuilding happens."
+    },
+    {
+      "id": "recovery_v4__readiness",
+      "card": "recovery_v4",
+      "section": "readiness",
+      "topics": [
+        "recovery",
+        "rest",
+        "sleep",
+        "illness",
+        "injury"
+      ],
+      "keywords": [
+        "recovery",
+        "rest",
+        "sleep",
+        "tired",
+        "fatigue",
+        "sick",
+        "illness",
+        "injury",
+        "pain",
+        "sore",
+        "overtraining",
+        "herstel",
+        "moe",
+        "rust"
+      ],
+      "content": "Every morning, your body tells you how ready it is for training. We look at your HRV to see how your nervous system recovered, your resting heart rate to check if it's elevated, your sleep quality, and how you honestly feel—soreness, energy, motivation.\n\nGreen means systems recovered, go ahead with what's planned. Amber means some stress is present, so we dial back intensity by ten to twenty percent. Red means significant stress—stick to easy work or complete rest.\n\nI know what you're thinking: pushing through shows mental toughness. But here's the thing—pushing through red signals is like driving on a flat tire. You're not being tough, you're damaging the vehicle. Red means your HRV is way below baseline, your heart rate is elevated, or you barely slept. Your body is telling you something important. Listen to it."
+    },
+    {
+      "id": "recovery_v4__safety",
+      "card": "recovery_v4",
+      "section": "safety",
+      "topics": [
+        "recovery",
+        "rest",
+        "sleep",
+        "illness",
+        "injury"
+      ],
+      "keywords": [
+        "recovery",
+        "rest",
+        "sleep",
+        "tired",
+        "fatigue",
+        "sick",
+        "illness",
+        "injury",
+        "pain",
+        "sore",
+        "overtraining",
+        "herstel",
+        "moe",
+        "rust"
+      ],
+      "content": "Some things are non-negotiable for your health and long-term progress. Red readiness means mandatory modification—no overriding it because you feel mentally tough. Minimum 48 hours between high-intensity sessions, longer if you're older. Recovery week every three to four weeks, period.\n\nIf you're getting less than six hours of sleep, your training quality is already compromised. Three or more nights of poor sleep means skipping intensity work until you've restored normal sleep. After hard sessions, keep recovery days genuinely easy—no drifting into moderate effort because it feels too slow.\n\nWatch for overtraining signs: if your HRV stays suppressed for five or more days, take a recovery week immediately. If performance is declining while effort feels higher, stop and assess. Don't rationalize these warning signs away.\n\nWhen you're sick, no training during fever. Return to easy movement only after 48 hours symptom-free. Wait another 48 to 72 hours before any intensity. During high life stress—work pressure, relationship issues, financial worry—consider halving your training intensity. Stress is stress, and your body doesn't distinguish sources."
+    },
+    {
+      "id": "recovery_v4__timing",
+      "card": "recovery_v4",
+      "section": "timing",
+      "topics": [
+        "recovery",
+        "rest",
+        "sleep",
+        "illness",
+        "injury"
+      ],
+      "keywords": [
+        "recovery",
+        "rest",
+        "sleep",
+        "tired",
+        "fatigue",
+        "sick",
+        "illness",
+        "injury",
+        "pain",
+        "sore",
+        "overtraining",
+        "herstel",
+        "moe",
+        "rust"
+      ],
+      "content": "How long between hard sessions? It depends on your age, and there's no shame in that—it's just biology.\n\nIf you're 18 to 35, you typically need 48 to 72 hours between high-intensity sessions. At 36 to 45, that stretches to about 55 to 83 hours. At 46 to 55, you're looking at 62 to 94 hours. Beyond that, even longer. Your body still adapts beautifully—it just needs more time between the hard efforts.\n\nBut here's what doesn't change much with age: the time between hard work and easy work. Regardless of age, you can usually do easy Z1 or Z2 the next day after intensity, sometimes even the same evening. The key is keeping it truly easy—no tempo creep, no chasing other cyclists, just genuine recovery pace.\n\nWe adjust all this automatically based on your profile. You don't need to calculate anything."
+    },
+    {
+      "id": "recovery_v4__two_lane",
+      "card": "recovery_v4",
+      "section": "two_lane",
+      "topics": [
+        "recovery",
+        "rest",
+        "sleep",
+        "illness",
+        "injury"
+      ],
+      "keywords": [
+        "recovery",
+        "rest",
+        "sleep",
+        "tired",
+        "fatigue",
+        "sick",
+        "illness",
+        "injury",
+        "pain",
+        "sore",
+        "overtraining",
+        "herstel",
+        "moe",
+        "rust"
+      ],
+      "content": "Good question that trips up a lot of athletes: does recovery mean no training at all? Not quite. Recovery means no more hard training until you're ready—but easy work is a different story entirely.\n\nThink of it as two separate lanes. Lane A handles hard-to-hard: after intervals or threshold work, you need 48 to 72 hours before another hard session. Your glycolytic and neuromuscular systems need that time to rebuild.\n\nLane B handles hard-to-easy: after that same hard session, you can often do easy Z1 or Z2 work the very next day, sometimes even that evening. Why? Because easy aerobic work uses completely different energy pathways. It doesn't tap those recovering systems—in fact, light movement increases blood flow and can actually speed up recovery.\n\nHere's the key insight: recovery blocks more intensity. It doesn't block easy work. Understanding this changes how you think about training days."
+    },
+    {
+      "id": "recovery_v4__week",
+      "card": "recovery_v4",
+      "section": "week",
+      "topics": [
+        "recovery",
+        "rest",
+        "sleep",
+        "illness",
+        "injury"
+      ],
+      "keywords": [
+        "recovery",
+        "rest",
+        "sleep",
+        "tired",
+        "fatigue",
+        "sick",
+        "illness",
+        "injury",
+        "pain",
+        "sore",
+        "overtraining",
+        "herstel",
+        "moe",
+        "rust"
+      ],
+      "content": "Every three to four weeks, you need a recovery week. This isn't optional and it's not a sign of weakness—it's how adaptation actually works.\n\nDuring a recovery week, we drop your easy volume by about 20 to 30 percent. The harder stuff drops more dramatically—threshold work cuts by 40 to 50 percent, and high-intensity work by 50 to 70 percent. You still do some intensity touches to stay sharp, but the overall load comes way down.\n\nHere's the thing: don't try to make up for it the following week. The whole point is letting your body consolidate the fitness you've been building. Think of it like sleep for your training—you can't catch up by cramming later. If you still feel tired after the recovery week, that's your body telling you to extend it. Listen."
+    },
+    {
+      "id": "running_v4__long_runs",
+      "card": "running_v4",
+      "section": "long_runs",
+      "sport": "run",
+      "topics": [
+        "running",
+        "pace",
+        "long_run",
+        "strides"
+      ],
+      "keywords": [
+        "run",
+        "running",
+        "pace",
+        "marathon",
+        "half",
+        "10k",
+        "5k",
+        "strides",
+        "long run",
+        "hardlopen",
+        "tempo"
+      ],
+      "content": "Here's the thing about long runs: they build adaptations that no amount of intervals can replicate. Your body learns to burn fat more efficiently, stores more glycogen, develops mental resilience, and maintains form when fatigued. These are marathon-specific skills that only come from time on your feet.\n\nBuild duration gradually—about 10 to 15 minutes more each mesocycle. For marathon training, you'll peak around 150 to 180 minutes. Half marathon peaks at 90 to 120 minutes. Even for a 10K, you want your long run reaching 60 to 75 minutes.\n\nAnd here's where most runners get it wrong: pace. Your long run should be easy. Zone 1 to Zone 2, conversational effort. If you can't speak in complete sentences, you're going too fast. The endurance benefits come from the duration, not the pace. Slow down and let the time do the work."
+    },
+    {
+      "id": "running_v4__models",
+      "card": "running_v4",
+      "section": "models",
+      "sport": "run",
+      "topics": [
+        "running",
+        "pace",
+        "long_run",
+        "strides"
+      ],
+      "keywords": [
+        "run",
+        "running",
+        "pace",
+        "marathon",
+        "half",
+        "10k",
+        "5k",
+        "strides",
+        "long run",
+        "hardlopen",
+        "tempo"
+      ],
+      "content": "Good question about training approaches. There are several that work, and the right one depends on your time and experience.\n\nPolarized training is what I recommend for most runners. Keep about 80 percent of your running genuinely easy, minimize the moderate zone, and make your hard sessions count. This protects against overtraining while building serious fitness. Works for everyone from beginners to elites.\n\nIf you're time-crunched—say 12 to 16 hours per mesocycle—the HIIT hybrid approach packs more punch into less time. Four shorter intense sessions plus one long run per week. Just don't skip that long run; it's doing work that intervals cannot.\n\nHansons is popular for marathoners who can handle higher frequency. Six runs per week, shorter long runs, and you'll race on pre-fatigued legs. But here's the thing: this only works if you've been running consistently for two or more years. Otherwise, injury risk climbs fast.\n\nTraditional high-volume training works beautifully if you have 40-plus hours per mesocycle. Long runs up to three hours, lots of easy mileage. The caveat is obvious: you need the time."
+    },
+    {
+      "id": "running_v4__overview",
+      "card": "running_v4",
+      "section": "overview",
+      "sport": "run",
+      "topics": [
+        "running",
+        "pace",
+        "long_run",
+        "strides"
+      ],
+      "keywords": [
+        "run",
+        "running",
+        "pace",
+        "marathon",
+        "half",
+        "10k",
+        "5k",
+        "strides",
+        "long run",
+        "hardlopen",
+        "tempo"
+      ],
+      "content": "Running uses the same nine-zone system as all your training, but with one important difference: impact. Every stride creates eccentric muscle damage that cycling and swimming don't. This means you need about ten percent more recovery time between hard sessions than a cyclist would.\n\nThe research is clear on what works for runners. About 80 percent of your training should be genuinely easy—conversational pace where you could chat with a friend. The remaining 20 percent is where the magic happens: threshold work, VO2max intervals, and occasional speed touches.\n\nLong runs are non-negotiable for anything half-marathon and up. You simply cannot replicate those adaptations with intervals. And strides—those short 15-20 second accelerations after easy runs—keep your legs quick without the metabolic cost."
+    },
+    {
+      "id": "running_v4__pace_zones",
+      "card": "running_v4",
+      "section": "pace_zones",
+      "sport": "run",
+      "topics": [
+        "running",
+        "pace",
+        "long_run",
+        "strides"
+      ],
+      "keywords": [
+        "run",
+        "running",
+        "pace",
+        "marathon",
+        "half",
+        "10k",
+        "5k",
+        "strides",
+        "long run",
+        "hardlopen",
+        "tempo"
+      ],
+      "content": "Let me help you understand pace zones in practical terms. Your threshold pace is the anchor—it's roughly the pace you could hold for about 60 minutes in a race, typically your 15 to 20 kilometer race pace.\n\nHere's where most runners get it wrong: easy runs. Zone 1 and Zone 2 should be 25 to 40 percent slower than your threshold pace. If your threshold is five minutes per kilometer, your easy pace is 6:15 to 7:00 per kilometer. Yes, that slow. I know it feels too easy, but the aerobic adaptations come from time on your feet, not from pace.\n\nTempo runs sit just below threshold—about 5 to 12 percent slower. Comfortably hard, where you can speak in short phrases but not full conversations. Threshold work is right at that 60-minute race pace, give or take three percent.\n\nVO2max intervals are faster than threshold—think your 3 to 5 kilometer race pace. The anaerobic zones cover 800-meter to mile race pace territory. And for strides and sprints? Don't overthink it. Just run fast and smooth.\n\nThe key insight is this: if you can't chat freely during your easy runs, slow down. The benefits come from duration."
+    },
+    {
+      "id": "running_v4__safety",
+      "card": "running_v4",
+      "section": "safety",
+      "sport": "run",
+      "topics": [
+        "running",
+        "pace",
+        "long_run",
+        "strides"
+      ],
+      "keywords": [
+        "run",
+        "running",
+        "pace",
+        "marathon",
+        "half",
+        "10k",
+        "5k",
+        "strides",
+        "long run",
+        "hardlopen",
+        "tempo"
+      ],
+      "content": "I hear you wanting to push harder, but running has higher injury rates than almost any other endurance sport. Here's why: every stride creates impact stress that cycling and swimming don't. Your tendons and bones need about 10 percent more recovery time between hard sessions.\n\nIf you're newer to running, stay in the easy zones for your first couple of mesocycles. I know it feels frustratingly slow, but you're building the structural foundation that prevents injury later. Intensity unlocks progressively as your body adapts.\n\nMarathon prep needs at least five mesocycles—that's 20-plus weeks. Compressing this timeline is how people get hurt. The same goes for weekly increases: keep total running time growth under 20 percent per mesocycle. Above that, injury risk climbs sharply.\n\nFor masters runners 40 and over, use 21-day mesocycles instead of 28. Your body still adapts beautifully; it just needs more recovery time. Plan for 72 to 96 hours between threshold or VO2max sessions.\n\nAnd one more thing: if you can't hold a conversation on your long runs, you're going too fast. Slow down. The aerobic benefits come from time, not pace."
+    },
+    {
+      "id": "running_v4__strides",
+      "card": "running_v4",
+      "section": "strides",
+      "sport": "run",
+      "topics": [
+        "running",
+        "pace",
+        "long_run",
+        "strides"
+      ],
+      "keywords": [
+        "run",
+        "running",
+        "pace",
+        "marathon",
+        "half",
+        "10k",
+        "5k",
+        "strides",
+        "long run",
+        "hardlopen",
+        "tempo"
+      ],
+      "content": "Strides are one of the best-kept secrets in running training. These are short accelerations—15 to 20 seconds—at a fast but controlled pace. Not sprinting, just running quick and smooth.\n\nHere's why they matter: strides maintain your running economy and neuromuscular activation without any real metabolic cost. You get speed work benefits with almost zero recovery needed. Add them after easy runs two or three times per week.\n\nThe execution is simple. Do four to eight repetitions, each lasting 15 to 20 seconds. Walk back for about 60 seconds between each one. Focus on smooth acceleration, relaxed shoulders, quick feet. You're not straining; you're flowing. Think of it as teaching your legs to remember what fast feels like, without the fatigue of a full workout."
+    },
+    {
+      "id": "seniors_v4__adaptation_timeline",
+      "card": "seniors_v4",
+      "section": "adaptation_timeline",
+      "topics": [
+        "seniors",
+        "elderly",
+        "age"
+      ],
+      "keywords": [
+        "senior",
+        "elderly",
+        "70",
+        "80",
+        "90",
+        "old",
+        "late",
+        "never too late",
+        "walking"
+      ],
+      "content": "Adaptations take longer at this stage, but they genuinely happen. I want you to understand this clearly: your body still responds to training. It still gets stronger, still builds endurance, still improves. The timeline is just extended compared to when you were younger.\n\nPatience is absolutely essential. You might not notice changes week to week, but look back over months and you'll see real progress. Keep a simple log—how far you walked, how you felt, what you could do. The improvements accumulate quietly.\n\nCelebrate every small win—they genuinely matter. Walked an extra minute today? That's progress. Felt less winded on the stairs? That's adaptation happening. Compare only to yesterday's version of yourself, never to others and never to your younger self. You're on your own journey, and every step forward deserves recognition. Recovery deserves deep respect—take the rest days, take them fully, and know that rest is when the magic happens."
+    },
+    {
+      "id": "seniors_v4__never_too_late",
+      "card": "seniors_v4",
+      "section": "never_too_late",
+      "topics": [
+        "seniors",
+        "elderly",
+        "age"
+      ],
+      "keywords": [
+        "senior",
+        "elderly",
+        "70",
+        "80",
+        "90",
+        "old",
+        "late",
+        "never too late",
+        "walking"
+      ],
+      "content": "Here's what the research proves beyond any doubt: fitness gains are possible at any age. I mean any age. Muscle can be built in your 80s—multiple studies confirm this. Cardiovascular improvements happen even at 90 and beyond. Your body still responds to training stimulus, just as it always has.\n\nIt is genuinely never too late to start. I've seen people begin structured exercise in their 70s and 80s and experience life-changing improvements in their daily function, energy, and independence. The adaptations are real and measurable.\n\nYou might have heard that the best time to start was years ago. That's true. But the second best time is today. Right now. Whatever you can do, however small it seems, is infinitely better than doing nothing. Your body is waiting to respond—it just needs the signal."
+    },
+    {
+      "id": "seniors_v4__realistic_goals",
+      "card": "seniors_v4",
+      "section": "realistic_goals",
+      "topics": [
+        "seniors",
+        "elderly",
+        "age"
+      ],
+      "keywords": [
+        "senior",
+        "elderly",
+        "70",
+        "80",
+        "90",
+        "old",
+        "late",
+        "never too late",
+        "walking"
+      ],
+      "content": "Let's talk about meaningful goals for this stage of life. Performance metrics like pace or watts matter less than function and independence. Can you climb stairs without getting winded? Carry groceries from the car? Get up from a low chair without help? Play with grandchildren? These are worthy, important goals.\n\nMaintaining the ability to do daily activities independently—that's what training is really for at this stage. Every session contributes to your quality of life in ways that are more valuable than any race time.\n\nConsistency matters far more than intensity. Three gentle 15-minute sessions per week, maintained over months and years, will transform your capabilities more than occasional intense efforts ever could. Show up regularly, move gently, and let the accumulated benefit work its magic. Every single movement counts and adds up over time."
+    },
+    {
+      "id": "seniors_v4__safety_first",
+      "card": "seniors_v4",
+      "section": "safety_first",
+      "topics": [
+        "seniors",
+        "elderly",
+        "age"
+      ],
+      "keywords": [
+        "senior",
+        "elderly",
+        "70",
+        "80",
+        "90",
+        "old",
+        "late",
+        "never too late",
+        "walking"
+      ],
+      "content": "Before starting or significantly changing your exercise routine, medical clearance is recommended. This isn't about being overly cautious—it's about being smart. A quick conversation with your doctor helps identify any considerations specific to your health situation.\n\nBegin very gently. Walking is completely valid training—don't let anyone tell you otherwise. A 10-minute walk is real exercise. A 15-minute walk is better. There's no minimum threshold you need to cross before \"it counts.\" It all counts.\n\nFalls prevention becomes increasingly important as we age, and balance work helps significantly. Simple exercises like standing on one foot while holding a chair, or heel-to-toe walking, build the stability that keeps you safe. Listen to your body with deep respect—it has decades of wisdom. There's no rush here, and there's no competition. Just you, getting a little stronger, a little more capable, one gentle session at a time."
+    },
+    {
+      "id": "seniors_v4__what_to_expect",
+      "card": "seniors_v4",
+      "section": "what_to_expect",
+      "topics": [
+        "seniors",
+        "elderly",
+        "age"
+      ],
+      "keywords": [
+        "senior",
+        "elderly",
+        "70",
+        "80",
+        "90",
+        "old",
+        "late",
+        "never too late",
+        "walking"
+      ],
+      "content": "Your training will be mostly Zone 1 and Zone 2 work—easy, conversational effort where you could chat with a friend. This isn't \"taking it easy\" in a disappointing way; this is exactly what's appropriate and effective for building fitness at this stage.\n\nIntensity work—harder efforts that leave you breathing hard—should only happen if you're medically cleared and feeling genuinely ready on that day. There's no pressure to include it. Many seniors build excellent fitness on easy work alone.\n\nShorter sessions are perfectly fine and effective. Twenty minutes is great. Fifteen minutes is great. Even ten minutes counts and contributes to your fitness. Showing up regularly matters infinitely more than session length. If you can only manage a short walk today, that short walk is exactly right.\n\nThe best exercise is simply the one you'll actually do consistently. If walking works for you, walk. If swimming feels good, swim. If gentle cycling appeals, cycle. Find what you enjoy enough to repeat, and then repeat it. That's the whole secret."
+    },
+    {
+      "id": "session_dose_v4__clean_workouts",
+      "card": "session_dose_v4",
+      "section": "clean_workouts",
+      "topics": [
+        "session",
+        "workout_structure",
+        "recovery"
+      ],
+      "keywords": [
+        "session",
+        "workout",
+        "clean",
+        "wallet",
+        "shadow",
+        "recovery",
+        "meso"
+      ],
+      "content": "Here's a principle that transforms training effectiveness: every workout should have one clear focus. No zone soup.\n\nWhen you do 20 minutes at easy pace, then five minutes of tempo, then a couple minutes of hard effort all mixed together, your body receives metabolic noise. It doesn't know what adaptation to prioritize. The signal is muddy.\n\nA clean workout looks different. You warm up for 15 minutes, then do your main set—say eight three-minute VO2max intervals—then cool down for 10 minutes. The message to your body is crystal clear: build VO2max capacity.\n\nAnd here's something that trips people up: warmup and cooldown don't count as base training. They're movement preparation. You still need dedicated Zone 2 days for actual aerobic development. The easy work in a warmup serves the workout, not your base."
+    },
+    {
+      "id": "session_dose_v4__meso_wallet",
+      "card": "session_dose_v4",
+      "section": "meso_wallet",
+      "topics": [
+        "session",
+        "workout_structure",
+        "recovery"
+      ],
+      "keywords": [
+        "session",
+        "workout",
+        "clean",
+        "wallet",
+        "shadow",
+        "recovery",
+        "meso"
+      ],
+      "content": "Think of your training plan like a budget. For each 28-day mesocycle, you have a \"wallet\" for every zone. Maybe 500 minutes for Zone 2 base work, 60 minutes for Zone 4 threshold, 30 minutes for Zone 5 VO2max.\n\nHere's the key insight: you don't spend a little bit every day. You spend in chunks. Day 4 might withdraw 30 minutes from your threshold wallet for a proper threshold session. Day 8 takes 15 minutes from VO2max for intervals. Day 12 hits threshold again. All the other days spend from your Zone 2 wallet with base sessions.\n\nWhen a wallet is empty, you're done with that zone until the next mesocycle. This prevents the \"always medium\" trap where you're never easy enough to recover and never hard enough to adapt. The budget forces discipline."
+    },
+    {
+      "id": "session_dose_v4__recovery_shadow",
+      "card": "session_dose_v4",
+      "section": "recovery_shadow",
+      "topics": [
+        "session",
+        "workout_structure",
+        "recovery"
+      ],
+      "keywords": [
+        "session",
+        "workout",
+        "clean",
+        "wallet",
+        "shadow",
+        "recovery",
+        "meso"
+      ],
+      "content": "After every hard session, your body casts a recovery shadow—a window where certain types of training aren't allowed yet.\n\nHard to hard needs 48 to 72 hours. After threshold intervals, wait two to three days before doing VO2max work. Your glycolytic and neuromuscular systems need that time to rebuild.\n\nBut here's what changes everything: hard to easy only needs 12 to 24 hours. After those same threshold intervals, you can absolutely do easy Zone 2 work the next day. This is the two-lane model—intensity blocks more intensity, but it doesn't block easy aerobic work.\n\nThis is why you can train five or six days per week. The easy days fill the gaps between hard days. You're not sitting around waiting; you're building your base while your intensity systems recover."
+    },
+    {
+      "id": "session_dose_v4__z3_definition",
+      "card": "session_dose_v4",
+      "section": "z3_definition",
+      "topics": [
+        "session",
+        "workout_structure",
+        "recovery"
+      ],
+      "keywords": [
+        "session",
+        "workout",
+        "clean",
+        "wallet",
+        "shadow",
+        "recovery",
+        "meso"
+      ],
+      "content": "Let me explain Zone 3, because it sits in interesting territory. It's strong aerobic work—hard enough to drive real adaptation, but manageable enough that you can repeat it fairly often.\n\nPhysiologically, you're at 82 to 87 percent of max heart rate, working at 70 to 80 percent of VO2max, with lactate around 1.5 to 3.5 millimoles. Your breathing is noticeably elevated, but you can still speak in short sentences. It feels \"somewhat hard\"—challenging but sustainable.\n\nHere's what Zone 3 isn't: it's not Zone 2 base work, which is too easy to call tempo. And it's not Zone 4 threshold, which is a distinctly harder gear. Zone 3 lives between them, building central aerobic factors like stroke volume while also developing peripheral qualities like capillary density.\n\nWe schedule Zone 3 as dedicated sessions—something like three ten-minute efforts with a few minutes easy between, or two twenty-minute blocks. Never as random crumbs sprinkled into Zone 2 days. After Zone 3 work, you can do easy training the next day, but wait at least 24 hours before another intensity session."
+    },
+    {
+      "id": "session_structure_variants_v4__anaerobic_zones",
+      "card": "session_structure_variants_v4",
+      "section": "anaerobic_zones",
+      "topics": [
+        "workout_structure",
+        "intervals",
+        "session"
+      ],
+      "keywords": [
+        "interval",
+        "structure",
+        "workout",
+        "session",
+        "30/30",
+        "tabata",
+        "threshold",
+        "vo2",
+        "tempo",
+        "sprint",
+        "warmup",
+        "cooldown",
+        "reps",
+        "sets",
+        "rest"
+      ],
+      "content": "The anaerobic zones use short, maximal efforts where quality matters more than quantity.\n\nFor Zone 6 anaerobic capacity, classic structure uses four to ten intervals of 30 to 90 seconds with long rest of two to six minutes. Six 60-second intervals with three minutes rest builds tolerance to high lactate—it burns, but that's the point. Short anaerobic uses six to ten intervals of 30 to 45 seconds with very long rest for higher quality and less accumulated lactate. Descending ladder is elite level: 90 seconds to 60 to 45 to 30 with full recovery. Each rep gets shorter but faster, teaching pacing and lactate management.\n\nFor Zone 7 max anaerobic power, classic uses four to ten intervals of 15 to 45 seconds with very long rest of three to six minutes. Six 30-second intervals with four minutes rest demands absolute maximum effort with full recovery between. Short max power uses six to ten intervals of 10 to 20 seconds with even longer rest. Cluster sets are elite level: three clusters of three reps at 20 seconds, with short rest within clusters and long rest between—teaches repeated max efforts for race simulation.\n\nHere's the key rule: rest must be long enough to maintain quality. If your sixth rep is much slower than your first, you need more rest. The under-recovery trap happens when you cut rest thinking you'll work harder—but cutting four-minute rest to two minutes in Zone 7 means you're no longer training max power, you're training lactate tolerance. The structure must match the intent."
+    },
+    {
+      "id": "session_structure_variants_v4__continuous_zones",
+      "card": "session_structure_variants_v4",
+      "section": "continuous_zones",
+      "topics": [
+        "workout_structure",
+        "intervals",
+        "session"
+      ],
+      "keywords": [
+        "interval",
+        "structure",
+        "workout",
+        "session",
+        "30/30",
+        "tabata",
+        "threshold",
+        "vo2",
+        "tempo",
+        "sprint",
+        "warmup",
+        "cooldown",
+        "reps",
+        "sets",
+        "rest"
+      ],
+      "content": "Recovery and easy sessions are typically continuous—one block of steady effort rather than intervals.\n\nRecovery zone sessions run 15 to 45 minutes of easy movement. The active flush variant uses low cadence to promote blood flow. No intervals needed here; the purpose is restoration, not training stimulus.\n\nZone 1 easy sessions run 30 to 90-plus minutes steady. Elite athletes in base phase might extend to three or four hours. You can take brief breaks for water or traffic without breaking the session. These don't need to be structured intervals.\n\nZone 2 aerobic sessions run 40 to 120 minutes steady. The progressive variant starts at Zone 1 and finishes at Zone 2, warming into the effort. Long rides and runs at this intensity are the foundation of endurance.\n\nHere's the key insight for these continuous zones: the goal is accumulating time, not hitting specific interval targets. Keep it simple and steady. The adaptations come from duration."
+    },
+    {
+      "id": "session_structure_variants_v4__cross_domain",
+      "card": "session_structure_variants_v4",
+      "section": "cross_domain",
+      "topics": [
+        "workout_structure",
+        "intervals",
+        "session"
+      ],
+      "keywords": [
+        "interval",
+        "structure",
+        "workout",
+        "session",
+        "30/30",
+        "tabata",
+        "threshold",
+        "vo2",
+        "tempo",
+        "sprint",
+        "warmup",
+        "cooldown",
+        "reps",
+        "sets",
+        "rest"
+      ],
+      "content": "Understanding how structure selection connects to other aspects of your training helps clarify why you get specific workouts.\n\nThe session maker selects your variant based on zone, phase, level, and available time. Energy zones determine the intensity target; this card determines the structure within that zone. Session dose rules like minimum effective dose and maximum chunk size still apply—your variant must fit within those bounds.\n\nPeriodization determines which variants are available. Base phase uses simpler structures. Peak phase unlocks race-specific structures. Level progression means beginners get simpler variants while advanced athletes unlock longer intervals and complex patterns like over-unders, clusters, and descending ladders.\n\nWithin a mesocycle, meso-progression increases duration or density weekly while intensity stays constant. Week four always deloads regardless of how good you feel."
+    },
+    {
+      "id": "session_structure_variants_v4__overview",
+      "card": "session_structure_variants_v4",
+      "section": "overview",
+      "topics": [
+        "workout_structure",
+        "intervals",
+        "session"
+      ],
+      "keywords": [
+        "interval",
+        "structure",
+        "workout",
+        "session",
+        "30/30",
+        "tabata",
+        "threshold",
+        "vo2",
+        "tempo",
+        "sprint",
+        "warmup",
+        "cooldown",
+        "reps",
+        "sets",
+        "rest"
+      ],
+      "content": "Your workout structure gets chosen based on your training phase, experience level, and available time. Same zone, different structures—and that's by design.\n\nTwo athletes both doing Zone 4 threshold work might get very different sessions. A beginner in base phase might do three 8-minute intervals with four minutes rest between—shorter intervals, more recovery. An advanced athlete in peak phase might do two 15-minute blocks with less rest—longer intervals that build race-specific endurance.\n\nBoth athletes work in the same zone with similar total time-in-zone, but the structure matches their individual needs. Shorter intervals are easier to maintain quality. Longer intervals build mental toughness and race specificity. More rest allows better recovery between efforts. Less rest creates more metabolic stress.\n\nYour plan picks the right structure automatically based on where you are in your training journey."
+    },
+    {
+      "id": "session_structure_variants_v4__phase_guidance",
+      "card": "session_structure_variants_v4",
+      "section": "phase_guidance",
+      "topics": [
+        "workout_structure",
+        "intervals",
+        "session"
+      ],
+      "keywords": [
+        "interval",
+        "structure",
+        "workout",
+        "session",
+        "30/30",
+        "tabata",
+        "threshold",
+        "vo2",
+        "tempo",
+        "sprint",
+        "warmup",
+        "cooldown",
+        "reps",
+        "sets",
+        "rest"
+      ],
+      "content": "Your training phase determines which structures are available and appropriate.\n\nIn base phase, think big blocks. Zone 2 goes long and continuous at 90 to 120 minutes. Zone 3 uses big blocks like two 20-minute efforts or three 15-minute. Zone 4 stays conservative at three 8-minute intervals. Zone 5 is limited or absent. The focus is building foundation with volume.\n\nIn build phase, think density loading. Zone 2 uses progressive structures warming from Zone 1 into Zone 2. Zone 3 extends to cruise intervals like two 25-minute efforts. Zone 4 hits classic four 10-minute intervals and introduces over-unders. Zone 5 runs classic five 4-minute intervals and introduces 30/30. The focus is increasing duration and density.\n\nIn peak phase, think high RPM. Zone 3 volume reduces. Zone 4 uses Norwegian long like four 16-minute intervals or over-unders. Zone 5 adds Rønnestad 30/15 and 40/20 intervals. Zone 6 uses descending ladders. Zone 7 uses cluster sets. The focus is race-specific, intermittent high intensity.\n\nIn taper phase, maintain sharpness. Volume reduces while intensity is maintained. Use shorter versions of peak structures. The focus is fresh legs with sharp speed."
+    },
+    {
+      "id": "session_structure_variants_v4__safety",
+      "card": "session_structure_variants_v4",
+      "section": "safety",
+      "topics": [
+        "workout_structure",
+        "intervals",
+        "session"
+      ],
+      "keywords": [
+        "interval",
+        "structure",
+        "workout",
+        "session",
+        "30/30",
+        "tabata",
+        "threshold",
+        "vo2",
+        "tempo",
+        "sprint",
+        "warmup",
+        "cooldown",
+        "reps",
+        "sets",
+        "rest"
+      ],
+      "content": "A few safety notes about workout structures that matter for your training.\n\nLonger intervals are not always better. Match the structure to your current fitness, not what you think you should be doing. If you can't complete the prescribed structure with good form, the structure is wrong for today—drop to an easier variant.\n\nMicro intervals like 30/30, 30/15, and 40/20 are deceptively hard. Don't underestimate them because the work periods are short. The accumulated stress is significant.\n\nRest periods in Zone 6 through Zone 8 are not optional. Cutting rest destroys quality and increases injury risk. The rest is part of the workout design for a reason.\n\nOver-unders, descending ladders, and cluster sets require good pacing skill. Master classic intervals first before attempting these advanced structures. Rønnestad 30/15 is significantly harder than 30/30—only attempt it after you've mastered the 30/30 pattern.\n\nWhen in doubt, choose the simpler structure with more rest. And here's the meso-progression rule: if you can't complete week two's structure, repeat week one. Don't force progression. Your body adapts on its own timeline."
+    },
+    {
+      "id": "session_structure_variants_v4__science_of_structure",
+      "card": "session_structure_variants_v4",
+      "section": "science_of_structure",
+      "topics": [
+        "workout_structure",
+        "intervals",
+        "session"
+      ],
+      "keywords": [
+        "interval",
+        "structure",
+        "workout",
+        "session",
+        "30/30",
+        "tabata",
+        "threshold",
+        "vo2",
+        "tempo",
+        "sprint",
+        "warmup",
+        "cooldown",
+        "reps",
+        "sets",
+        "rest"
+      ],
+      "content": "Let me explain the science behind why different structures exist. This isn't arbitrary—there's physiology driving these choices.\n\nWhen you go hard for 30 seconds then rest for 30 seconds, your body doesn't instantly recover. Oxygen consumption stays elevated during the rest period—this is called oxygen lag. It means you accumulate more time at VO2max with 30/30 intervals than with one continuous effort of the same total work. Elite athletes use structures like 30/30 or 30/15 not because they're easier, but because they're smarter.\n\nHere's an elite coaching secret: don't increase intensity to get faster. Increase duration or density instead. Week one might be three 8-minute threshold intervals. Week two adds a rep for four 8-minute intervals. Week three extends to four 10-minute intervals. Week four deloads back to three 8-minute. Your threshold pace stays constant, but you can hold it longer. That's real, measurable progress.\n\nElite coaches manipulate nine variables to create different adaptations: work intensity, work duration, rest intensity, rest duration, number of reps, number of sets, between-set recovery time and intensity, and exercise mode. Your plan adjusts these automatically based on your phase and level."
+    },
+    {
+      "id": "session_structure_variants_v4__sprint_zone",
+      "card": "session_structure_variants_v4",
+      "section": "sprint_zone",
+      "topics": [
+        "workout_structure",
+        "intervals",
+        "session"
+      ],
+      "keywords": [
+        "interval",
+        "structure",
+        "workout",
+        "session",
+        "30/30",
+        "tabata",
+        "threshold",
+        "vo2",
+        "tempo",
+        "sprint",
+        "warmup",
+        "cooldown",
+        "reps",
+        "sets",
+        "rest"
+      ],
+      "content": "Zone 8 is pure speed and power—maximum 10 to 15 seconds of effort.\n\nClassic sprints use six to ten sprints of 6 to 15 seconds with very long rest of three to five minutes. Eight 10-second sprints with three minutes rest allows full neural recovery between efforts. Every rep should feel fast.\n\nFlying sprints use a rolling start into maximum sprint—5 to 10 seconds at absolute max. Ten 8-second flying sprints with three minutes rest develops top-end speed without the stress of accelerating from a standstill.\n\nStrides are an add-on rather than a standalone session: four to six short accelerations that you can tack onto the end of a Zone 1 or Zone 2 session. Six 15-second strides after an easy run maintains speed year-round without needing a separate session.\n\nHere's what's critical about Zone 8 work: it's about quality, not fatigue. Every rep should feel fast and powerful. If speed starts dropping, stop the session. Grinding out tired sprints doesn't build speed—it just accumulates fatigue."
+    },
+    {
+      "id": "session_structure_variants_v4__tempo_zone",
+      "card": "session_structure_variants_v4",
+      "section": "tempo_zone",
+      "topics": [
+        "workout_structure",
+        "intervals",
+        "session"
+      ],
+      "keywords": [
+        "interval",
+        "structure",
+        "workout",
+        "session",
+        "30/30",
+        "tabata",
+        "threshold",
+        "vo2",
+        "tempo",
+        "sprint",
+        "warmup",
+        "cooldown",
+        "reps",
+        "sets",
+        "rest"
+      ],
+      "content": "Zone 3 sits between easy and hard with four main structures to choose from.\n\nClassic tempo is most common: two to four intervals of 8 to 20 minutes with short rest between. Something like three 12-minute efforts with three minutes easy between each. This works for most athletes most of the time.\n\nCruise intervals go longer: two to three intervals of 15 to 30 minutes with minimal rest. Two 20-minute blocks with three minutes easy builds serious tempo capacity.\n\nBig blocks in base phase use two intervals of 18 to 25 minutes with very short rest. Two 20-minute efforts with just two minutes between builds aerobic durability for race day.\n\nContinuous tempo is for advanced athletes: a single block of 20 to 45 minutes with no breaks. Thirty minutes at Zone 3 continuous demands focus and fitness.\n\nMeso-progression for tempo might look like: week one does three 10-minute intervals, week two extends to three 12-minute, week three reaches three 15-minute, week four deloads to two 10-minute. Start with classic intervals and progress to longer or continuous as fitness improves."
+    },
+    {
+      "id": "session_structure_variants_v4__threshold_zone",
+      "card": "session_structure_variants_v4",
+      "section": "threshold_zone",
+      "topics": [
+        "workout_structure",
+        "intervals",
+        "session"
+      ],
+      "keywords": [
+        "interval",
+        "structure",
+        "workout",
+        "session",
+        "30/30",
+        "tabata",
+        "threshold",
+        "vo2",
+        "tempo",
+        "sprint",
+        "warmup",
+        "cooldown",
+        "reps",
+        "sets",
+        "rest"
+      ],
+      "content": "Zone 4 is hard but sustainable—the pace you could hold for about 45 to 60 minutes in a race.\n\nClassic threshold uses two to four intervals of 8 to 12 minutes with rest at about 40 percent of work time. Four 10-minute intervals with four minutes easy between is the Norwegian standard that works for everyone.\n\nLong threshold for race prep extends to two to three intervals of 12 to 20 minutes with less rest. Two 16-minute efforts with five minutes easy builds race-specific endurance.\n\nNorwegian long is elite level: four to six intervals of 14 to 18 minutes with short rest. Four 16-minute intervals with four minutes between is the gold standard for elite threshold development.\n\nShort threshold focuses on quality: three to six intervals of 4 to 8 minutes with more rest. Five 6-minute intervals with three minutes rest works well for beginners or when you're fatigued.\n\nOver-unders alternate slightly above and below threshold, teaching lactate management and mimicking race surges. Something like three sets of two minutes over followed by two minutes under—an elite pacing tool.\n\nMeso-progression keeps pace constant while increasing duration: week one does three 8-minute intervals, week two adds a rep, week three extends the reps, week four deloads. That's how threshold actually improves."
+    },
+    {
+      "id": "session_structure_variants_v4__vo2max_zone",
+      "card": "session_structure_variants_v4",
+      "section": "vo2max_zone",
+      "topics": [
+        "workout_structure",
+        "intervals",
+        "session"
+      ],
+      "keywords": [
+        "interval",
+        "structure",
+        "workout",
+        "session",
+        "30/30",
+        "tabata",
+        "threshold",
+        "vo2",
+        "tempo",
+        "sprint",
+        "warmup",
+        "cooldown",
+        "reps",
+        "sets",
+        "rest"
+      ],
+      "content": "Zone 5 builds your maximum aerobic engine with multiple proven structures.\n\nClassic VO2max uses three to six intervals of three to five minutes with rest at 75 percent of work time. Five four-minute intervals with three minutes easy is the gold standard for VO2max development.\n\nShort VO2max uses four to eight intervals of two to four minutes with equal rest to work. Six three-minute intervals with three minutes rest makes it easier to maintain quality throughout.\n\n30/30 intervals exploit the oxygen lag—10 to 20 intervals of 30 seconds hard followed by 30 seconds easy. Your VO2 stays high during the rest periods, so you accumulate more time at VO2max than with longer continuous efforts.\n\nRønnestad 30/15 is elite level: three sets of 13 intervals at 30 seconds hard with only 15 seconds rest, three minutes between sets. Research shows superior power gains, but it's significantly harder than 30/30. Only for advanced athletes.\n\n40/20 intervals in peak phase push even higher density: 10 to 15 intervals of 40 seconds hard with 20 seconds rest. Maximum VO2max time accumulation.\n\nLong VO2max is elite only: three to five intervals of four to six minutes with less rest. Very demanding.\n\nMeso-progression for VO2max: week one does four three-minute intervals, week two adds a rep, week three extends the reps, week four deloads."
+    },
+    {
+      "id": "session_templates_v4__warmup_scaling",
+      "card": "session_templates_v4",
+      "section": "warmup_scaling",
+      "topics": [
+        "warmup",
+        "session"
+      ],
+      "keywords": [
+        "warmup",
+        "warm up",
+        "scaling",
+        "short",
+        "time"
+      ],
+      "content": "Short on time? We scale warmup to fit your available session window.\n\nFor easy sessions in Zone 1 and Zone 2, no dedicated warmup is needed—these intensities are warmup intensity. Just ease into it over the first few minutes.\n\nFor intensity sessions, warmup scales with session length. Under 45 minutes gets a quick 5-minute warmup to get you moving. Sessions of 45 to 60 minutes get 10 minutes for proper preparation. Over 60 minutes gets a full 15-minute warmup to maximize session quality.\n\nThe goal is protecting your body while maximizing the time you actually have for training."
+    },
+    {
+      "id": "threshold_estimation_v4__estimates",
+      "card": "threshold_estimation_v4",
+      "section": "estimates",
+      "topics": [
+        "threshold",
+        "testing",
+        "zones"
+      ],
+      "keywords": [
+        "threshold",
+        "test",
+        "estimate",
+        "ftp",
+        "pace",
+        "protocol",
+        "20 minute",
+        "time trial"
+      ],
+      "content": "If you haven't tested yet, we'll start with conservative estimates based on research. Better to underestimate than overestimate—it prevents you from training too hard too soon.\n\nFor heart rate threshold, we calculate HRmax using the Tanaka formula: 208 minus 0.7 times your age. Then threshold heart rate is 78 to 92 percent of that, depending on your experience level.\n\nFor running pace, we draw on Jack Daniels research and population data. An intermediate male aged 30 to 45 typically has a threshold pace around 5:00 per kilometer. An intermediate female in the same age range is typically around 6:00 per kilometer.\n\nFor cycling FTP, Coggan power profiling suggests intermediate males are around 3.0 watts per kilogram, intermediate females around 2.6 watts per kilogram.\n\nRemember: these are starting points with significant individual variation. Test when you can to get your actual numbers."
+    },
+    {
+      "id": "threshold_estimation_v4__overview",
+      "card": "threshold_estimation_v4",
+      "section": "overview",
+      "topics": [
+        "threshold",
+        "testing",
+        "zones"
+      ],
+      "keywords": [
+        "threshold",
+        "test",
+        "estimate",
+        "ftp",
+        "pace",
+        "protocol",
+        "20 minute",
+        "time trial"
+      ],
+      "content": "Your threshold is the intensity you can sustain for about 45 to 60 minutes. It's the key anchor for all your training zones, so getting it right matters.\n\nThere are three ways to find it. First, you might already know it—your threshold heart rate, your FTP, your 10K pace. If you have recent data, we'll use your numbers directly.\n\nSecond, we can estimate it based on your age, sex, and experience level. This gives us a starting point, but with 15 to 20 percent uncertainty. We'll recommend testing within four weeks to dial it in.\n\nThird, you can test it yourself. A 20-minute time trial gives accurate results. For running, your average pace over those 20 minutes is your threshold pace. For cycling, average watts times 0.95 equals your FTP. We'll guide you through the protocol."
+    },
+    {
+      "id": "threshold_estimation_v4__safety",
+      "card": "threshold_estimation_v4",
+      "section": "safety",
+      "topics": [
+        "threshold",
+        "testing",
+        "zones"
+      ],
+      "keywords": [
+        "threshold",
+        "test",
+        "estimate",
+        "ftp",
+        "pace",
+        "protocol",
+        "20 minute",
+        "time trial"
+      ],
+      "content": "Some situations require extra caution with threshold testing and intensity training.\n\nIf you're on beta-blockers, they suppress heart rate and make heart rate zones unreliable. We'll use perceived effort instead—your zones will still work, just anchored differently.\n\nAfter illness with fever or flu symptoms, wait at least two weeks before returning to intensity work. The risk of heart inflammation is real and worth respecting.\n\nIf you have any heart condition, get medical clearance before testing or high-intensity training. This isn't optional.\n\nFor those over 65 who haven't been tested, we recommend a supervised stress test before high-intensity work. Safety comes first, and a proper medical assessment protects you.\n\nDuring pregnancy, heart rate zones don't apply reliably due to changed hemodynamics. Use the talk test—you should always be able to hold a conversation comfortably.\n\nWhen in doubt about any of this, start easier. You can always increase intensity later. You can't undo pushing too hard."
+    },
+    {
+      "id": "threshold_estimation_v4__test_protocols",
+      "card": "threshold_estimation_v4",
+      "section": "test_protocols",
+      "topics": [
+        "threshold",
+        "testing",
+        "zones"
+      ],
+      "keywords": [
+        "threshold",
+        "test",
+        "estimate",
+        "ftp",
+        "pace",
+        "protocol",
+        "20 minute",
+        "time trial"
+      ],
+      "content": "Let me walk you through how to actually test your threshold.\n\nFor running, warm up for 10 to 15 minutes at easy pace. Then run 20 minutes as hard as you can sustain—the key word is sustain. Don't start too fast; aim for even effort throughout. Your average pace over those 20 minutes is your threshold pace. Your average heart rate from the last 15 minutes is your threshold heart rate.\n\nFor cycling, warm up 15 minutes including a few hard efforts to open up the legs. Then ride 20 minutes at maximum sustainable power. Stay seated with steady cadence. Your average watts times 0.95 equals your FTP. Average heart rate from the last 15 minutes gives your threshold heart rate.\n\nTest when you're fresh—not after hard training days. Be well-fueled and hydrated. Use a flat route or indoor trainer. Keep conditions consistent each time so you can compare results meaningfully."
+    },
+    {
+      "id": "threshold_estimation_v4__why_test",
+      "card": "threshold_estimation_v4",
+      "section": "why_test",
+      "topics": [
+        "threshold",
+        "testing",
+        "zones"
+      ],
+      "keywords": [
+        "threshold",
+        "test",
+        "estimate",
+        "ftp",
+        "pace",
+        "protocol",
+        "20 minute",
+        "time trial"
+      ],
+      "content": "Let me explain why testing matters. Population estimates are educated guesses. Two 40-year-old intermediate runners might have threshold paces of 4:30 per kilometer and 5:30 per kilometer—same age, same level, very different physiology.\n\nWithout a test, your zones might be wrong. Easy days might actually be too hard, preventing proper recovery. Hard days might be too easy, failing to provide the stimulus you need. Progress tracking becomes unreliable because you don't know where you actually started.\n\nWith a test, everything changes. Zones are calibrated to your actual physiology. Training is precisely targeted. Progress is measurable because you have a real baseline. Confidence is high.\n\nHere's the math: a 20-minute test takes less time than one wasted workout. The investment pays for itself immediately."
+    },
+    {
+      "id": "zone_anchoring_v4__hr_zones",
+      "card": "zone_anchoring_v4",
+      "section": "hr_zones",
+      "topics": [
+        "zones",
+        "threshold",
+        "testing",
+        "heart_rate",
+        "power"
+      ],
+      "keywords": [
+        "zone",
+        "anchor",
+        "threshold",
+        "test",
+        "ftp",
+        "ltlt",
+        "heart rate",
+        "power",
+        "talk test",
+        "hrmax"
+      ],
+      "content": "Heart rate zones work well for Recovery through Zone 5. For the higher anaerobic zones, heart rate simply can't respond fast enough—use power, pace, or perceived effort instead.\n\nHow we build your heart rate zones depends on what data you have. If you know both your LT1 and LT2 heart rates, we build zones around those anchors. If you only know your lactate threshold heart rate, we treat it as LT2. If you only know HRmax, we use percentage templates. If you have nothing, we estimate from age—but that's the least accurate option.\n\nRetesting matters because these values change. HRmax declines with age, so check it every six to twelve months. Threshold heart rate can shift in just weeks with fitness changes, so retest every six to eight weeks or whenever your zones feel off."
+    },
+    {
+      "id": "zone_anchoring_v4__overview",
+      "card": "zone_anchoring_v4",
+      "section": "overview",
+      "topics": [
+        "zones",
+        "threshold",
+        "testing",
+        "heart_rate",
+        "power"
+      ],
+      "keywords": [
+        "zone",
+        "anchor",
+        "threshold",
+        "test",
+        "ftp",
+        "ltlt",
+        "heart rate",
+        "power",
+        "talk test",
+        "hrmax"
+      ],
+      "content": "Your training zones are personal—they're based on your physiology, not generic formulas. Two people the same age might have completely different thresholds, which is why personalization matters so much.\n\nThe key anchors are LT1 and LT2, your lactate thresholds. LT1 marks where lactate starts rising, the top of your easy zone. LT2 is where lactate rises rapidly, your threshold intensity. For cycling, FTP is your functional threshold power. For running, it's your threshold pace.\n\nBest data wins. Lab-tested LT1 and LT2 values are gold standard. Field-tested FTP or threshold pace from a 20-minute time trial is very good. An HRmax test works for heart rate zones. The talk test is a useful field fallback. Age formulas are last resort, with significant error margins.\n\nThe more data you provide, the more precisely we can dial in your zones."
+    },
+    {
+      "id": "zone_anchoring_v4__power_zones",
+      "card": "zone_anchoring_v4",
+      "section": "power_zones",
+      "topics": [
+        "zones",
+        "threshold",
+        "testing",
+        "heart_rate",
+        "power"
+      ],
+      "keywords": [
+        "zone",
+        "anchor",
+        "threshold",
+        "test",
+        "ftp",
+        "ltlt",
+        "heart rate",
+        "power",
+        "talk test",
+        "hrmax"
+      ],
+      "content": "Power is the most precise metric for cycling—every watt counts, and there's no lag or drift like with heart rate.\n\nHow we set your power zones depends on available data. Lab-tested LT1 and LT2 power values are best. An FTP from a 20-minute field test is very good. A ramp test gives a quick estimate, though slightly less reliable.\n\nYour FTP represents the power you can sustain for about an hour. All zones get calculated from this number. Retest your FTP every six to eight weeks, after training blocks, or whenever your zones feel wrong—if Zone 4 feels impossible, your FTP might be set too high; if it feels easy, too low."
+    },
+    {
+      "id": "zone_anchoring_v4__safety",
+      "card": "zone_anchoring_v4",
+      "section": "safety",
+      "topics": [
+        "zones",
+        "threshold",
+        "testing",
+        "heart_rate",
+        "power"
+      ],
+      "keywords": [
+        "zone",
+        "anchor",
+        "threshold",
+        "test",
+        "ftp",
+        "ltlt",
+        "heart rate",
+        "power",
+        "talk test",
+        "hrmax"
+      ],
+      "content": "A few important safety notes about zone anchoring. Age-estimated HRmax using formulas like 220 minus age can be off by 10 to 12 beats in either direction. That's a huge error that ripples through all your zones. Test if possible.\n\nYour zones shift as fitness changes. What was Zone 4 three months ago might be Zone 3 now if you've improved. Retest regularly. Outdated zones lead to wrong training—zones set too high mean you can't hit targets and feel constantly overtrained; zones set too low mean training is too easy and you won't progress.\n\nHeart rate is unreliable for Zone 6 through Zone 8. The efforts are too short for heart rate to respond meaningfully. Use power, pace, or perceived effort for those hard intervals.\n\nIf you're newer to training, focus on perceived effort and the talk test first. Add heart rate and power monitoring as you learn how your body responds."
+    },
+    {
+      "id": "zone_anchoring_v4__talk_test",
+      "card": "zone_anchoring_v4",
+      "section": "talk_test",
+      "topics": [
+        "zones",
+        "threshold",
+        "testing",
+        "heart_rate",
+        "power"
+      ],
+      "keywords": [
+        "zone",
+        "anchor",
+        "threshold",
+        "test",
+        "ftp",
+        "ltlt",
+        "heart rate",
+        "power",
+        "talk test",
+        "hrmax"
+      ],
+      "content": "Good news if you don't have a heart rate monitor or power meter—the talk test is a simple field method that correlates surprisingly well with lab thresholds.\n\nIf you can sing, you're in Recovery. If you can speak in paragraphs easily, that's Zone 1. Long sentences indicate Zone 2. Short sentences mean Zone 3, near your first lactate threshold. If you can only manage a few words, you're in Zone 4, approaching your second threshold. If you can't speak at all, you're in Zone 5 at or above threshold. Gasping means Zone 6 or higher.\n\nThis won't give you exact heart rate or power numbers, but it tells you which zone you're in right now. Use it to calibrate your sense of effort, and to check yourself during workouts when you're unsure."
+    }
+  ]
+}
