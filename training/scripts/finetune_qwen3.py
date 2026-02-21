@@ -781,6 +781,192 @@ SANITY_PROMPTS = [
 ]
 
 
+# =============================================================================
+# OPEN CHAT — Interactive testing with full v6 pipeline
+# =============================================================================
+
+def chat(model_path: str, model_size: str = None, sport: str = "running",
+         readiness: str = "Green"):
+    """Interactive open chat with the v6 model.
+
+    Runs the full pipeline for every message:
+      1. Interpreter call → GATCRequest JSON
+      2. Router decides if coach call is needed
+      3. Coach call → coaching text (if needed)
+
+    Commands:
+      /sport <sport>       Change sport context (running, cycling, strength, ...)
+      /readiness <level>   Change readiness (Green, Yellow, Red)
+      /mode <mode>         Force mode: auto, interpreter, coach
+      /raw                 Toggle showing raw model output
+      /reset               Clear conversation history
+      /quit or /exit       Exit chat
+    """
+    import re as re_mod
+
+    print(f"\nLoading model: {model_path}")
+    tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
+    model = AutoModelForCausalLM.from_pretrained(
+        model_path,
+        torch_dtype=torch.bfloat16,
+        device_map="auto",
+        trust_remote_code=True,
+    )
+    model.eval()
+
+    interpreter_prompt = build_system_prompt("interpreter")
+    coach_prompt = build_system_prompt("coach")
+
+    show_raw = True
+    force_mode = "auto"  # auto, interpreter, coach
+
+    def generate(system_prompt, user_content, temperature=0.3, max_tokens=200):
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_content},
+        ]
+        input_text = tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True
+        )
+        inputs = tokenizer(input_text, return_tensors="pt").to(model.device)
+
+        with torch.no_grad():
+            output_ids = model.generate(
+                **inputs,
+                max_new_tokens=max_tokens,
+                temperature=temperature,
+                do_sample=True,
+                top_p=0.9,
+            )
+
+        new_tokens = output_ids[0][inputs["input_ids"].shape[1]:]
+        response = tokenizer.decode(new_tokens, skip_special_tokens=True).strip()
+
+        # Strip thinking tags
+        if "<think>" in response:
+            response = re_mod.sub(r"<think>.*?</think>", "", response, flags=re_mod.DOTALL).strip()
+
+        return response
+
+    print("\n" + "=" * 60)
+    print("  JOSI v6 — OPEN CHAT TEST")
+    print("=" * 60)
+    print(f"  Model:     {model_path}")
+    print(f"  Sport:     {sport}")
+    print(f"  Readiness: {readiness}")
+    print(f"  Mode:      {force_mode}")
+    print(f"  Show raw:  {show_raw}")
+    print()
+    print("  Commands: /sport, /readiness, /mode, /raw, /reset, /quit")
+    print("=" * 60)
+
+    while True:
+        try:
+            user_input = input("\n  You: ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print("\n\n  Bye!")
+            break
+
+        if not user_input:
+            continue
+
+        # Handle commands
+        if user_input.startswith("/"):
+            parts = user_input.split(maxsplit=1)
+            cmd = parts[0].lower()
+            arg = parts[1].strip() if len(parts) > 1 else ""
+
+            if cmd in ("/quit", "/exit", "/q"):
+                print("  Bye!")
+                break
+            elif cmd == "/sport":
+                sport = arg or "running"
+                print(f"  Sport → {sport}")
+                continue
+            elif cmd == "/readiness":
+                readiness = arg or "Green"
+                print(f"  Readiness → {readiness}")
+                continue
+            elif cmd == "/mode":
+                if arg in ("auto", "interpreter", "coach"):
+                    force_mode = arg
+                    print(f"  Mode → {force_mode}")
+                else:
+                    print(f"  Usage: /mode auto|interpreter|coach")
+                continue
+            elif cmd == "/raw":
+                show_raw = not show_raw
+                print(f"  Show raw → {show_raw}")
+                continue
+            elif cmd == "/reset":
+                sport = "running"
+                readiness = "Green"
+                force_mode = "auto"
+                print("  Reset to defaults")
+                continue
+            else:
+                print(f"  Unknown command: {cmd}")
+                continue
+
+        # Build context block
+        context = f"\n\nCONTEXT:\n- Sport: {sport}\n- Readiness: {readiness}"
+        user_with_context = user_input + context
+
+        import time as time_mod
+
+        # ─── Step 1: Interpreter call ────────────────────────────────────
+        if force_mode != "coach":
+            t0 = time_mod.time()
+            interpreter_response = generate(
+                interpreter_prompt, user_with_context,
+                temperature=INTERPRETER_TEMPERATURE, max_tokens=INFERENCE_MAX_TOKENS
+            )
+            t_interp = time_mod.time() - t0
+
+            if show_raw:
+                print(f"\n  ┌─ INTERPRETER ({t_interp:.1f}s) ─────────────────────")
+                print(f"  │ {interpreter_response}")
+                print(f"  └{'─' * 50}")
+
+            # Parse the interpreter JSON
+            try:
+                parsed = json.loads(interpreter_response)
+                action = parsed.get("action", "unknown")
+            except json.JSONDecodeError:
+                action = "parse_error"
+                parsed = None
+                print(f"  ⚠ Interpreter returned invalid JSON")
+
+            if force_mode == "interpreter":
+                continue
+
+        # ─── Step 2: Router — does this need a coach call? ───────────────
+        if force_mode == "auto":
+            needs_coach = action in ACTIONS_NEEDING_COACH
+            if not needs_coach:
+                if show_raw:
+                    print(f"  Router: action={action} → no coach call needed")
+                continue
+        else:
+            # force_mode == "coach", skip interpreter
+            action = "answer_question"
+            interpreter_response = json.dumps({"action": action, "question": user_input, "free_text": user_input})
+
+        # ─── Step 3: Coach call ──────────────────────────────────────────
+        coach_input = f"{user_input}{context}\n\n[INTERPRETER]\n{interpreter_response}"
+
+        t0 = time_mod.time()
+        coach_response = generate(
+            coach_prompt, coach_input,
+            temperature=COACH_TEMPERATURE, max_tokens=INFERENCE_MAX_TOKENS
+        )
+        t_coach = time_mod.time() - t0
+
+        print(f"\n  ┌─ JOSI ({t_coach:.1f}s) ──────────────────────────────")
+        print(f"  │ {coach_response}")
+        print(f"  └{'─' * 50}")
+
+
 def sanity(model_path: str, mode: str = "interpreter"):
     """Quick sanity check on a merged or fine-tuned model."""
     print(f"Loading model for sanity check: {model_path}")
@@ -895,6 +1081,14 @@ def main():
     sanity_parser.add_argument("--mode", choices=["interpreter", "coach"], default="interpreter",
                               help="Mode to test")
 
+    # Chat — interactive open testing
+    chat_parser = subparsers.add_parser("chat", help="Interactive open chat with v6 model")
+    chat_parser.add_argument("--model_path", required=True, help="Path to merged model")
+    chat_parser.add_argument("--model-size", choices=["8b", "4b"],
+                             help="Model size (auto-detected from path if omitted)")
+    chat_parser.add_argument("--sport", default="running", help="Initial sport context")
+    chat_parser.add_argument("--readiness", default="Green", help="Initial readiness (Green/Yellow/Red)")
+
     args = parser.parse_args()
 
     if args.command == "train":
@@ -918,6 +1112,13 @@ def main():
         sanity(
             model_path=args.model_path,
             mode=args.mode,
+        )
+    elif args.command == "chat":
+        chat(
+            model_path=args.model_path,
+            model_size=getattr(args, "model_size", None),
+            sport=args.sport,
+            readiness=args.readiness,
         )
     else:
         parser.print_help()
