@@ -851,6 +851,52 @@ def chat(model_path: str, model_size: str = None, sport: str = None,
 
         return response
 
+    def simulate_sessionmaker(parsed_json, readiness_level):
+        """Simulate the GATC sessionmaker to give the coach a real session.
+
+        In the real app, the GATC engine creates the session.
+        This simulator generates a plausible session so we can test
+        the coach's ability to present it.
+        """
+        if not parsed_json or parsed_json.get("action") != "create_workout":
+            return None
+
+        sport = parsed_json.get("sport", "run")
+        time_min = parsed_json.get("time_available_min") or parsed_json.get("constraints", {}).get("time_available_min", 60)
+        goal = parsed_json.get("goal", "endurance")
+        fatigue = parsed_json.get("constraints", {}).get("fatigue_hint", "fresh")
+
+        # Readiness affects zone selection
+        if readiness_level == "Red" or fatigue in ("very_tired", "tired"):
+            zone, desc = "Z1", f"Continuous Z1 {time_min}min"
+            phase = "recovery"
+        elif readiness_level == "Yellow" or fatigue == "ok":
+            zone, desc = "Z2", f"Continuous Z2 {time_min}min"
+            phase = "base"
+        elif goal in ("threshold",):
+            if time_min >= 60:
+                reps = max(3, time_min // 15)
+                zone, desc = "Z4", f"{reps} x 5min Z4 / 3min Z1"
+            else:
+                zone, desc = "Z4", f"3 x 5min Z4 / 3min Z1"
+            phase = "build"
+        elif goal in ("vo2",):
+            reps = max(4, time_min // 8)
+            zone, desc = "Z5", f"{reps} x 3min Z5 / 3min Z1"
+            phase = "peak"
+        elif goal in ("strength",):
+            zone, desc = "Z3", f"2 x 15min Z3 / 5min Z1"
+            phase = "build"
+        elif goal == "race_prep":
+            zone, desc = "Z4", f"4 x 5min Z4 / 3min Z1"
+            phase = "peak"
+        else:
+            # Default: endurance / Z2
+            zone, desc = "Z2", f"Continuous Z2 {time_min}min"
+            phase = "build"
+
+        return f'{zone} {time_min}min "{desc}" ({phase} phase)'
+
     def build_history_block():
         """Build a conversation summary from recent turns for context."""
         if not conversation_history:
@@ -982,8 +1028,21 @@ def chat(model_path: str, model_size: str = None, sport: str = None,
             # Coach-only mode: synthesize interpreter context
             interpreter_response = json.dumps({"action": "answer_question", "question": user_input, "free_text": user_input})
 
+        # Simulate GATC sessionmaker for create_workout actions
+        session_str = simulate_sessionmaker(parsed, readiness) if parsed else None
+
+        # Build coach context — include session if GATC produced one
+        coach_context_lines = list(context_lines)  # copy
+        if session_str:
+            # Insert session after sport (matches training data format)
+            coach_context_lines.insert(1 if sport else 0, f"- Session: {session_str}")
+        coach_context = "\n\nCONTEXT:\n" + "\n".join(coach_context_lines)
+
+        if session_str and show_raw:
+            print(f"  GATC Session: {session_str}")
+
         # Coach gets history (for multi-turn awareness) + interpreter result
-        coach_input = f"{user_input}{context}{history_block}\n\n[INTERPRETER]\n{interpreter_response}"
+        coach_input = f"{user_input}{coach_context}{history_block}\n\n[INTERPRETER]\n{interpreter_response}"
 
         # Coach gets more tokens for real coaching responses
         coach_max_tokens = 400
