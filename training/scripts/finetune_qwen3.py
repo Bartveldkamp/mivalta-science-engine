@@ -401,7 +401,7 @@ def load_model_and_tokenizer(model_id: str = None, size: str = None):
     if torch.cuda.is_available():
         allocated = torch.cuda.memory_allocated() / (1024**3)
         reserved = torch.cuda.memory_reserved() / (1024**3)
-        total = torch.cuda.get_device_properties(0).total_mem / (1024**3)
+        total = torch.cuda.get_device_properties(0).total_memory / (1024**3)
         print(f"  VRAM: {allocated:.1f} GB allocated, {reserved:.1f} GB reserved, {total:.1f} GB total")
 
     return model, tokenizer
@@ -435,7 +435,7 @@ def train(
 
     # VRAM check — warn early if GPU is too small
     if torch.cuda.is_available():
-        total_vram_gb = torch.cuda.get_device_properties(0).total_mem / (1024**3)
+        total_vram_gb = torch.cuda.get_device_properties(0).total_memory / (1024**3)
         size_tag = model_size or MODEL_SIZE
         if size_tag == "8b" and total_vram_gb < 22:
             print(f"\n  WARNING: Qwen3-8B needs ~24 GB VRAM, you have {total_vram_gb:.1f} GB")
