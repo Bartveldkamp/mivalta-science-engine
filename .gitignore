@@ -1,3 +1,7 @@
 __pycache__/
 *.pyc
 *.pyo
+training/venv/
+models/
+*.gguf
+training.log

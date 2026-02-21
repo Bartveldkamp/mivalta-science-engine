@@ -60,29 +60,28 @@ Output:
 SSH into the Hetzner server and run:
 
 ```bash
-ssh hetzner
-su - cockpit2
-cd ~/mivalta-science-engine/training
+ssh root@<server-ip>
+cd ~/mivalta/mivalta-science-engine
 
-# Install dependencies (first time only)
-pip install -r requirements.txt
+# First time: create venv + install deps
+bash training/scripts/setup_hetzner.sh
 
-# RECOMMENDED: 8B Android model, unified training
-python scripts/finetune_qwen3.py train --mode unified --model-size 8b
+# Train in screen (survives SSH disconnect):
+screen -dmS train bash -c 'cd ~/mivalta/mivalta-science-engine && ./training/venv/bin/python training/scripts/finetune_qwen3.py train --mode unified --model-size 4b 2>&1 | tee training.log'
 
-# Future: 4B iPhone variant
-python scripts/finetune_qwen3.py train --mode unified --model-size 4b
+# Check progress:
+tail -3 training.log
 
-# Or train modes separately:
-python scripts/finetune_qwen3.py train --mode interpreter --model-size 8b
-python scripts/finetune_qwen3.py train --mode coach --model-size 8b
+# Or use the all-in-one script (train + merge + sanity check):
+screen -dmS train bash -c 'cd ~/mivalta/mivalta-science-engine && bash training/scripts/train_v6.sh --model-size 4b 2>&1 | tee training.log'
 
-# Custom params
-python scripts/finetune_qwen3.py train --mode unified --model-size 8b --lr 5e-6 --epochs 4
-
-# Without W&B tracking
-python scripts/finetune_qwen3.py train --mode unified --no_wandb
+# 8B Android model (needs 24GB+ VRAM):
+screen -dmS train bash -c 'cd ~/mivalta/mivalta-science-engine && bash training/scripts/train_v6.sh --model-size 8b 2>&1 | tee training.log'
 ```
+
+> **Important**: Always use `./training/venv/bin/python` (full path) instead of
+> `python` or `source venv/bin/activate`. The system `python` command may not
+> exist, and `source activate` doesn't work inside `screen` sessions.
 
 Training takes ~45-90 min on GPU (8B requires ~24GB VRAM with LoRA, 4B requires ~16GB).
 Output goes to `./models/josi-v6-qwen3-{8b,4b}-{unified,interpreter,coach}-<timestamp>/`.

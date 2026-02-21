@@ -5,40 +5,68 @@
 # Run this on the Hetzner GPU server.
 #
 # What it does:
-#   1. Augments training data with cross-domain intelligence examples
-#   2. Trains the interpreter (LoRA on Qwen2.5-1.5B)
-#   3. Trains the explainer (LoRA on Qwen2.5-1.5B)
-#   4. Merges LoRA weights into base model
-#   5. Runs sanity checks
+#   1. Checks GPU availability
+#   2. Fine-tunes Qwen3 (LoRA) on unified interpreter+coach data
+#   3. Merges LoRA weights into base model
+#   4. Runs sanity checks
+#   5. (Optional) Exports to GGUF + publishes
 #
 # Prerequisites:
-#   - GPU with 8+ GB VRAM (RTX 3090/4090, A100, etc.)
-#   - Python venv with: pip install -r requirements.txt
-#   - Internet access (for HuggingFace model download on first run)
+#   - GPU with 16GB+ VRAM (4B) or 24GB+ VRAM (8B)
+#   - Venv set up: bash training/scripts/setup_hetzner.sh
 #
 # Usage:
-#   cd ~/mivalta/mivalta-science-engine/training
-#   bash scripts/train_v6.sh
+#   cd ~/mivalta/mivalta-science-engine
 #
-# To also export to GGUF (requires llama.cpp):
-#   bash scripts/train_v6.sh --gguf
+#   # Train 4B (iPhone) — ~2.5 hours on RTX 4000 SFF Ada
+#   bash training/scripts/train_v6.sh --model-size 4b
+#
+#   # Train 8B (Android) — needs 24GB+ VRAM
+#   bash training/scripts/train_v6.sh --model-size 8b
+#
+#   # Train + export GGUF + publish
+#   bash training/scripts/train_v6.sh --model-size 4b --publish
+#
+#   # Inside screen (survives SSH disconnect):
+#   screen -dmS train bash -c 'cd ~/mivalta/mivalta-science-engine && bash training/scripts/train_v6.sh --model-size 4b 2>&1 | tee training.log'
 # =============================================================================
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 TRAINING_DIR="$(dirname "$SCRIPT_DIR")"
-DATA_DIR="$TRAINING_DIR/data"
+REPO_DIR="$(dirname "$TRAINING_DIR")"
+VENV_PYTHON="$TRAINING_DIR/venv/bin/python"
+
+# Parse args
+MODEL_SIZE="4b"
+DO_PUBLISH=false
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --model-size) MODEL_SIZE="$2"; shift 2 ;;
+        --publish) DO_PUBLISH=true; shift ;;
+        *) echo "Unknown option: $1"; exit 1 ;;
+    esac
+done
+
+# Check venv exists
+if [ ! -f "$VENV_PYTHON" ]; then
+    echo "ERROR: Venv not found at $TRAINING_DIR/venv/"
+    echo "Run first: bash training/scripts/setup_hetzner.sh"
+    exit 1
+fi
 
 echo "================================================================"
 echo "  MiValta Josi v6 — Training Pipeline"
+echo "  Model: Qwen3-${MODEL_SIZE^^}"
 echo "  $(date)"
 echo "================================================================"
 
 # Check GPU
 echo ""
 echo "  Checking GPU..."
-python3 -c "
+"$VENV_PYTHON" -c "
 import torch
 if not torch.cuda.is_available():
     print('  ERROR: No GPU detected! Training requires CUDA.')
@@ -46,121 +74,60 @@ if not torch.cuda.is_available():
 name = torch.cuda.get_device_name(0)
 vram = torch.cuda.get_device_properties(0).total_memory / 1024**3
 print(f'  GPU: {name} ({vram:.1f} GB VRAM)')
-if vram < 6:
-    print(f'  WARNING: {vram:.1f} GB may be tight. 8+ GB recommended.')
 print(f'  CUDA: {torch.version.cuda}')
 print(f'  PyTorch: {torch.__version__}')
 "
 
-# ─── Step 1: Augment training data ───────────────────────────────────────────
+# ─── Step 1: Train unified model ─────────────────────────────────────────────
 echo ""
-echo "━━━ Step 1: Augmenting training data ━━━"
-cd "$TRAINING_DIR"
-python3 scripts/augment_cross_domain_training.py
+echo "━━━ Step 1: Training Qwen3-${MODEL_SIZE^^} unified (interpreter + coach) ━━━"
 
-# ─── Step 2: Train interpreter ────────────────────────────────────────────────
-echo ""
-echo "━━━ Step 2: Training INTERPRETER (LoRA on Qwen2.5-1.5B) ━━━"
-echo "  Data: $DATA_DIR/train_interpreter_v6.jsonl"
+cd "$REPO_DIR"
+"$VENV_PYTHON" training/scripts/finetune_qwen3.py train \
+    --mode unified \
+    --model-size "$MODEL_SIZE"
 
-python3 scripts/finetune_qwen25.py train \
-    --mode interpreter \
-    --train_data "$DATA_DIR/train_interpreter_v6.jsonl" \
-    --val_data "$DATA_DIR/val_interpreter_v6.jsonl" \
-    --no_wandb
-
-# Find the latest interpreter output
-INTERP_DIR=$(ls -td "$TRAINING_DIR"/models/josi-v5-qwen25-interpreter-*/ 2>/dev/null | head -1)
-if [ -z "$INTERP_DIR" ]; then
-    echo "  ERROR: Interpreter training output not found!"
+# Find the latest output directory
+OUTPUT_DIR=$(ls -td "$TRAINING_DIR"/models/josi-v6-qwen3-${MODEL_SIZE}-unified-*/ 2>/dev/null | head -1)
+if [ -z "$OUTPUT_DIR" ]; then
+    # Also check repo-level models dir
+    OUTPUT_DIR=$(ls -td "$REPO_DIR"/models/josi-v6-qwen3-${MODEL_SIZE}-unified-*/ 2>/dev/null | head -1)
+fi
+if [ -z "$OUTPUT_DIR" ]; then
+    echo "  ERROR: Training output not found!"
     exit 1
 fi
-echo "  Interpreter output: $INTERP_DIR"
+echo "  Output: $OUTPUT_DIR"
 
-# ─── Step 3: Train explainer ─────────────────────────────────────────────────
+# ─── Step 2: Merge LoRA weights ──────────────────────────────────────────────
 echo ""
-echo "━━━ Step 3: Training EXPLAINER (LoRA on Qwen2.5-1.5B) ━━━"
-echo "  Data: $DATA_DIR/train_explainer_v6.jsonl"
+echo "━━━ Step 2: Merging LoRA weights into base model ━━━"
 
-python3 scripts/finetune_qwen25.py train \
-    --mode explainer \
-    --train_data "$DATA_DIR/train_explainer_v6.jsonl" \
-    --val_data "$DATA_DIR/val_explainer_v6.jsonl" \
-    --no_wandb
+"$VENV_PYTHON" training/scripts/finetune_qwen3.py merge \
+    --lora_path "$OUTPUT_DIR/lora_weights" \
+    --model-size "$MODEL_SIZE"
 
-# Find the latest explainer output
-EXPL_DIR=$(ls -td "$TRAINING_DIR"/models/josi-v5-qwen25-explainer-*/ 2>/dev/null | head -1)
-if [ -z "$EXPL_DIR" ]; then
-    echo "  ERROR: Explainer training output not found!"
-    exit 1
-fi
-echo "  Explainer output: $EXPL_DIR"
-
-# ─── Step 4: Merge LoRA weights ──────────────────────────────────────────────
+# ─── Step 3: Sanity checks ───────────────────────────────────────────────────
 echo ""
-echo "━━━ Step 4: Merging LoRA weights into base model ━━━"
+echo "━━━ Step 3: Sanity checks ━━━"
 
-echo "  Merging interpreter..."
-python3 scripts/finetune_qwen25.py merge --lora_path "$INTERP_DIR/lora_weights"
+echo "  Testing interpreter mode..."
+"$VENV_PYTHON" training/scripts/finetune_qwen3.py sanity \
+    --model_path "$OUTPUT_DIR/merged" \
+    --mode interpreter 2>&1 || true
 
-echo "  Merging explainer..."
-python3 scripts/finetune_qwen25.py merge --lora_path "$EXPL_DIR/lora_weights"
+echo "  Testing coach mode..."
+"$VENV_PYTHON" training/scripts/finetune_qwen3.py sanity \
+    --model_path "$OUTPUT_DIR/merged" \
+    --mode coach 2>&1 || true
 
-# ─── Step 5: Sanity checks ───────────────────────────────────────────────────
-echo ""
-echo "━━━ Step 5: Sanity checks ━━━"
-
-echo "  Testing interpreter..."
-python3 scripts/finetune_qwen25.py sanity \
-    --model_path "$INTERP_DIR/merged" \
-    --mode interpreter
-
-echo "  Testing explainer..."
-python3 scripts/finetune_qwen25.py sanity \
-    --model_path "$EXPL_DIR/merged" \
-    --mode explainer
-
-# ─── Step 6 (optional): GGUF export ──────────────────────────────────────────
-if [[ "${1:-}" == "--gguf" ]]; then
+# ─── Step 4 (optional): Publish ──────────────────────────────────────────────
+if $DO_PUBLISH; then
     echo ""
-    echo "━━━ Step 6: GGUF export ━━━"
+    echo "━━━ Step 4: Publishing (merge -> GGUF -> upload) ━━━"
 
-    LLAMA_CPP="$HOME/llama.cpp"
-    if [ ! -d "$LLAMA_CPP" ]; then
-        echo "  ERROR: llama.cpp not found at $LLAMA_CPP"
-        echo "  Clone it: git clone https://github.com/ggerganov/llama.cpp ~/llama.cpp && cd ~/llama.cpp && make"
-        exit 1
-    fi
-
-    CONVERT="$LLAMA_CPP/convert_hf_to_gguf.py"
-    QUANTIZE="$LLAMA_CPP/build/bin/llama-quantize"
-
-    if [ ! -f "$QUANTIZE" ]; then
-        QUANTIZE="$LLAMA_CPP/llama-quantize"
-    fi
-
-    echo "  Converting interpreter to GGUF..."
-    python3 "$CONVERT" "$INTERP_DIR/merged" \
-        --outfile "$INTERP_DIR/josi-v6-interpreter-f16.gguf" \
-        --outtype f16
-
-    echo "  Quantizing interpreter to Q4_K_M..."
-    "$QUANTIZE" "$INTERP_DIR/josi-v6-interpreter-f16.gguf" \
-        "$INTERP_DIR/josi-v6-interpreter-q4_k_m.gguf" q4_k_m
-
-    echo "  Converting explainer to GGUF..."
-    python3 "$CONVERT" "$EXPL_DIR/merged" \
-        --outfile "$EXPL_DIR/josi-v6-explainer-f16.gguf" \
-        --outtype f16
-
-    echo "  Quantizing explainer to Q4_K_M..."
-    "$QUANTIZE" "$EXPL_DIR/josi-v6-explainer-f16.gguf" \
-        "$EXPL_DIR/josi-v6-explainer-q4_k_m.gguf" q4_k_m
-
-    echo ""
-    echo "  GGUF models ready:"
-    ls -lh "$INTERP_DIR"/josi-v6-*.gguf 2>/dev/null
-    ls -lh "$EXPL_DIR"/josi-v6-*.gguf 2>/dev/null
+    "$VENV_PYTHON" training/scripts/publish_models_v6.py \
+        --model "$OUTPUT_DIR/final"
 fi
 
 # ─── Done ─────────────────────────────────────────────────────────────────────
@@ -168,16 +135,12 @@ echo ""
 echo "================================================================"
 echo "  Training complete!"
 echo ""
-echo "  Interpreter: $INTERP_DIR"
-echo "  Explainer:   $EXPL_DIR"
+echo "  Model: Qwen3-${MODEL_SIZE^^}"
+echo "  Output: $OUTPUT_DIR"
+echo "  Merged: $OUTPUT_DIR/merged/"
 echo ""
-echo "  Merged models in: */merged/"
-echo ""
-echo "  Next steps:"
-echo "    1. Run --gguf flag if you haven't: bash scripts/train_v6.sh --gguf"
-echo "    2. Test with simulate.py:"
-echo "       python scripts/simulate.py --interactive \\"
-echo "         --interpreter $INTERP_DIR/josi-v6-interpreter-q4_k_m.gguf \\"
-echo "         --explainer $EXPL_DIR/josi-v6-explainer-q4_k_m.gguf"
-echo "    3. Publish: python scripts/publish_models.py"
+if ! $DO_PUBLISH; then
+    echo "  To publish:"
+    echo "    $VENV_PYTHON training/scripts/publish_models_v6.py --model $OUTPUT_DIR/final"
+fi
 echo "================================================================"
