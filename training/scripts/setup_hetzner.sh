@@ -78,19 +78,20 @@ check_gpu() {
         exit 1
     fi
 
-    nvidia-smi --query-gpu=name,memory.total,memory.free,driver_version,cuda_version \
-        --format=csv,noheader,nounits | while IFS=, read -r name total free driver cuda; do
-        info "GPU: $name"
-        info "  VRAM Total: ${total} MB"
-        info "  VRAM Free:  ${free} MB"
-        info "  Driver: $driver | CUDA: $cuda"
+    nvidia-smi --query-gpu=name,memory.total,memory.free,driver_version \
+        --format=csv,noheader,nounits | while IFS=, read -r name total free driver; do
+        info "GPU: $(echo "$name" | xargs)"
+        info "  VRAM Total: $(echo "$total" | xargs) MB"
+        info "  VRAM Free:  $(echo "$free" | xargs) MB"
+        info "  Driver: $(echo "$driver" | xargs)"
 
-        if [ "${free%.*}" -lt 14000 ]; then
+        free_clean="$(echo "$free" | xargs)"
+        if [ -z "$free_clean" ] || [ "${free_clean%.*}" -lt 14000 ] 2>/dev/null; then
             warn "  Less than 14GB VRAM free. Training needs 16GB+ (4B) or 24GB+ (8B)."
         else
             info "  VRAM OK for training"
         fi
-    done
+    done || true
 }
 
 # =============================================================================
