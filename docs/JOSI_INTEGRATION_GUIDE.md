@@ -135,6 +135,8 @@ val knowledgeFile = File(context.filesDir, "knowledge.json")
 
 Load model with [llama.android](https://github.com/ggerganov/llama.cpp/tree/master/examples/llama.android) or equivalent llama.cpp Kotlin/JNI bindings. Load knowledge.json with standard JSON parsing.
 
+> **CRITICAL:** When configuring llama.cpp, you MUST set the stop/antiprompt token to `<|im_end|>`. Without this, the model will generate infinitely and role-play both sides of the conversation. In llama.cpp this is typically set via `llama_sampler_add_stop()` or the `antiprompt` parameter. See the Troubleshooting section at the end of this guide.
+
 ---
 
 ## Step 2: Build the ChatContext
@@ -369,12 +371,21 @@ The SAME model is loaded ONCE and used for both calls. The system prompt and thi
 
 ### Inference Parameters
 
+**CRITICAL: Stop tokens.** Without stop tokens, the model will generate fake "User:" and "Mivalta:" turns and role-play an entire conversation with itself. You MUST set `<|im_end|>` as a stop token.
+
 ```kotlin
+// STOP TOKENS — these MUST be set or the model will never stop generating
+// The model produces output until it hits one of these tokens.
+// <|im_end|> is the ChatML end-of-turn marker (Qwen3 native).
+// <|endoftext|> is the model's end-of-sequence token.
+val STOP_TOKENS = listOf("<|im_end|>", "<|endoftext|>")
+
 val interpreterParams = LlamaParams(
     nPredict = 200,       // Output cap: 200 tokens
     temperature = 0.3f,   // Low temperature for deterministic JSON
     topP = 0.9f,
     nCtx = 4096,          // Context cap: 4096 tokens
+    stopTokens = STOP_TOKENS,  // REQUIRED — stops after ONE response
     // GBNF grammar loaded from shared/schemas/gatc_request.gbnf
     grammar = GATC_REQUEST_GRAMMAR,
 )
@@ -384,6 +395,7 @@ val coachSimpleParams = LlamaParams(
     temperature = 0.5f,   // Higher temperature for natural coaching text
     topP = 0.9f,
     nCtx = 4096,
+    stopTokens = STOP_TOKENS,  // REQUIRED — stops after ONE response
 )
 
 val coachComplexParams = LlamaParams(
@@ -391,6 +403,7 @@ val coachComplexParams = LlamaParams(
     temperature = 0.5f,
     topP = 0.9f,
     nCtx = 4096,
+    stopTokens = STOP_TOKENS,  // REQUIRED — stops after ONE response
 )
 ```
 
@@ -920,3 +933,87 @@ Zone 2 is je aerobe zone — ideaal voor het opbouwen van je uithoudingsvermogen
 7. Same GATCRequest schema — no engine changes needed
 8. Update temperatures: 0.3 for interpreter, 0.5 for coach
 9. Update context cap to 4096 tokens
+
+---
+
+## Troubleshooting: Common Integration Bugs
+
+### BUG: Model role-plays entire conversation (generates fake user messages)
+
+**Symptom:** You ask one question and the model generates multiple turns:
+```
+Mivalta: I see you're unwell...
+User: I'm feeling better now          ← MODEL INVENTED THIS
+Mivalta: Great! Let's get moving...   ← MODEL REPLIED TO ITS OWN FAKE MESSAGE
+```
+
+**Cause:** Missing stop tokens. Without stop tokens the model doesn't know when its turn ends, so it continues generating `<|im_start|>user` and `<|im_start|>assistant` turns forever until it hits `nPredict`.
+
+**Fix:** Set stop tokens on EVERY generate() call:
+```kotlin
+val STOP_TOKENS = listOf("<|im_end|>", "<|endoftext|>")
+
+// Pass to params
+val params = LlamaParams(
+    // ... other params ...
+    stopTokens = STOP_TOKENS,  // THIS IS THE FIX
+)
+```
+
+If your llama.cpp binding uses a different API, look for `stop`, `stop_sequences`, `antiprompt`, or `eos_token` in the documentation. The key token is `<|im_end|>` (token ID 151645 in Qwen3).
+
+### BUG: All messages appear in one bubble / no turn separation
+
+**Symptom:** The entire conversation history appears as one long text block with raw `User:` and `Mivalta:` labels visible.
+
+**Cause:** The conversation history is being concatenated as plain text instead of using ChatML formatting with proper `<|im_start|>` / `<|im_end|>` tags.
+
+**Fix:** Use the `buildChatMLPrompt()` function from Step 3. Each turn must be wrapped:
+```
+<|im_start|>user
+message here<|im_end|>
+<|im_start|>assistant
+response here<|im_end|>
+```
+
+DO NOT concatenate history as `"User: message\nMivalta: response\n"`. The model was trained on ChatML tokens, not plain text labels.
+
+### BUG: Model prescribes workouts (invents zones, durations, paces)
+
+**Symptom:** Model says things like "do 5x400m at threshold pace" or "60-70% of your zone" instead of routing to the GATC engine.
+
+**Cause:** The two-step pipeline isn't implemented. The app is calling the model once as a generic chatbot instead of:
+1. Interpreter call (JSON output) → parse GATCRequest
+2. Router decides next step
+3. Coach call (only for explain/answer_question)
+
+**Fix:** Implement the full `runJosi()` function from Step 4. The interpreter produces structured JSON, the router dispatches, and the coach only generates text for questions/explanations — never for workout creation.
+
+### BUG: Duplicate first response
+
+**Symptom:** The first AI response appears twice.
+
+**Cause:** The response is being appended to the chat history twice — once when generated, once when displayed. Or the generate() call is being made twice.
+
+**Fix:** Ensure each model response is added to `history` exactly once, after generation completes:
+```kotlin
+// Generate
+val response = model.generate(prompt, params)
+
+// Add to history ONCE
+history.add(ChatMessage(role = "assistant", message = response))
+
+// Display ONCE
+showMessage(response)
+```
+
+### BUG: Response cut off mid-sentence
+
+**Symptom:** "Great! Let's get moving. Today" — response ends abruptly.
+
+**Cause:** `nPredict` is too low, or the model is wasting tokens on thinking/preamble.
+
+**Fix:**
+- Ensure `nPredict = 200` for simple, `nPredict = 400` for complex
+- Strip `<think>...</think>` tags (they consume tokens but shouldn't be displayed)
+- If using `/no_think`, the model should not waste tokens on reasoning
