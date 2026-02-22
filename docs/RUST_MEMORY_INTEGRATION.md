@@ -1,7 +1,7 @@
 # Rust Engine — Athlete Memory Integration Guide
 
 **For:** GATC Rust engine team
-**Date:** 2026-02-16
+**Date:** 2026-02-22
 **Depends on:** Schema, prompts, and training data changes in this repo (mivalta-science-engine)
 
 ---
@@ -13,10 +13,14 @@ The following are implemented and ready for the Rust side to consume:
 | Component | File | Status |
 |---|---|---|
 | Schema contract | `shared/schemas/chat_context.schema.json` | `athlete_memory` field added (optional) |
-| Interpreter prompt | `training/prompts/interpreter_system.txt` | MEMORY instructions added |
-| Explainer prompt | `training/prompts/explainer_system.txt` | MEMORY instructions added |
-| Training data script | `training/scripts/augment_memory_training_data.py` | 85 memory-enriched examples |
+| Interpreter prompt (v6, runtime) | `training/prompts/josi_v6_interpreter.txt` | MEMORY instructions (lines 55-61) |
+| Coach prompt (v6, runtime) | `training/prompts/josi_v6_coach.txt` | MEMORY instructions (lines 40-46) |
+| Interpreter prompt (v5, training) | `training/prompts/interpreter_system.txt` | MEMORY instructions (lines 57-64) |
+| Explainer prompt (v5, training) | `training/prompts/explainer_system.txt` | MEMORY instructions (lines 20-26) |
+| Training data script | `training/scripts/augment_memory_training_data.py` | 154 examples (97 memory-enriched + 57 anti-hallucination) |
 | Fact extractor (reference) | `shared/memory_extractor.py` | Python reference implementation |
+
+> **Note:** The v6 prompts are what the Kotlin app uses at runtime. The v5 prompts are used by the training data script to build fine-tuning examples. Both versions have MEMORY instructions. The v6 prompts also include KNOWLEDGE and INTERPRETER CONTEXT sections not present in v5.
 
 ---
 
@@ -51,8 +55,9 @@ pub struct MemoryFact {
     pub source: String,
     /// Confidence 0.0-1.0. Higher = more reliable.
     pub confidence: f64,
-    /// When this fact was first learned
-    pub learned_at: DateTime<Utc>,
+    /// When this fact was first learned (optional — schema does not require it,
+    /// and the Python extractor does not produce it. Set by Rust on write if desired.)
+    pub learned_at: Option<DateTime<Utc>>,
 }
 ```
 
@@ -174,7 +179,7 @@ Port the rule-based extractor from `shared/memory_extractor.py` to Rust. The Pyt
 1. Extract facts from new conversation turns
 2. Load existing memory from Vault
 3. Merge: boost confidence for repeated facts, replace conflicting facts (newer wins)
-4. Decay: remove facts with confidence < 0.3
+4. Decay: remove facts with confidence <= 0.3
 5. Cap: max 15 key_facts, 5 patterns, 5 coaching_notes
 6. Write merged memory back to Vault
 
@@ -230,7 +235,7 @@ When a new fact conflicts with an existing one in the same category, the newer f
 - [ ] Empty memory → MEMORY block is omitted from prompt (not empty block)
 - [ ] 15+ facts → capped at 15, sorted by confidence descending
 - [ ] Conflicting facts → newer overwrites older in same category
-- [ ] Low-confidence facts (< 0.3) → removed on merge
+- [ ] Low-confidence facts (<= 0.3) → removed on merge (code uses `confidence > 0.3` to keep)
 - [ ] MEMORY block appears in CONTEXT between existing fields and end of context
 - [ ] Total prompt with MEMORY stays within 1024-token budget
 - [ ] Existing tests pass (no regression from new field)
