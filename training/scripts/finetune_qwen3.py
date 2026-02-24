@@ -97,12 +97,14 @@ from datasets import Dataset
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
+    BitsAndBytesConfig,
     EarlyStoppingCallback,
 )
 from peft import (
     LoraConfig,
     TaskType,
     get_peft_model,
+    prepare_model_for_kbit_training,
 )
 from trl import SFTTrainer, SFTConfig
 
@@ -363,8 +365,8 @@ def prepare_dataset(path: str, tokenizer, max_seq_length: int = 4096) -> Dataset
 # MODEL SETUP — bf16 + LoRA
 # =============================================================================
 
-def load_model_and_tokenizer(model_id: str = None, size: str = None):
-    """Load Qwen3 model in bf16 and apply LoRA adapters."""
+def load_model_and_tokenizer(model_id: str = None, size: str = None, qlora: bool = False):
+    """Load Qwen3 model in bf16 (or 4-bit QLoRA) and apply LoRA adapters."""
     cfg = get_config(size)
     if model_id is None:
         model_id = resolve_model_id(size)
@@ -378,28 +380,46 @@ def load_model_and_tokenizer(model_id: str = None, size: str = None):
         print(f"  Added dedicated [PAD] token (id={tokenizer.pad_token_id}) — separate from EOS (id={tokenizer.eos_token_id})")
     tokenizer.padding_side = "right"
 
-    print(f"Loading model: {model_id} (bf16, LoRA fine-tuning)")
+    quant_label = "4-bit QLoRA" if qlora else "bf16"
+    print(f"Loading model: {model_id} ({quant_label}, LoRA fine-tuning)")
     print(f"  Architecture: Qwen3-{cfg['params']} (AutoModelForCausalLM)")
     print(f"  Params: {cfg['params']}")
-    model = AutoModelForCausalLM.from_pretrained(
-        model_id,
+
+    load_kwargs = dict(
         device_map="auto",
         low_cpu_mem_usage=True,
-        torch_dtype=torch.bfloat16,
         trust_remote_code=True,
     )
+
+    if qlora:
+        # 4-bit quantization — fits 8B on 20GB GPU
+        bnb_config = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_quant_type="nf4",
+            bnb_4bit_compute_dtype=torch.bfloat16,
+            bnb_4bit_use_double_quant=True,
+        )
+        load_kwargs["quantization_config"] = bnb_config
+        print(f"  QLoRA: 4-bit NF4 quantization (compute in bf16)")
+    else:
+        load_kwargs["torch_dtype"] = torch.bfloat16
+
+    model = AutoModelForCausalLM.from_pretrained(model_id, **load_kwargs)
 
     # Resize embeddings if we added a pad token
     if len(tokenizer) > model.get_input_embeddings().weight.shape[0]:
         model.resize_token_embeddings(len(tokenizer))
         print(f"  Resized embeddings to {len(tokenizer)} (added [PAD] token)")
 
-    # Freeze all base model parameters
-    for param in model.parameters():
-        param.requires_grad = False
-
-    # Enable gradient checkpointing (critical for VRAM)
-    model.gradient_checkpointing_enable()
+    if qlora:
+        # Prepare model for QLoRA training (handles frozen layers + gradient checkpointing)
+        model = prepare_model_for_kbit_training(model, use_gradient_checkpointing=True)
+    else:
+        # Freeze all base model parameters
+        for param in model.parameters():
+            param.requires_grad = False
+        # Enable gradient checkpointing (critical for VRAM)
+        model.gradient_checkpointing_enable()
 
     # LoRA adapters
     lora_r = cfg["lora_r"]
@@ -441,6 +461,7 @@ def train(
     mode: str = "unified",
     model_size: str = None,
     resume_from_checkpoint: str = None,
+    qlora: bool = False,
 ):
     """Run LoRA fine-tuning on Qwen3.
 
@@ -449,6 +470,7 @@ def train(
               "coach" for coaching text training,
               "unified" for combined training (recommended).
         model_size: "8b" (Android default) or "4b" (iPhone).
+        qlora: Use 4-bit quantization (QLoRA) to fit larger models on smaller GPUs.
     """
     cfg = get_config(model_size)
     lr = lr_override or cfg["lr"]
@@ -458,12 +480,13 @@ def train(
     if torch.cuda.is_available():
         total_vram_gb = torch.cuda.get_device_properties(0).total_memory / (1024**3)
         size_tag = model_size or MODEL_SIZE
-        if size_tag == "8b" and total_vram_gb < 22:
+        if size_tag == "8b" and total_vram_gb < 22 and not qlora:
             print(f"\n  WARNING: Qwen3-8B needs ~24 GB VRAM, you have {total_vram_gb:.1f} GB")
             print(f"  Options:")
-            print(f"    1. Use --model-size 4b (fits in {total_vram_gb:.0f} GB, still 2.7x better than v5)")
-            print(f"    2. Use --model-size 1.7b (fastest inference, ~8 GB VRAM)")
-            print(f"    3. Use a cloud GPU with >=24 GB VRAM (A100, H100)")
+            print(f"    1. Use --qlora (4-bit quantization — fits 8B in ~14 GB, recommended)")
+            print(f"    2. Use --model-size 4b (fits in {total_vram_gb:.0f} GB, still 2.7x better than v5)")
+            print(f"    3. Use --model-size 1.7b (fastest inference, ~8 GB VRAM)")
+            print(f"    4. Use a cloud GPU with >=24 GB VRAM (A100, H100)")
             print(f"  Continuing anyway — may OOM during training.\n")
 
     if train_path is None:
@@ -517,7 +540,7 @@ def train(
         "thinking_mode": "router-controlled (/think for complex, /no_think for fast)",
         "mode": mode,
         "params": cfg["params"],
-        "quantization": "bf16 + LoRA",
+        "quantization": "4-bit QLoRA (NF4)" if qlora else "bf16 + LoRA",
         "lora_r": cfg["lora_r"],
         "lora_alpha": cfg["lora_alpha"],
         "lora_dropout": LORA_DROPOUT,
@@ -559,7 +582,7 @@ def train(
             report_to = "none"
 
     # Load model
-    model, tokenizer = load_model_and_tokenizer(size=model_size)
+    model, tokenizer = load_model_and_tokenizer(size=model_size, qlora=qlora)
 
     # Load datasets
     print(f"\nLoading datasets (max_seq_length={MAX_SEQ_LENGTH})...")
@@ -623,7 +646,8 @@ def train(
     # Train
     size_tag = model_size or MODEL_SIZE
     print("\n" + "=" * 60)
-    print(f"Starting Josi v6 training — Qwen3-{cfg['params']} (bf16 + LoRA)")
+    quant_label = "4-bit QLoRA" if qlora else "bf16 + LoRA"
+    print(f"Starting Josi v6 training — Qwen3-{cfg['params']} ({quant_label})")
     print(f"  Mode: {mode.upper()}")
     if mode == "unified":
         print(f"    Combined: interpreter (JSON) + coach (text) in one training run")
@@ -635,7 +659,7 @@ def train(
     print(f"  Target: {'Android 12GB+' if size_tag == '8b' else 'All phones (iPhone + Android)'}")
     print(f"  Pipeline: single-model, dual-mode + router-controlled /think")
     print(f"  Params: {cfg['params']}")
-    print(f"  LoRA: r={cfg['lora_r']}, alpha={cfg['lora_alpha']}, bf16")
+    print(f"  LoRA: r={cfg['lora_r']}, alpha={cfg['lora_alpha']}, {quant_label}")
     print(f"  Effective batch size: {batch_size * grad_accum}")
     print(f"  Learning rate: {lr}")
     print(f"  Max epochs: {epochs} (early stopping patience={EARLY_STOPPING_PATIENCE})")
@@ -1813,6 +1837,8 @@ def main():
     train_parser.add_argument("--lr", type=float, help="Learning rate override")
     train_parser.add_argument("--epochs", type=int, help="Number of epochs override")
     train_parser.add_argument("--no_wandb", action="store_true", help="Disable W&B logging")
+    train_parser.add_argument("--qlora", action="store_true",
+                             help="Use 4-bit quantization (QLoRA) — fits 8B model on 20GB GPU")
     train_parser.add_argument("--resume", type=str, nargs="?", const="auto",
                              help="Resume from checkpoint. Use --resume for latest, or --resume /path/to/checkpoint")
 
@@ -1850,6 +1876,7 @@ def main():
             mode=args.mode,
             model_size=getattr(args, "model_size", None),
             resume_from_checkpoint=args.resume,
+            qlora=args.qlora,
         )
     elif args.command == "merge":
         merge(
@@ -1873,7 +1900,8 @@ def main():
         parser.print_help()
         print("\nv6 single-model pipeline:")
         print("  1. python prepare_v6_data.py                                          # Prepare unified data")
-        print("  2. python finetune_qwen3.py train --mode unified                      # 8B Android (default)")
+        print("  2. python finetune_qwen3.py train --mode unified --qlora               # 8B Android on <=20GB GPU")
+        print("     python finetune_qwen3.py train --mode unified                      # 8B Android (needs >=24GB)")
         print("     python finetune_qwen3.py train --mode unified --model-size 4b      # 4B iPhone variant")
         print("     python finetune_qwen3.py train --mode unified --model-size 1.7b    # 1.7B speed-optimized")
         print("  3. python finetune_qwen3.py merge --lora_path ./models/.../lora_weights")
