@@ -13,23 +13,27 @@ Single-model architecture (replaces v5 dual-model):
     3. Coach call → coaching text (/think for complex, /no_think for simple)
 
 Model sizes (--model-size flag):
-  - 8b (DEFAULT, Android): Qwen3-8B Q4_K_M ~5.0 GB — best quality, Android 12GB+
-  - 4b (iPhone/low-RAM):   Qwen3-4B Q4_K_M ~2.5 GB — great quality, all phones
+  - 8b (Android):           Qwen3-8B Q4_K_M ~5.0 GB — best quality, Android 12GB+
+  - 4b (iPhone/mid-range):  Qwen3-4B Q4_K_M ~2.5 GB — great quality, most phones
+  - 1.7b (speed-optimized): Qwen3-1.7B Q4_K_M ~1.2 GB — fast inference, all phones
 
-Why 8B for Android:
-  - Outperforms Qwen2.5-14B on reasoning benchmarks
-  - 5.3x more parameters than v5 per task (8B vs 1.5B)
-  - Dramatically better coaching nuance, Dutch quality, injury reasoning
-  - Router-controlled /think gives "fast most of the time, smart when needed"
-  - Motorola Edge 60 (12GB) runs it comfortably
+Why 1.7B for speed:
+  - ~1.2 GB on device — fits comfortably on ANY phone (even 4GB RAM)
+  - ~2-3x faster tokens/sec than 4B, ~4-5x faster than 8B
+  - Native ChatML + /think / /no_think — same architecture as 4B/8B
+  - 32K context support (we use 4K) — fits knowledge cards + memory
+  - With fine-tuning on ~19K examples, handles both interpreter + coach roles
+  - Dutch quality acceptable after fine-tuning (weaker than 4B base, but trained)
+  - Tradeoff: less nuanced coaching text, simpler injury reasoning
 
-On-device performance (8B on Android 12GB):
-  - Single 8B Q4_K_M model = ~5.0 GB GGUF
-  - Interpreter call: ~400ms (/no_think, JSON output)
-  - Coach call simple: ~600ms (/no_think, short answer)
-  - Coach call complex: ~1200ms (/think, injury reasoning, plan tradeoffs)
+On-device performance estimates (1.7B Q4_K_M):
+  - Single 1.7B Q4_K_M model = ~1.2 GB GGUF
+  - Interpreter call: ~150-200ms (/no_think, JSON output)
+  - Coach call simple: ~200-350ms (/no_think, short answer)
+  - Coach call complex: ~400-600ms (/think, injury reasoning)
   - Coach skipped for ~40% of messages (create_workout, replan, clarify)
   - 100% on-device via llama.cpp — NO network calls
+  - Total per message: ~350-800ms (vs ~1000-1600ms on 4B)
 
 Router-controlled thinking:
   - /no_think: interpreter JSON, clarify, create_workout, replan, simple answers
@@ -62,6 +66,9 @@ Usage:
 
     # Train 4B variant for iPhone
     python finetune_qwen3.py train --mode unified --model-size 4b
+
+    # Train 1.7B variant for speed-optimized deployment (~1.2 GB GGUF)
+    python finetune_qwen3.py train --mode unified --model-size 1.7b
 
     # Merge LoRA weights into base model
     python finetune_qwen3.py merge --lora_path ./models/josi-v6-qwen3-8b-unified-*/lora_weights
@@ -104,8 +111,8 @@ from trl import SFTTrainer, SFTConfig
 # MODEL CONFIGURATION — Qwen3 (8B default for Android, 4B for iPhone)
 # =============================================================================
 
-# Model size configs: 8B (Android, needs >=24GB VRAM) and 4B (iPhone / low-VRAM)
-# Hetzner server: RTX 4000 SFF Ada (19.5 GB VRAM) — fits 4B, not 8B
+# Model size configs: 8B, 4B, and 1.7B
+# Hetzner server: RTX 4000 SFF Ada (19.5 GB VRAM) — fits 4B and 1.7B, not 8B
 # For 8B training, use cloud GPU (A100/H100) or QLoRA (4-bit base)
 MODEL_CONFIGS = {
     "8b": {
@@ -131,6 +138,19 @@ MODEL_CONFIGS = {
         "batch_size": 1,       # Safe for 19.5 GB RTX 4000 SFF Ada
         "grad_accum": 16,      # Effective batch = 16
         "epochs": 3,
+        "lora_r": 32,
+        "lora_alpha": 64,
+    },
+    "1.7b": {
+        "model_id": "Qwen/Qwen3-1.7B",
+        "local_dir": "Qwen3-1.7B",
+        "params": "1.7B",
+        "gguf_size": "~1.2 GB",
+        "vram_needed": "~8 GB",
+        "lr": 3e-5,            # Higher LR for smaller model
+        "batch_size": 2,       # Fits easily on RTX 4000 SFF Ada (19.5 GB)
+        "grad_accum": 8,       # Effective batch = 16
+        "epochs": 4,           # More epochs — smaller model needs more passes
         "lora_r": 32,
         "lora_alpha": 64,
     },
@@ -441,7 +461,8 @@ def train(
             print(f"\n  WARNING: Qwen3-8B needs ~24 GB VRAM, you have {total_vram_gb:.1f} GB")
             print(f"  Options:")
             print(f"    1. Use --model-size 4b (fits in {total_vram_gb:.0f} GB, still 2.7x better than v5)")
-            print(f"    2. Use a cloud GPU with >=24 GB VRAM (A100, H100)")
+            print(f"    2. Use --model-size 1.7b (fastest inference, ~8 GB VRAM)")
+            print(f"    3. Use a cloud GPU with >=24 GB VRAM (A100, H100)")
             print(f"  Continuing anyway — may OOM during training.\n")
 
     if train_path is None:
@@ -513,7 +534,7 @@ def train(
         "coach_temperature": COACH_TEMPERATURE,
         "inference_max_tokens": INFERENCE_MAX_TOKENS,
         "gguf_target": f"Q4_K_M ({cfg['gguf_size']})",
-        "target_platform": "Android 12GB+" if (model_size or MODEL_SIZE) == "8b" else "All phones",
+        "target_platform": {"8b": "Android 12GB+", "4b": "All phones", "1.7b": "All phones (speed-optimized)"}.get(model_size or MODEL_SIZE, "All phones"),
         "timestamp": datetime.now().isoformat(),
     }
     with open(output_path / "training_config.json", "w") as f:
@@ -681,7 +702,9 @@ def merge(
     # Auto-detect model size from lora_path (e.g. "josi-v6-qwen3-4b-unified-...")
     if model_size is None:
         lora_str = str(lora_path)
-        if "-4b-" in lora_str:
+        if "-1.7b-" in lora_str or "-1_7b-" in lora_str:
+            model_size = "1.7b"
+        elif "-4b-" in lora_str:
             model_size = "4b"
         elif "-8b-" in lora_str:
             model_size = "8b"
@@ -1680,8 +1703,8 @@ def main():
     train_parser = subparsers.add_parser("train", help="Fine-tune Qwen3 with LoRA")
     train_parser.add_argument("--mode", choices=["interpreter", "coach", "unified"], default="unified",
                              help="Training mode: interpreter (JSON), coach (text), or unified (both — recommended)")
-    train_parser.add_argument("--model-size", choices=["8b", "4b"], default="8b",
-                             help="Model size: 8b (Android, best quality) or 4b (iPhone, all phones)")
+    train_parser.add_argument("--model-size", choices=["8b", "4b", "1.7b"], default="8b",
+                             help="Model size: 8b (Android, best quality), 4b (iPhone), or 1.7b (speed-optimized)")
     train_parser.add_argument("--train_data", help="Path to training JSONL")
     train_parser.add_argument("--val_data", help="Path to validation JSONL")
     train_parser.add_argument("--output_dir", help="Output directory")
@@ -1693,7 +1716,7 @@ def main():
     merge_parser = subparsers.add_parser("merge", help="Merge LoRA weights into base model")
     merge_parser.add_argument("--lora_path", required=True, help="Path to LoRA weights")
     merge_parser.add_argument("--output_path", help="Output path for merged model")
-    merge_parser.add_argument("--model-size", choices=["8b", "4b"],
+    merge_parser.add_argument("--model-size", choices=["8b", "4b", "1.7b"],
                               help="Model size (auto-detected from lora_path if omitted)")
 
     # Sanity
@@ -1705,7 +1728,7 @@ def main():
     # Chat — interactive open testing
     chat_parser = subparsers.add_parser("chat", help="Interactive open chat with v6 model")
     chat_parser.add_argument("--model_path", required=True, help="Path to merged model")
-    chat_parser.add_argument("--model-size", choices=["8b", "4b"],
+    chat_parser.add_argument("--model-size", choices=["8b", "4b", "1.7b"],
                              help="Model size (auto-detected from path if omitted)")
     chat_parser.add_argument("--sport", default=None, help="Initial sport context (omit to let model infer)")
     chat_parser.add_argument("--readiness", default="Green", help="Initial readiness (Green/Yellow/Red)")
@@ -1743,10 +1766,11 @@ def main():
         )
     else:
         parser.print_help()
-        print("\nv6 single-model pipeline (Android-first, Qwen3-8B):")
+        print("\nv6 single-model pipeline:")
         print("  1. python prepare_v6_data.py                                          # Prepare unified data")
         print("  2. python finetune_qwen3.py train --mode unified                      # 8B Android (default)")
         print("     python finetune_qwen3.py train --mode unified --model-size 4b      # 4B iPhone variant")
+        print("     python finetune_qwen3.py train --mode unified --model-size 1.7b    # 1.7B speed-optimized")
         print("  3. python finetune_qwen3.py merge --lora_path ./models/.../lora_weights")
         print("  4. python finetune_qwen3.py sanity --model_path ./models/.../merged --mode interpreter")
         print("  5. python finetune_qwen3.py sanity --model_path ./models/.../merged --mode coach")

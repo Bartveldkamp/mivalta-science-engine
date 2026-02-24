@@ -16,7 +16,7 @@ The same model handles two modes via different system prompts, with **router-con
 | **Coach (simple)** | `josi_v6_coach.txt` | `/no_think` | Plain coaching text | Quick answers, confirmations |
 | **Coach (complex)** | `josi_v6_coach.txt` | `/think` | Plain coaching text | Injury reasoning, "why?" questions, plan tradeoffs |
 
-**Platform strategy:** Android-first with 8B. iPhone variant (4B) planned separately.
+**Platform strategy:** Three model sizes available: 8B (best quality, Android 12GB+), 4B (most phones), 1.7B (speed-optimized, all phones). Same training pipeline, same prompts, same architecture.
 
 From the user's perspective, this is **one Josi AI coach**. Behind the scenes:
 
@@ -25,7 +25,7 @@ From the user's perspective, this is **one Josi AI coach**. Behind the scenes:
 |                        KOTLIN APP                                      |
 |                                                                        |
 |  1. Build ChatContext (user message + athlete state)                   |
-|  2. Load SINGLE model (josi-v6-q4_k_m.gguf, ~5.0 GB)                |
+|  2. Load SINGLE model (josi-v6-q4_k_m.gguf, 1.2-5.0 GB)            |
 |                                                                        |
 |  3. INTERPRETER call (/no_think + GBNF grammar)                       |
 |     -> GATCRequest JSON (action, sport, replan_type, etc.)            |
@@ -50,13 +50,13 @@ From the user's perspective, this is **one Josi AI coach**. Behind the scenes:
 +-----------------------------------------------------------------------+
 ```
 
-**Base model:** `Qwen/Qwen3-8B` — 8B parameters (Android), `Qwen/Qwen3-4B` (future iPhone)
+**Base model:** `Qwen/Qwen3-8B` (8B), `Qwen/Qwen3-4B` (4B), or `Qwen/Qwen3-1.7B` (1.7B speed-optimized)
 **Quantization:** Q4_K_M (4-bit)
 **Chat template:** ChatML (`<|im_start|>` / `<|im_end|>`, same as Qwen2.5)
 **Languages:** Dutch, English, 100+ languages natively
 **Thinking mode:** Router-controlled `/think` and `/no_think`
 
-### Runtime Constraints (on-device, Android 12GB)
+### Runtime Constraints (on-device)
 
 | Parameter | Interpreter | Coach (simple) | Coach (complex) |
 |-----------|------------|----------------|-----------------|
@@ -67,15 +67,15 @@ From the user's perspective, this is **one Josi AI coach**. Behind the scenes:
 | Thinking | `/no_think` | `/no_think` | `/think` |
 | Grammar | GBNF | none | none |
 
-| Parameter | Value |
-|-----------|-------|
-| Model file | `josi-v6-q4_k_m.gguf` |
-| Model size | ~5.0 GB (8B Android) / ~2.5 GB (4B iPhone) |
-| Effective RAM | ~6 GB (8B) / ~3 GB (4B) |
-| Interpreter latency | ~400ms (/no_think + grammar) |
-| Coach simple latency | ~600ms (/no_think) |
-| Coach complex latency | ~1200ms (/think) |
-| Coach skipped | ~40% of messages |
+| Parameter | 8B (Android 12GB+) | 4B (most phones) | 1.7B (speed-optimized) |
+|-----------|-------------------|-------------------|------------------------|
+| Model file | `josi-v6-q4_k_m.gguf` | `josi-v6-q4_k_m.gguf` | `josi-v6-q4_k_m.gguf` |
+| GGUF size | ~5.0 GB | ~2.5 GB | ~1.2 GB |
+| Effective RAM | ~6 GB | ~3 GB | ~1.5 GB |
+| Interpreter latency | ~400ms | ~250ms | ~150-200ms |
+| Coach simple latency | ~600ms | ~400ms | ~200-350ms |
+| Coach complex latency | ~1200ms | ~800ms | ~400-600ms |
+| Coach skipped | ~40% of messages | ~40% of messages | ~40% of messages |
 
 ### Tier Architecture
 
@@ -128,7 +128,7 @@ val knowledgeFile = File(context.filesDir, "knowledge.json")
 1. User installs app (~50 MB, no models bundled)
 2. First launch: "Setting up your coach..." progress bar
 3. App fetches manifest to get current version + SHA-256 checksums
-4. App downloads model GGUF (~2.5 GB) + knowledge.json (~153 KB)
+4. App downloads model GGUF (1.2-5.0 GB depending on variant) + knowledge.json (~153 KB)
 5. Verify SHA-256 checksums for both files (checksums are in the manifest)
 6. Both cached locally, re-downloaded when manifest version changes
 7. All inference runs on-device via llama.cpp — no network calls
@@ -776,7 +776,7 @@ These are the **contracts** between the Kotlin app, Josi, and the Rust engine.
 
 ## Memory Management
 
-Since v6 uses a single ~2.5 GB model (vs two ~2.6 GB models in v4), memory management is simpler:
+Since v6 uses a single model (1.2-5.0 GB depending on variant, vs two ~2.6 GB models in v4), memory management is simpler:
 
 ```kotlin
 class JosiModelManager(private val context: Context) {
