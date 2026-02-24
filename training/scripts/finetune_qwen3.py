@@ -1118,9 +1118,31 @@ def chat(model_path: str, model_size: str = None, sport: str = None,
                 if last_interp:
                     try:
                         p = json.loads(last_interp)
-                        lines.append(f"  Decision: {p.get('action', '?')}")
+                        act = p.get('action', '?')
+                        lines.append(f"  Decision: {act}")
+                        # Include sport/goal/time so interpreter knows what was established
+                        if act == "create_workout":
+                            details = []
+                            if p.get("sport"):
+                                details.append(f"sport={p['sport']}")
+                            if p.get("time_available_min"):
+                                details.append(f"time={p['time_available_min']}min")
+                            if p.get("goal"):
+                                details.append(f"goal={p['goal']}")
+                            if details:
+                                lines.append(f"  Details: {', '.join(details)}")
                     except (json.JSONDecodeError, TypeError):
                         pass
+
+            # Include last session if one was created — crucial for follow-up questions
+            if self.last_session:
+                lines.append(f"ACTIVE SESSION: {self.last_session}")
+
+            # Health state for interpreter awareness
+            if self.health_status == "illness":
+                lines.append("STATUS: Athlete is SICK — should rest, not train")
+            elif self.health_status == "medical_concern":
+                lines.append("STATUS: MEDICAL CONCERN — refer to professional")
 
             return "\n".join(lines) if lines else ""
 
@@ -1450,6 +1472,51 @@ def chat(model_path: str, model_size: str = None, sport: str = None,
                 parsed = None
                 print(f"  ⚠ Interpreter returned invalid JSON")
 
+            # ─── Post-interpreter: follow-up detection ───────────────────
+            # If a session was just created and the user asks about it,
+            # override to "explain" so the coach explains the session.
+            # This fixes: "How much rest?" after intervals → explain (not create_workout)
+            if parsed and tracker.last_session and action == "create_workout":
+                lower_input = user_input.lower()
+                followup_keywords = (
+                    "how much rest", "how long", "what pace", "what zone",
+                    "how hard", "what intensity", "how many",
+                    "tell me more", "explain", "details", "describe",
+                    "hoeveel rust", "hoe lang", "hoe hard", "welke zone",
+                    "rest in between", "recovery between", "between sets",
+                    "between intervals", "warm up", "cool down",
+                )
+                if any(kw in lower_input for kw in followup_keywords):
+                    if show_raw:
+                        print(f"  ↳ Follow-up about active session → explain")
+                    parsed = {
+                        "action": "explain",
+                        "question": user_input,
+                        "free_text": user_input,
+                    }
+                    interpreter_response = json.dumps(parsed)
+                    action = "explain"
+
+            # If athlete is sick and interpreter still says create_workout,
+            # override to replan/illness — safety gate
+            if parsed and tracker.health_status == "illness" and action == "create_workout":
+                lower_input = user_input.lower()
+                # Only override if user isn't explicitly saying they feel better
+                recovery_words = ("feel good", "feel great", "feeling better",
+                                  "feel better", "i'm fine", "i'm good",
+                                  "voel me goed", "voel me beter", "weer fit")
+                if not any(kw in lower_input for kw in recovery_words):
+                    if show_raw:
+                        print(f"  ↳ Athlete is sick → overriding to replan/illness")
+                    parsed = {
+                        "action": "replan",
+                        "replan_type": "illness",
+                        "free_text": user_input,
+                        "sport": parsed.get("sport", tracker.sport_inferred),
+                    }
+                    interpreter_response = json.dumps(parsed)
+                    action = "replan"
+
             if force_mode == "interpreter":
                 tracker.update(user_input, parsed, None)
                 continue
@@ -1531,6 +1598,27 @@ def chat(model_path: str, model_size: str = None, sport: str = None,
             has_goal = parsed.get("goal")
             has_time = (parsed.get("time_available_min")
                         or parsed.get("constraints", {}).get("time_available_min"))
+
+            # Check if the user actually requested a specific goal/intensity
+            # The model sometimes defaults to goal="recovery" even when user
+            # didn't ask for it. Detect this and treat as no-goal.
+            if has_goal and not pending_workout:
+                lower_input = user_input.lower()
+                explicit_goal_keywords = (
+                    "hard", "easy", "intensive", "intense", "intervals",
+                    "recovery", "herstel", "threshold", "tempo", "sprint",
+                    "max", "vo2", "endurance", "zone", "z1", "z2", "z3",
+                    "z4", "z5", "rpe", "stevig", "rustig", "chill",
+                    "relaxed", "light", "all out",
+                )
+                user_explicitly_set_goal = any(kw in lower_input for kw in explicit_goal_keywords)
+                if not user_explicitly_set_goal:
+                    # Model guessed a goal but user didn't ask for one → strip it
+                    if show_raw:
+                        print(f"  ↳ Stripping default goal='{has_goal}' (user didn't specify intensity)")
+                    del parsed["goal"]
+                    has_goal = None
+                    interpreter_response = json.dumps(parsed)
 
             if not has_goal and not pending_workout:
                 # Missing goal/intensity — start gathering

@@ -17,6 +17,22 @@ HOW TO CHOOSE explain vs answer_question:
 - Examples of "explain": "What am I doing today?", "Why is my readiness red?", "What does this week look like?"
 - Examples of "answer_question": "What is Zone 2?", "How does recovery work?", "What's a taper?"
 
+FOLLOW-UP QUESTIONS — use explain, NOT create_workout:
+- If ACTIVE SESSION is shown in the context and the user asks about it, use "explain"
+- "How much rest in between?" after an interval session → "explain" (not create_workout)
+- "What pace should I run?" after a session was created → "explain"
+- "How hard should the intervals be?" → "explain"
+- "Tell me more about this workout" → "explain"
+- "Can you break it down?" → "explain"
+- The user is asking about the CURRENT session, not requesting a NEW one
+
+CONVERSATIONAL FOLLOW-UPS — read the PRIOR TURNS and LAST TURN:
+- "okay thanks" / "cool" / "got it" → answer_question (acknowledge, no new action needed)
+- "I want it harder" / "make it more intensive" / "can we go harder?" → create_workout with appropriate goal
+- "actually, make it easier" / "too hard, dial it down" → create_workout with goal="endurance" or "recovery"
+- "why?" / "explain that" / "tell me more" → explain (about the current context)
+- When the athlete changes their mind, create a NEW workout — don't repeat the old one
+
 WHEN TO USE clarify:
 - The user wants a workout but NO sport is in the message AND NO sport is in CONTEXT → clarify, missing=["sport"]
 - The user's intent is completely ambiguous (e.g., "Help me", "Hey") → clarify
@@ -27,6 +43,12 @@ ILLNESS vs MEDICAL — this distinction is critical:
 - "I'm sick", "I have the flu", "I have a cold", "stomach bug", "feeling ill" → action="replan", replan_type="illness"
 - "chest pain", "dizziness", "heart feels weird", "blacked out" → action="clarify", missing=["medical_clearance"]
 - Being sick is a TRAINING adjustment (replan), NOT a medical emergency (clarify)
+
+SICK ATHLETE — respect illness state:
+- If STATUS says athlete is SICK, do NOT create workouts — use replan or answer_question
+- "Can I train?" while sick → answer_question (coach will advise rest)
+- "Should I do a bike workout?" while sick → answer_question (not create_workout)
+- Only create_workout if athlete explicitly says they feel better: "I feel good now", "I'm recovered"
 
 CRITICAL — NEVER use sport="other" for create_workout:
 - If there is NO CONTEXT block in the message and the user does NOT name a specific sport, you MUST use action="clarify", NOT create_workout
@@ -39,8 +61,17 @@ ENUMS — use these exact values only:
 - goal: "endurance", "threshold", "vo2", "recovery", "strength", "race_prep"
 - fatigue_hint: "fresh", "ok", "tired", "very_tired"
 
+GOAL FIELD — only include when the user specifies intensity:
+- "I want a hard workout" → goal="vo2"
+- "intensive", "intervals", "tempo", "threshold" → goal="threshold"
+- "easy", "recovery", "chill", "light" → goal="recovery" or "endurance"
+- "max", "sprint", "all out" → goal="vo2"
+- "I want a bike workout" (no intensity mentioned) → do NOT include goal field
+- ONLY include goal when the user explicitly requests a specific intensity or type
+- When in doubt, OMIT goal — the system will ask the athlete
+
 REQUIRED FIELDS BY ACTION:
-- create_workout: action, sport, free_text (+ time_available_min if mentioned)
+- create_workout: action, sport, free_text (+ time_available_min if mentioned, + goal if intensity specified)
 - replan: action, replan_type, free_text (+ sport if in context)
 - explain: action, question, free_text
 - answer_question: action, question, free_text
