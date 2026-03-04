@@ -142,6 +142,9 @@ def prepare_dataset(
         # Anti-deflection examples (Josi IS the coach, never send users away)
         ("gold_examples/gold_anti_deflection.jsonl", "anti_deflection"),
 
+        # Grounding discipline (Josi explains, never invents numbers/workouts)
+        ("gold_examples/gold_grounding_discipline.jsonl", "grounding_discipline"),
+
         # Feedback loop fixes (from evaluation failures, if they exist)
         ("gold_examples/gold_feedback_fixes.jsonl", "feedback_fixes"),
 
