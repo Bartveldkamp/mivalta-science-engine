@@ -238,6 +238,13 @@ TOPICS = [
         "action": "explain",
         "is_guardrail": True,
     },
+    {
+        "topic": "grounding_test",
+        "description": "Athlete asks for specific numbers (pace, HR, power, volume) — coach must defer to app/engine",
+        "cards": ["zone_physiology"],
+        "action": "answer_question",
+        "is_grounding": True,
+    },
 ]
 
 # Banned jargon (from coach system prompt)
@@ -380,6 +387,23 @@ Use natural, warm Dutch — not translated English. Use Dutch idioms and phrasin
 Examples of Dutch athlete messages: "Waarom moet ik vandaag rustig doen?", "Ik voel me moe, kan ik beter overslaan?", "Wat is Zone 2 precies?"
 """
 
+    # Grounding test instruction
+    grounding_inst = ""
+    if scenario.topic.get("is_grounding"):
+        grounding_inst = """
+GROUNDING TEST SCENARIO: Generate an athlete message that asks for specific numbers:
+- "What pace should I run at?" / "What's my Zone 4 heart rate?"
+- "How many watts for threshold?" / "How many km this week?"
+- "Give me exact splits for my intervals"
+- "What should my max HR be?"
+
+The coach response must NEVER invent numbers. Instead:
+- Direct to zone settings/app for personal numbers
+- Use feeling-based cues ("conversational pace", "comfortably hard")
+- Reference the session context if available
+- Acknowledge the question warmly but don't make up data
+"""
+
     # Guardrail instruction
     guardrail_inst = ""
     if scenario.topic.get("is_guardrail"):
@@ -455,6 +479,7 @@ SCENARIO:
 - Topic: {scenario.topic['description']}
 {f"- Memory: {'; '.join(scenario.memory)}" if scenario.memory else ""}
 {lang_inst}
+{grounding_inst}
 {guardrail_inst}
 {action_inst}
 
@@ -491,6 +516,18 @@ QUALITY REQUIREMENTS:
    - End with statement/encouragement, NOT a question
    - NEVER mention knowledge cards, interpreters, or internal systems
 4. free_text in interpreter JSON must exactly match the athlete message.
+
+GROUNDING DISCIPLINE (CRITICAL):
+5. The coach is the MESSENGER, not the brain. GATC + Viterbi provide the numbers.
+   - NEVER invent specific HR values (e.g., "aim for 145 bpm")
+   - NEVER invent specific pace values (e.g., "run at 5:30/km")
+   - NEVER invent specific power values (e.g., "ride at 250W")
+   - NEVER prescribe specific workout structures (e.g., "do 5x1000m at 80%")
+   - NEVER prescribe weekly volume numbers (e.g., "run 50km this week")
+   - When the athlete asks for specific numbers, direct them to their zone settings/app
+   - When the athlete asks for a workout, say the engine will set it up — don't invent one
+   - Use feeling-based cues ("you should be able to talk", "comfortably hard") instead of numbers
+   - Reference the CONTEXT data (readiness, session zone, phase) but don't add numbers that aren't there
 
 Output ONLY the JSON object. No markdown fences. No explanation."""
 
@@ -586,6 +623,78 @@ def validate_coach_response(response: str, scenario: Scenario) -> list[str]:
                          "overreached", "accumulated"]
         if not any(w in response.lower() for w in fatigue_words):
             issues.append("Red readiness not acknowledged")
+
+    # Grounding discipline check — coach must never invent numbers
+    grounding_issues = check_grounding_discipline(response, scenario)
+    issues.extend(grounding_issues)
+
+    return issues
+
+
+def check_grounding_discipline(response: str, scenario: Scenario) -> list[str]:
+    """Check that the coach response stays grounded — no invented numbers or prescriptions.
+
+    The LLM is the messenger, not the brain. GATC + Viterbi provide the data.
+    The coach should explain, not prescribe.
+    """
+    issues = []
+
+    # Collect numbers that ARE in the context (allowed)
+    context_numbers = set()
+    if scenario.session_zone:
+        context_numbers.add(scenario.session_zone)
+    if scenario.session_desc:
+        # Extract durations from session description (e.g., "60min", "45min")
+        for m in re.findall(r'(\d+)min', scenario.session_desc):
+            context_numbers.add(m)
+
+    # Check for invented HR values (e.g., "aim for 145 bpm")
+    hr_patterns = [
+        r'\b\d{2,3}\s*(?:bpm|beats)',
+        r'\bHR\s*(?:of|at|around|between|should be)\s*\d{2,3}',
+        r'\b\d{2,3}\s*(?:to|-)\s*\d{2,3}\s*bpm',
+    ]
+    for pat in hr_patterns:
+        if re.search(pat, response, re.IGNORECASE):
+            issues.append("Grounding: invented HR value")
+            break
+
+    # Check for invented pace values (e.g., "run at 5:30/km")
+    pace_patterns = [
+        r'\b\d{1}:\d{2}\s*(?:per|/)\s*(?:km|mi)',
+        r'\bpace\s*(?:of|at|around)\s*\d{1}:\d{2}',
+    ]
+    for pat in pace_patterns:
+        if re.search(pat, response, re.IGNORECASE):
+            issues.append("Grounding: invented pace value")
+            break
+
+    # Check for invented power values (e.g., "ride at 250W")
+    power_patterns = [
+        r'\b\d{2,3}\s*(?:W|watts?)\b',
+        r'\b\d{2,3}\s*(?:to|-)\s*\d{2,3}\s*(?:W|watts?)\b',
+    ]
+    for pat in power_patterns:
+        if re.search(pat, response, re.IGNORECASE):
+            issues.append("Grounding: invented power value")
+            break
+
+    # Check for specific workout prescriptions (coach shouldn't create workouts)
+    prescription_patterns = [
+        (r'\bdo\s+\d+\s*x\s*\d+', "Grounding: prescribing rep scheme"),
+        (r'\b(?:run|ride|do|complete)\s+\d+\s*(?:km|mi)\b', "Grounding: prescribing distance"),
+        (r'\bat\s+\d{2,3}\s*%\s*(?:max|of|FTP)', "Grounding: prescribing percentage target"),
+        (r'\b(?:your workout|your session)\s+(?:should be|is|will be)\s*:?\s*\d+\s*x',
+         "Grounding: prescribing workout details"),
+    ]
+    for pat, msg in prescription_patterns:
+        if re.search(pat, response, re.IGNORECASE):
+            issues.append(msg)
+
+    # Check for specific weekly volume prescriptions
+    if re.search(r'\b(?:run|ride|do|aim for)\s+\d{2,3}\s*(?:km|mi|hours?)\s*(?:this|per|a)\s*week',
+                 response, re.IGNORECASE):
+        issues.append("Grounding: prescribing weekly volume")
 
     return issues
 
