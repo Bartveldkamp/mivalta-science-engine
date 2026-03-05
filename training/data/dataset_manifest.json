@@ -1,7 +1,7 @@
 {
-  "version": "v3",
-  "total_examples": 1412,
-  "train_examples": 1263,
+  "version": "v4",
+  "total_examples": 1432,
+  "train_examples": 1283,
   "val_examples": 149,
   "duplicates_removed": 4,
   "i6_decline_count": 240,
@@ -25,6 +25,7 @@
     "tier_decline": 32,
     "advisor_today_only": 32,
     "workout_creation_flow": 20,
+    "grounding_discipline": 20,
     "daily_brief": 16
   },
   "by_tier": {
@@ -39,6 +40,7 @@
   },
   "by_response_type": {
     "QuestionAnswer": 500,
+    "GroundedDeferral": 20,
     "ExplainWorkout": 256,
     "Decline": 244,
     "ExplainZone": 116,

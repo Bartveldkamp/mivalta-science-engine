@@ -420,6 +420,7 @@ def train(
     epochs_override: int = None,
     mode: str = "unified",
     model_size: str = None,
+    resume_from_checkpoint: str = None,
 ):
     """Run LoRA fine-tuning on Qwen3.
 
@@ -622,7 +623,7 @@ def train(
     print(f"  GGUF target: {cfg['gguf_size']} (single file, both modes)")
     print("=" * 60 + "\n")
 
-    result = trainer.train()
+    result = trainer.train(resume_from_checkpoint=resume_from_checkpoint)
 
     # Save
     print(f"\nTraining complete. Best eval loss: {trainer.state.best_metric:.4f}")
@@ -1688,6 +1689,7 @@ def main():
     train_parser.add_argument("--lr", type=float, help="Learning rate override")
     train_parser.add_argument("--epochs", type=int, help="Number of epochs override")
     train_parser.add_argument("--no_wandb", action="store_true", help="Disable W&B logging")
+    train_parser.add_argument("--resume_from_checkpoint", help="Path to checkpoint dir to resume from (e.g. models/.../checkpoint-264)")
 
     # Merge
     merge_parser = subparsers.add_parser("merge", help="Merge LoRA weights into base model")
@@ -1722,6 +1724,7 @@ def main():
             epochs_override=args.epochs,
             mode=args.mode,
             model_size=getattr(args, "model_size", None),
+            resume_from_checkpoint=args.resume_from_checkpoint,
         )
     elif args.command == "merge":
         merge(

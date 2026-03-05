@@ -41,11 +41,13 @@ VENV_PYTHON="$TRAINING_DIR/venv/bin/python"
 # Parse args
 MODEL_SIZE="4b"
 DO_PUBLISH=false
+RESUME_CHECKPOINT=""
 
 while [[ $# -gt 0 ]]; do
     case $1 in
         --model-size) MODEL_SIZE="$2"; shift 2 ;;
         --publish) DO_PUBLISH=true; shift ;;
+        --resume) RESUME_CHECKPOINT="$2"; shift 2 ;;
         *) echo "Unknown option: $1"; exit 1 ;;
     esac
 done
@@ -83,9 +85,15 @@ echo ""
 echo "━━━ Step 1: Training Qwen3-${MODEL_SIZE^^} unified (interpreter + coach) ━━━"
 
 cd "$REPO_DIR"
+RESUME_FLAG=""
+if [ -n "$RESUME_CHECKPOINT" ]; then
+    echo "  Resuming from checkpoint: $RESUME_CHECKPOINT"
+    RESUME_FLAG="--resume_from_checkpoint $RESUME_CHECKPOINT"
+fi
 "$VENV_PYTHON" training/scripts/finetune_qwen3.py train \
     --mode unified \
-    --model-size "$MODEL_SIZE"
+    --model-size "$MODEL_SIZE" \
+    $RESUME_FLAG
 
 # Find the latest output directory
 OUTPUT_DIR=$(ls -td "$TRAINING_DIR"/models/josi-v6-qwen3-${MODEL_SIZE}-unified-*/ 2>/dev/null | head -1)

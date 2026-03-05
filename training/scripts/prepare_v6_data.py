@@ -52,6 +52,11 @@ COACH_VAL = DATA_DIR / "val_explainer_sequential.jsonl"
 UNIFIED_TRAIN = DATA_DIR / "train_v6_unified.jsonl"
 UNIFIED_VAL = DATA_DIR / "val_v6_unified.jsonl"
 
+# Gold examples that go directly into training (already have system prompt + context)
+GOLD_COACH_FILES = [
+    DATA_DIR / "gold_examples" / "gold_grounding_discipline.jsonl",
+]
+
 
 def load_jsonl(path: Path) -> list[dict]:
     """Load JSONL file into list of dicts."""
@@ -295,6 +300,14 @@ def main():
         else:
             coach_data = []
             print(f"  WARNING: {coach_path.name} not found")
+
+        # Merge gold coach examples directly into train split
+        if split_name == "train":
+            for gold_path in GOLD_COACH_FILES:
+                if gold_path.exists():
+                    gold_data = load_jsonl(gold_path)
+                    coach_data.extend(gold_data)
+                    print(f"  Gold coach: +{len(gold_data)} from {gold_path.name}")
 
         # Optionally update system prompts
         if args.update_prompts:
