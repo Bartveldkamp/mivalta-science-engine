@@ -1,0 +1,168 @@
+# domain: load_management
+
+USER:
+Why does my weekly volume keep increasing so slowly?
+
+CONTEXT:
+- Readiness: Green (Productive)
+- Sport: running
+- Level: beginner
+- Phase: base
+
+[KNOWLEDGE]
+
+I hear you wanting to push harder, but running has higher injury rates than almost any other endurance sport. Here's why: every stride creates impact stress that cycling and swimming don't. Your tendons and bones need about 10 percent more recovery time between hard sessions.
+
+If you're newer to running, stay in the easy zones for your first couple of mesocycles. I know it feels frustratingly slow, but you're building the structural foundation that prevents injury later.
+
+A few critical safety principles govern how we manage your training dose.
+
+The caps I mentioned are maximums, not targets. You don't need to hit them—they're boundaries that protect you from doing too much. Aiming for the maximum every meso is a recipe for breakdown.
+
+If you're a beginner, your intensity zones unlock progressively over your first six mesos. This isn't arbitrary—it's protecting your tendons and bones while they adapt.
+
+Age multipliers reduce your intensity caps automatically.
+
+[INTERPRETER]
+{"action": "answer_question", "question": "Why slow volume increase?", "free_text": "Why does my weekly volume keep increasing so slowly?"}
+
+JOSI:
+Your body adapts to load gradually — tendons, ligaments, and bones need weeks to catch up with your muscles. Increasing too fast is how injuries happen. The plan keeps increases small and steady so that you build consistently without breaking. It feels slow now, but in three months you'll look back and be surprised how far you've come.
+
+---
+
+USER:
+What's the overload week about? I'm already tired.
+
+CONTEXT:
+- Readiness: Yellow (Accumulated)
+- Sport: cycling
+- Level: intermediate
+- Phase: build
+- Meso position: overload (week 3 of 4)
+
+[KNOWLEDGE]
+
+Training isn't random—it's organized into phases, each building on the last toward your goal. Let me explain how this works.
+
+Base phase builds your aerobic foundation. Most of your training stays easy—over 78 percent in the lower zones. This might feel slow, but it's where endurance is actually built. The adaptations happening in your mitochondria, capillaries, and connective tissue take time and easy effort.
+
+Build phase adds race-specific work. More threshold training, more VO2max intervals.
+
+Indoor training has one nemesis: heat. Without the natural cooling of wind passing over you, your core temperature climbs and power drops. Most cyclists see their indoor FTP run 5 to 10 percent lower than outdoors, even when fitness is identical.
+
+You have two options. First, you can set a separate indoor FTP at about 90 to 95 percent of your outdoor number and train to those zones. This keeps the relative effort honest. Second—and this is what I'd recommend—get serious about cooling.
+
+[INTERPRETER]
+{"action": "explain", "question": "Why overload week when tired?", "free_text": "What's the overload week about? I'm already tired."}
+
+JOSI:
+Overload week is the peak of this training block — intentionally the hardest week. Feeling tired is expected. Here's the good part: deload is next. This pattern — build, build, overload, recover — is how your body makes step changes in fitness. The tiredness you feel now is the signal that adaptation is coming. Push through this week, then we'll pull right back.
+
+---
+
+USER:
+I don't understand why I'm doing less this week than last week.
+
+CONTEXT:
+- Readiness: Green (Recovered)
+- Sport: running
+- Level: intermediate
+- Phase: deload
+
+[KNOWLEDGE]
+
+Here's the thing about long runs: they build adaptations that no amount of intervals can replicate. Your body learns to burn fat more efficiently, stores more glycogen, develops mental resilience, and maintains form when fatigued. These are marathon-specific skills that only come from time on your feet.
+
+Build duration gradually—about 10 to 15 minutes more each mesocycle. For marathon training, you'll peak around 150 to 180 minutes. Half marathon peaks at 90 to 120 minutes.
+
+Net Time In Zone measures something crucial: not how long you trained, but what intensity you actually spent time at. It's the difference between watching the clock and understanding your true training dose.
+
+Think of a 90-minute workout as a container. NTIZ tells us what's inside that container—maybe 55 minutes of easy Zone 1 cruising, 30 minutes of hard Zone 3 tempo work, and five minutes of transitions that don't count.
+
+[INTERPRETER]
+{"action": "explain", "question": "Why less training this week?", "free_text": "I don't understand why I'm doing less this week than last week."}
+
+JOSI:
+This is recovery week — intentionally lighter so your body can finish absorbing the hard work from the past few weeks. Think of it like letting concrete set. You poured the foundation with hard training; now it needs time to harden. You'll come back stronger next week. Every good training plan has this rhythm built in.
+
+---
+
+USER:
+Hoeveel weken duurt het voordat ik sneller word?
+
+CONTEXT:
+- Readiness: Green (Recovered)
+- Sport: running
+- Level: beginner
+- Phase: base
+
+[KNOWLEDGE]
+
+Good question about training approaches. There are several that work, and the right one depends on your time and experience.
+
+Polarized training is what I recommend for most runners. Keep about 80 percent of your running genuinely easy, minimize the moderate zone, and make your hard sessions count. This protects against overtraining while building serious fitness.
+
+Let me explain how improvement actually works, because understanding this changes everything about your expectations.
+
+Your body's ability to improve depends on several factors, but training age matters most. If you're new to structured training, expect rapid gains—8 to 15 percent in your first year. Been training consistently for two to four years? Solid gains are still possible, maybe 5 to 10 percent.
+
+[INTERPRETER]
+{"action": "answer_question", "question": "How long until I get faster?", "free_text": "Hoeveel weken duurt het voordat ik sneller word?"}
+
+JOSI:
+De eerste verbeteringen merk je al na 2-3 weken — je voelt je minder moe, je herstelt sneller. Echt meetbare snelheid komt na 6-8 weken consistent trainen. Je lichaam past zich aan in lagen: eerst je hart en longen, dan je spieren, en als laatste je pezen en botten. Geduld wordt beloond. Elke week bouwt op de vorige.
+
+---
+
+USER:
+Why did my training change after I was sick for a week?
+
+CONTEXT:
+- Readiness: Yellow (Accumulated)
+- Sport: running
+- Level: intermediate
+- Phase: build
+
+[KNOWLEDGE]
+
+I hear you wanting to push harder, but running has higher injury rates than almost any other endurance sport. Here's why: every stride creates impact stress that cycling and swimming don't. Your tendons and bones need about 10 percent more recovery time between hard sessions.
+
+If you're newer to running, stay in the easy zones for your first couple of mesocycles. I know it feels frustratingly slow, but you're building the structural foundation that prevents injury later.
+
+Some things are non-negotiable for your health and long-term progress. Red readiness means mandatory modification—no overriding it because you feel mentally tough. Minimum 48 hours between high-intensity sessions, longer if you're older. Recovery week every three to four weeks, period.
+
+If you're getting less than six hours of sleep, your training quality is already compromised. Three or more nights of poor sleep means skipping intensity work until you've restored normal sleep.
+
+[INTERPRETER]
+{"action": "explain", "question": "Why did plan change after illness?", "free_text": "Why did my training change after I was sick for a week?"}
+
+JOSI:
+When you're sick, your body uses all its resources to fight the illness — training capacity drops to near zero. Coming back, we ease in gradually so you don't relapse or get injured. Your fitness didn't disappear in a week, but jumping straight back to full training would be risky. A few easier days now protects weeks of progress later.
+
+---
+
+USER:
+Can you explain what my training load means?
+
+CONTEXT:
+- Readiness: Green (Productive)
+- Sport: cycling
+- Level: intermediate
+- Phase: build
+
+[KNOWLEDGE]
+
+Here's why power meters changed cycling training: they measure exactly how hard you're pushing, every second. Think of it as a speedometer for effort. Unlike heart rate, which bounces around based on caffeine, temperature, and last night's sleep, power is pure—push harder and the number goes up.
+
+Your anchor number is FTP: Functional Threshold Power. It's roughly the maximum wattage you can sustain for about an hour.
+
+Your goal shapes how we distribute your training. Different events demand different emphases.
+
+For shorter races like 5K and 10K, you need more threshold and VO2max work. These events require speed and the ability to hold hard efforts when it counts. Longer races—half marathons, marathons, ultras—flip that equation.
+
+[INTERPRETER]
+{"action": "answer_question", "question": "What does training load mean?", "free_text": "Can you explain what my training load means?"}
+
+JOSI:
+Training load tracks how much stress your body is handling — both from recent sessions and from the past few weeks. Think of it as two buckets: one fills up with each hard session (fatigue), the other builds slowly over time (fitness). When fatigue is managed and fitness grows, that's the sweet spot. The plan keeps these in balance so you improve without breaking down.

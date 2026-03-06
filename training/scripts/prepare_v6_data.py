@@ -39,8 +39,11 @@ DATA_DIR = SCRIPT_DIR.parent / "data"
 PROMPTS_DIR = SCRIPT_DIR.parent / "prompts"
 KNOWLEDGE_JSON = PROJECT_ROOT / "knowledge" / "generated" / "knowledge.json"
 
-# Add shared/ to path for knowledge selector
+# Add script dir + project root to path for imports
+sys.path.insert(0, str(SCRIPT_DIR))
 sys.path.insert(0, str(PROJECT_ROOT))
+
+from conv_format import load_conv, conv_to_jsonl_rows
 
 # Input files
 INTERPRETER_TRAIN = DATA_DIR / "train_interpreter.jsonl"
@@ -56,6 +59,9 @@ UNIFIED_VAL = DATA_DIR / "val_v6_unified.jsonl"
 GOLD_COACH_FILES = [
     DATA_DIR / "gold_examples" / "gold_grounding_discipline.jsonl",
 ]
+
+# Conversational training data directory (.conv files)
+CONVERSATIONS_DIR = DATA_DIR / "conversations"
 
 
 def load_jsonl(path: Path) -> list[dict]:
@@ -308,6 +314,18 @@ def main():
                     gold_data = load_jsonl(gold_path)
                     coach_data.extend(gold_data)
                     print(f"  Gold coach: +{len(gold_data)} from {gold_path.name}")
+
+            # Load .conv files from conversations directory
+            if CONVERSATIONS_DIR.exists():
+                conv_files = sorted(CONVERSATIONS_DIR.glob("*.conv"))
+                conv_total = 0
+                for conv_path in conv_files:
+                    convs = load_conv(conv_path)
+                    rows = conv_to_jsonl_rows(convs)
+                    coach_data.extend(rows)
+                    conv_total += len(rows)
+                if conv_total:
+                    print(f"  Conversations: +{conv_total} from {len(conv_files)} .conv files")
 
         # Optionally update system prompts
         if args.update_prompts:

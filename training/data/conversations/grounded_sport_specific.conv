@@ -1,0 +1,140 @@
+# domain: sport_specific
+
+USER:
+Why are my cycling zones different from running?
+
+CONTEXT:
+- Readiness: Green (Recovered)
+- Sport: cycling
+- Level: intermediate
+- Phase: build
+
+[KNOWLEDGE]
+
+Think of training zones like gears on a bike—nine different effort levels, each with its own purpose. Let me walk you through them.
+
+Recovery, or R, is barely moving. A gentle walk or easy spin. This isn't training at all—it's active restoration, helping your body recover between real sessions.
+
+Z1 and Z2 are your easy gears. You should be able to chat comfortably in paragraphs at Z1, and in full sentences with slight breathlessness at Z2.
+
+Your training zones are personal—they're based on your physiology, not generic formulas. Two people the same age might have completely different thresholds, which is why personalization matters so much.
+
+The key anchors are LT1 and LT2, your lactate thresholds. LT1 marks where lactate starts rising, the top of your easy zone. LT2 is where lactate rises rapidly, your threshold intensity. For cycling, FTP is your functional threshold power. For running, it's your threshold pace.
+
+Best data wins.
+
+[INTERPRETER]
+{"action": "answer_question", "question": "Why different zones cycling vs running?", "free_text": "Why are my cycling zones different from running?"}
+
+JOSI:
+Cycling uses power — watts — which measures exactly how hard you're pushing the pedals. Running uses pace and heart rate, which are less direct but still effective. Your body responds differently to each sport because cycling has no impact, so recovery is faster. The zones reflect those differences. Your cycling zones are based on your power profile, running zones on your heart rate or pace.
+
+---
+
+USER:
+I can do a hard ride and feel fine the next day, but a hard run wrecks me. Why?
+
+CONTEXT:
+- Readiness: Green (Recovered)
+- Sport: running
+- Level: intermediate
+- Phase: build
+
+[KNOWLEDGE]
+
+Running uses the same nine-zone system as all your training, but with one important difference: impact. Every stride creates eccentric muscle damage that cycling and swimming don't. This means you need about ten percent more recovery time between hard sessions than a cyclist would.
+
+The research is clear on what works for runners. About 80 percent of your training should be genuinely easy—conversational pace where you could chat with a friend.
+
+Here's why power meters changed cycling training: they measure exactly how hard you're pushing, every second. Think of it as a speedometer for effort. Unlike heart rate, which bounces around based on caffeine, temperature, and last night's sleep, power is pure—push harder and the number goes up.
+
+Your anchor number is FTP: Functional Threshold Power. It's roughly the maximum wattage you can sustain for about an hour.
+
+[INTERPRETER]
+{"action": "answer_question", "question": "Why does running take longer to recover from than cycling?", "free_text": "I can do a hard ride and feel fine the next day, but a hard run wrecks me. Why?"}
+
+JOSI:
+Running hammers your body with ground impact every single step — that's muscle damage, joint stress, and micro-tears that need repair. Cycling is smooth: no impact, no pounding. Same cardiovascular effort, completely different mechanical stress. That's why your plan gives you more recovery time after hard runs than hard rides.
+
+---
+
+USER:
+Is een uur fietsen hetzelfde als een uur hardlopen?
+
+CONTEXT:
+- Readiness: Green (Recovered)
+- Sport: cycling
+- Level: beginner
+- Phase: base
+
+[KNOWLEDGE]
+
+Running uses the same nine-zone system as all your training, but with one important difference: impact. Every stride creates eccentric muscle damage that cycling and swimming don't. This means you need about ten percent more recovery time between hard sessions than a cyclist would.
+
+The research is clear on what works for runners. About 80 percent of your training should be genuinely easy—conversational pace where you could chat with a friend.
+
+Here's why power meters changed cycling training: they measure exactly how hard you're pushing, every second. Think of it as a speedometer for effort. Unlike heart rate, which bounces around based on caffeine, temperature, and last night's sleep, power is pure—push harder and the number goes up.
+
+Your anchor number is FTP: Functional Threshold Power. It's roughly the maximum wattage you can sustain for about an hour.
+
+[INTERPRETER]
+{"action": "answer_question", "question": "Is an hour of cycling the same as an hour of running?", "free_text": "Is een uur fietsen hetzelfde als een uur hardlopen?"}
+
+JOSI:
+Niet helemaal. Een uur fietsen en een uur hardlopen belasten je lichaam anders. Hardlopen is zwaarder voor je spieren en gewrichten door de impact — elke stap is een klap. Fietsen is soepeler, minder slijtage. Qua hart en longen kan de belasting vergelijkbaar zijn, maar je lichaam herstelt sneller van fietsen. Daarom behandelt het plan ze apart.
+
+---
+
+USER:
+My power meter shows 200 watts but I don't know if that's good.
+
+CONTEXT:
+- Readiness: Green (Recovered)
+- Session: Z2 60min "Continuous Z2 60min"
+- Sport: cycling
+- Level: beginner
+- Phase: base
+
+[KNOWLEDGE]
+
+Here's why power meters changed cycling training: they measure exactly how hard you're pushing, every second. Think of it as a speedometer for effort. Unlike heart rate, which bounces around based on caffeine, temperature, and last night's sleep, power is pure—push harder and the number goes up.
+
+Your anchor number is FTP: Functional Threshold Power. It's roughly the maximum wattage you can sustain for about an hour.
+
+A few things to keep in mind for safe, effective cycling training. Your power zones are only as good as your FTP measurement. Test every six to eight weeks—fitness changes, and your zones need to reflect that. If you can't hit Zone 4 targets, your FTP is probably set too high. If Zone 4 feels surprisingly easy, it's too low.
+
+Power tells you how hard you're pushing, but it doesn't tell you if you're ready to push. You still need HRV, perceived effort, and sleep quality to guide your decisions.
+
+[INTERPRETER]
+{"action": "explain", "question": "Is 200 watts good?", "free_text": "My power meter shows 200 watts but I don't know if that's good."}
+
+JOSI:
+Power is personal — 200 watts means something completely different for everyone depending on weight, fitness, and experience. What matters is where 200 sits relative to YOUR zones. Check your zone overview in the app. If it's in Z2 and that's today's target, you're exactly where you should be. The number only matters in the context of your own fitness.
+
+---
+
+USER:
+Should I train by pace or heart rate for my easy runs?
+
+CONTEXT:
+- Readiness: Green (Recovered)
+- Session: Z2 50min "Continuous Z2 50min"
+- Sport: running
+- Level: intermediate
+- Phase: base
+
+[KNOWLEDGE]
+
+Running uses the same nine-zone system as all your training, but with one important difference: impact. Every stride creates eccentric muscle damage that cycling and swimming don't. This means you need about ten percent more recovery time between hard sessions than a cyclist would.
+
+The research is clear on what works for runners. About 80 percent of your training should be genuinely easy—conversational pace where you could chat with a friend.
+
+Good question about training approaches. There are several that work, and the right one depends on your time and experience.
+
+Polarized training is what I recommend for most runners. Keep about 80 percent of your running genuinely easy, minimize the moderate zone, and make your hard sessions count. This protects against overtraining while building serious fitness.
+
+[INTERPRETER]
+{"action": "answer_question", "question": "Pace or heart rate for easy runs?", "free_text": "Should I train by pace or heart rate for my easy runs?"}
+
+JOSI:
+For easy runs, heart rate is more honest. Pace changes with hills, heat, fatigue, and wind — the same effort feels different every day. Heart rate tells you how hard your body is actually working. Use the talk test as a backup: if you can chat comfortably, you're in the right zone. Don't chase a pace number on easy days.
