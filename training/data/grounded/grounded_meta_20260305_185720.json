@@ -1,0 +1,28 @@
+{
+  "total": 480,
+  "success": 428,
+  "failed": 52,
+  "with_issues": 126,
+  "issues_breakdown": {
+    "Jargon: 'ctl'": 43,
+    "Jargon: 'lactate threshold'": 5,
+    "Missing required mention: 'aerobic_base'": 15,
+    "Jargon: 'anaerobic capacity'": 8,
+    "Missing required mention: 'maximal_anaerobic'": 7,
+    "Missing required mention: 'neuromuscular_power'": 10,
+    "Missing required mention: 'vo2max'": 9,
+    "Missing required mention: 'tempo_tolerance'": 8,
+    "Missing required mention: 'anaerobic_capacity'": 8,
+    "Missing required mention: 'lactate_threshold'": 4,
+    "Missing required mention: 'aerobic_efficiency'": 8,
+    "Missing required mention: 'green'": 5
+  },
+  "axis_counts": {
+    "session": 110,
+    "load": 83,
+    "expression": 39,
+    "modifiers": 47,
+    "periodization": 68,
+    "physiology": 81
+  }
+}

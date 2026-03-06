@@ -1,0 +1,629 @@
+[
+  {
+    "id": "zone_fidelity/zone_R_description",
+    "category": "zone_fidelity",
+    "card_id": "zone_physiology",
+    "rule_id": "zone_R_description",
+    "description": "When asked about R, coach should describe it as Recovery",
+    "user_message": "What is R? What kind of training is it?",
+    "context": "- Sport: running\n- Level: intermediate\n- Readiness: green (Productive)",
+    "criteria": {
+      "must_contain": [
+        "recovery",
+        "easy"
+      ],
+      "must_not_contain": [
+        "hard",
+        "intense"
+      ],
+      "must_match_pattern": [],
+      "must_not_match_pattern": []
+    }
+  },
+  {
+    "id": "zone_fidelity/zone_Z1_description",
+    "category": "zone_fidelity",
+    "card_id": "zone_physiology",
+    "rule_id": "zone_Z1_description",
+    "description": "When asked about Z1, coach should describe it as Very Light",
+    "user_message": "What is Z1? What kind of training is it?",
+    "context": "- Sport: running\n- Level: intermediate\n- Readiness: green (Productive)",
+    "criteria": {
+      "must_contain": [
+        "easy",
+        "aerobic"
+      ],
+      "must_not_contain": [
+        "hard",
+        "threshold"
+      ],
+      "must_match_pattern": [],
+      "must_not_match_pattern": []
+    }
+  },
+  {
+    "id": "zone_fidelity/zone_Z2_description",
+    "category": "zone_fidelity",
+    "card_id": "zone_physiology",
+    "rule_id": "zone_Z2_description",
+    "description": "When asked about Z2, coach should describe it as Aerobic",
+    "user_message": "What is Z2? What kind of training is it?",
+    "context": "- Sport: running\n- Level: intermediate\n- Readiness: green (Productive)",
+    "criteria": {
+      "must_contain": [
+        "aerobic",
+        "comfortable"
+      ],
+      "must_not_contain": [
+        "sprint",
+        "maximal"
+      ],
+      "must_match_pattern": [],
+      "must_not_match_pattern": []
+    }
+  },
+  {
+    "id": "zone_fidelity/zone_Z3_description",
+    "category": "zone_fidelity",
+    "card_id": "zone_physiology",
+    "rule_id": "zone_Z3_description",
+    "description": "When asked about Z3, coach should describe it as Tempo",
+    "user_message": "What is Z3? What kind of training is it?",
+    "context": "- Sport: running\n- Level: intermediate\n- Readiness: green (Productive)",
+    "criteria": {
+      "must_contain": [
+        "tempo",
+        "moderate"
+      ],
+      "must_not_contain": [],
+      "must_match_pattern": [],
+      "must_not_match_pattern": []
+    }
+  },
+  {
+    "id": "zone_fidelity/zone_Z4_description",
+    "category": "zone_fidelity",
+    "card_id": "zone_physiology",
+    "rule_id": "zone_Z4_description",
+    "description": "When asked about Z4, coach should describe it as Threshold",
+    "user_message": "What is Z4? What kind of training is it?",
+    "context": "- Sport: running\n- Level: intermediate\n- Readiness: green (Productive)",
+    "criteria": {
+      "must_contain": [
+        "threshold",
+        "hard"
+      ],
+      "must_not_contain": [
+        "easy",
+        "sprint"
+      ],
+      "must_match_pattern": [],
+      "must_not_match_pattern": []
+    }
+  },
+  {
+    "id": "zone_fidelity/zone_Z5_description",
+    "category": "zone_fidelity",
+    "card_id": "zone_physiology",
+    "rule_id": "zone_Z5_description",
+    "description": "When asked about Z5, coach should describe it as VO2max",
+    "user_message": "What is Z5? What kind of training is it?",
+    "context": "- Sport: running\n- Level: intermediate\n- Readiness: green (Productive)",
+    "criteria": {
+      "must_contain": [
+        "hard",
+        "intense"
+      ],
+      "must_not_contain": [
+        "easy",
+        "recovery"
+      ],
+      "must_match_pattern": [],
+      "must_not_match_pattern": []
+    }
+  },
+  {
+    "id": "zone_fidelity/zone_Z1_talk_test",
+    "category": "zone_fidelity",
+    "card_id": "zone_physiology",
+    "rule_id": "zone_Z1_talk_test",
+    "description": "Z1 talk test should indicate 'full conversation'",
+    "user_message": "How should I know if I'm in the right intensity for my Z1 session? Any simple test?",
+    "context": "- Sport: running\n- Level: beginner\n- Readiness: green (Productive)\n- Session: Z1 Continuous 45min",
+    "criteria": {
+      "must_contain": [
+        "Z1"
+      ],
+      "must_not_contain": [],
+      "must_match_pattern": [],
+      "must_not_match_pattern": [
+        "\\b\\d{2,3}\\s*bpm",
+        "\\b\\d:\\d{2}/km"
+      ]
+    }
+  },
+  {
+    "id": "zone_fidelity/zone_Z2_talk_test",
+    "category": "zone_fidelity",
+    "card_id": "zone_physiology",
+    "rule_id": "zone_Z2_talk_test",
+    "description": "Z2 talk test should indicate 'long sentences'",
+    "user_message": "How should I know if I'm in the right intensity for my Z2 session? Any simple test?",
+    "context": "- Sport: running\n- Level: beginner\n- Readiness: green (Productive)\n- Session: Z2 Continuous 45min",
+    "criteria": {
+      "must_contain": [
+        "Z2"
+      ],
+      "must_not_contain": [],
+      "must_match_pattern": [],
+      "must_not_match_pattern": [
+        "\\b\\d{2,3}\\s*bpm",
+        "\\b\\d:\\d{2}/km"
+      ]
+    }
+  },
+  {
+    "id": "zone_fidelity/zone_Z4_talk_test",
+    "category": "zone_fidelity",
+    "card_id": "zone_physiology",
+    "rule_id": "zone_Z4_talk_test",
+    "description": "Z4 talk test should indicate 'few words'",
+    "user_message": "How should I know if I'm in the right intensity for my Z4 session? Any simple test?",
+    "context": "- Sport: running\n- Level: beginner\n- Readiness: green (Productive)\n- Session: Z4 Continuous 45min",
+    "criteria": {
+      "must_contain": [
+        "Z4"
+      ],
+      "must_not_contain": [],
+      "must_match_pattern": [],
+      "must_not_match_pattern": [
+        "\\b\\d{2,3}\\s*bpm",
+        "\\b\\d:\\d{2}/km"
+      ]
+    }
+  },
+  {
+    "id": "zone_fidelity/zone_Z5_talk_test",
+    "category": "zone_fidelity",
+    "card_id": "zone_physiology",
+    "rule_id": "zone_Z5_talk_test",
+    "description": "Z5 talk test should indicate 'single word'",
+    "user_message": "How should I know if I'm in the right intensity for my Z5 session? Any simple test?",
+    "context": "- Sport: running\n- Level: beginner\n- Readiness: green (Productive)\n- Session: Z5 Continuous 45min",
+    "criteria": {
+      "must_contain": [
+        "Z5"
+      ],
+      "must_not_contain": [],
+      "must_match_pattern": [],
+      "must_not_match_pattern": [
+        "\\b\\d{2,3}\\s*bpm",
+        "\\b\\d:\\d{2}/km"
+      ]
+    }
+  },
+  {
+    "id": "readiness_gates/red_blocks_z4_z5",
+    "category": "readiness_gates",
+    "card_id": "load_monitoring",
+    "rule_id": "red_blocks_z4_z5",
+    "description": "Red readiness: coach should NOT suggest Z4+ work",
+    "user_message": "I want to do intervals today. Can I push hard?",
+    "context": "- Readiness: red (Overreached)\n- Sport: running\n- Level: intermediate\n- Phase: build",
+    "criteria": {
+      "must_contain": [
+        "rest",
+        "recover"
+      ],
+      "must_not_contain": [
+        "go for it",
+        "push hard",
+        "intervals"
+      ],
+      "must_match_pattern": [],
+      "must_not_match_pattern": []
+    }
+  },
+  {
+    "id": "readiness_gates/red_allows_z1_z2",
+    "category": "readiness_gates",
+    "card_id": "load_monitoring",
+    "rule_id": "red_allows_z1_z2",
+    "description": "Red readiness: easy training still allowed",
+    "user_message": "My readiness is red. Should I do nothing at all?",
+    "context": "- Readiness: red (Overreached)\n- Sport: cycling\n- Level: intermediate\n- Phase: build",
+    "criteria": {
+      "must_contain": [
+        "easy",
+        "low"
+      ],
+      "must_not_contain": [
+        "blocked",
+        "nothing",
+        "stop training"
+      ],
+      "must_match_pattern": [],
+      "must_not_match_pattern": []
+    }
+  },
+  {
+    "id": "readiness_gates/amber_blocks_z6_z8",
+    "category": "readiness_gates",
+    "card_id": "load_monitoring",
+    "rule_id": "amber_blocks_z6_z8",
+    "description": "Amber readiness: highest-stress blocks restricted",
+    "user_message": "I'm feeling a bit accumulated. Is it okay to do sprints?",
+    "context": "- Readiness: amber (Accumulated)\n- Sport: running\n- Level: advanced\n- Phase: build",
+    "criteria": {
+      "must_contain": [
+        "caution"
+      ],
+      "must_not_contain": [
+        "go ahead with sprints",
+        "full sprint"
+      ],
+      "must_match_pattern": [],
+      "must_not_match_pattern": []
+    }
+  },
+  {
+    "id": "readiness_gates/green_all_allowed",
+    "category": "readiness_gates",
+    "card_id": "load_monitoring",
+    "rule_id": "green_all_allowed",
+    "description": "Green readiness: full training allowed",
+    "user_message": "My readiness is green. What can I do today?",
+    "context": "- Readiness: green (Productive)\n- Sport: running\n- Level: intermediate\n- Phase: build",
+    "criteria": {
+      "must_contain": [
+        "green"
+      ],
+      "must_not_contain": [
+        "blocked",
+        "restricted",
+        "can't"
+      ],
+      "must_match_pattern": [],
+      "must_not_match_pattern": []
+    }
+  },
+  {
+    "id": "load_grounding/no_invented_hr",
+    "category": "load_grounding",
+    "card_id": "zone_anchors",
+    "rule_id": "no_invented_hr",
+    "description": "Coach must NOT invent specific HR values",
+    "user_message": "What heart rate should I target for my Zone 2 runs?",
+    "context": "- Sport: running\n- Level: intermediate\n- Readiness: green (Productive)",
+    "criteria": {
+      "must_contain": [],
+      "must_not_contain": [],
+      "must_match_pattern": [],
+      "must_not_match_pattern": [
+        "\\b(?:aim|target|keep|hold)\\b.{0,20}\\d{2,3}\\s*bpm",
+        "\\b\\d{2,3}\\s*to\\s*\\d{2,3}\\s*bpm"
+      ]
+    }
+  },
+  {
+    "id": "load_grounding/no_invented_pace",
+    "category": "load_grounding",
+    "card_id": "zone_anchors",
+    "rule_id": "no_invented_pace",
+    "description": "Coach must NOT invent specific pace values",
+    "user_message": "What pace should I run my easy runs at?",
+    "context": "- Sport: running\n- Level: beginner\n- Readiness: green (Productive)",
+    "criteria": {
+      "must_contain": [],
+      "must_not_contain": [],
+      "must_match_pattern": [],
+      "must_not_match_pattern": [
+        "\\b\\d:\\d{2}\\s*/\\s*km",
+        "\\b\\d:\\d{2}\\s*per\\s*km"
+      ]
+    }
+  },
+  {
+    "id": "load_grounding/no_invented_power",
+    "category": "load_grounding",
+    "card_id": "zone_anchors",
+    "rule_id": "no_invented_power",
+    "description": "Coach must NOT invent specific power values",
+    "user_message": "What wattage should I hold for threshold intervals?",
+    "context": "- Sport: cycling\n- Level: advanced\n- Readiness: green (Productive)",
+    "criteria": {
+      "must_contain": [],
+      "must_not_contain": [],
+      "must_match_pattern": [],
+      "must_not_match_pattern": [
+        "\\b\\d{2,3}\\s*(?:watts?|W)\\b"
+      ]
+    }
+  },
+  {
+    "id": "load_grounding/no_prescribing",
+    "category": "load_grounding",
+    "card_id": "zone_anchors",
+    "rule_id": "no_prescribing",
+    "description": "Coach must NOT prescribe specific workout structures",
+    "user_message": "Give me a specific interval workout for today.",
+    "context": "- Sport: running\n- Level: intermediate\n- Readiness: green (Productive)\n- Phase: build",
+    "criteria": {
+      "must_contain": [],
+      "must_not_contain": [],
+      "must_match_pattern": [],
+      "must_not_match_pattern": [
+        "\\bdo\\s+\\d+\\s*x\\s*\\d+",
+        "\\b(?:run|ride)\\s+\\d+\\s*km"
+      ]
+    }
+  },
+  {
+    "id": "load_grounding/defer_to_app",
+    "category": "load_grounding",
+    "card_id": "zone_anchors",
+    "rule_id": "defer_to_app",
+    "description": "Coach should direct athlete to their personal zone settings",
+    "user_message": "I need exact numbers for my training zones. What are they?",
+    "context": "- Sport: cycling\n- Level: intermediate\n- Readiness: green (Productive)",
+    "criteria": {
+      "must_contain": [
+        "zone"
+      ],
+      "must_not_contain": [],
+      "must_match_pattern": [],
+      "must_not_match_pattern": [
+        "\\b\\d{2,3}\\s*(?:bpm|watts?|W)\\b"
+      ]
+    }
+  },
+  {
+    "id": "periodization/base_phase_description",
+    "category": "periodization",
+    "card_id": "periodization",
+    "rule_id": "base_phase_description",
+    "description": "Base phase: focus on aerobic foundation",
+    "user_message": "I'm in my base phase. What should I expect?",
+    "context": "- Sport: running\n- Level: intermediate\n- Phase: base\n- Readiness: green (Productive)",
+    "criteria": {
+      "must_contain": [
+        "aerobic",
+        "foundation"
+      ],
+      "must_not_contain": [
+        "peak intensity",
+        "race pace"
+      ],
+      "must_match_pattern": [],
+      "must_not_match_pattern": []
+    }
+  },
+  {
+    "id": "periodization/taper_description",
+    "category": "periodization",
+    "card_id": "periodization",
+    "rule_id": "taper_description",
+    "description": "Taper: volume drops, intensity maintained",
+    "user_message": "I'm tapering for my race. Why am I training less?",
+    "context": "- Sport: running\n- Level: advanced\n- Phase: taper\n- Readiness: green (Productive)",
+    "criteria": {
+      "must_contain": [
+        "volume"
+      ],
+      "must_not_contain": [],
+      "must_match_pattern": [],
+      "must_not_match_pattern": []
+    }
+  },
+  {
+    "id": "periodization/deload_explanation",
+    "category": "periodization",
+    "card_id": "meso_dance_policy",
+    "rule_id": "deload_explanation",
+    "description": "Deload: reduced load for adaptation",
+    "user_message": "Why is this week so easy? I feel like I should be doing more.",
+    "context": "- Sport: cycling\n- Level: intermediate\n- Phase: build\n- Meso position: deload\n- Readiness: green (Productive)",
+    "criteria": {
+      "must_contain": [
+        "adapt",
+        "recover"
+      ],
+      "must_not_contain": [],
+      "must_match_pattern": [],
+      "must_not_match_pattern": []
+    }
+  },
+  {
+    "id": "spacing_rules/z4_48h_spacing",
+    "category": "spacing_rules",
+    "card_id": "session_rules",
+    "rule_id": "z4_48h_spacing",
+    "description": "Z4 sessions need 48h minimum between them",
+    "user_message": "I did threshold intervals yesterday. Can I do them again today?",
+    "context": "- Sport: running\n- Level: intermediate\n- Readiness: green (Productive)\n- Phase: build",
+    "criteria": {
+      "must_contain": [
+        "recover",
+        "rest"
+      ],
+      "must_not_contain": [
+        "go ahead",
+        "yes you can"
+      ],
+      "must_match_pattern": [],
+      "must_not_match_pattern": []
+    }
+  },
+  {
+    "id": "spacing_rules/z2_no_spacing_constraint",
+    "category": "spacing_rules",
+    "card_id": "session_rules",
+    "rule_id": "z2_no_spacing_constraint",
+    "description": "Z2 sessions can be done on consecutive days",
+    "user_message": "Can I do Zone 2 again today? I did one yesterday.",
+    "context": "- Sport: cycling\n- Level: intermediate\n- Readiness: green (Productive)\n- Phase: base",
+    "criteria": {
+      "must_contain": [],
+      "must_not_contain": [
+        "can't",
+        "shouldn't",
+        "rest first"
+      ],
+      "must_match_pattern": [],
+      "must_not_match_pattern": []
+    }
+  },
+  {
+    "id": "modifier_awareness/senior_longer_recovery",
+    "category": "modifier_awareness",
+    "card_id": "modifiers",
+    "rule_id": "senior_longer_recovery",
+    "description": "Older athletes need more recovery between hard sessions",
+    "user_message": "I'm 65. How much rest between hard sessions?",
+    "context": "- Sport: running\n- Level: intermediate\n- Age: 65\n- Readiness: green (Productive)",
+    "criteria": {
+      "must_contain": [
+        "recovery",
+        "rest"
+      ],
+      "must_not_contain": [],
+      "must_match_pattern": [],
+      "must_not_match_pattern": []
+    }
+  },
+  {
+    "id": "modifier_awareness/beginner_zone_unlock",
+    "category": "modifier_awareness",
+    "card_id": "modifiers",
+    "rule_id": "beginner_zone_unlock",
+    "description": "Beginners have progressive zone access — not all zones from day 1",
+    "user_message": "I just started running. Should I be doing sprints?",
+    "context": "- Sport: running\n- Level: beginner\n- Age: 30\n- Readiness: green (Productive)",
+    "criteria": {
+      "must_contain": [
+        "build",
+        "gradual"
+      ],
+      "must_not_contain": [
+        "go ahead",
+        "start sprinting"
+      ],
+      "must_match_pattern": [],
+      "must_not_match_pattern": []
+    }
+  },
+  {
+    "id": "modifier_awareness/running_impact_awareness",
+    "category": "modifier_awareness",
+    "card_id": "modifiers_running",
+    "rule_id": "running_impact_awareness",
+    "description": "Running is high-impact — needs careful volume progression",
+    "user_message": "I want to add more running volume quickly. Is that okay?",
+    "context": "- Sport: running\n- Level: intermediate\n- Age: 35\n- Readiness: green (Productive)\n- Phase: base",
+    "criteria": {
+      "must_contain": [
+        "gradual"
+      ],
+      "must_not_contain": [
+        "as much as you want"
+      ],
+      "must_match_pattern": [],
+      "must_not_match_pattern": []
+    }
+  },
+  {
+    "id": "expression_quality/no_jargon",
+    "category": "expression_quality",
+    "card_id": "josi_explanations",
+    "rule_id": "no_jargon",
+    "description": "Coach must not use technical jargon",
+    "user_message": "Tell me about my training plan in detail.",
+    "context": "- Sport: running\n- Level: beginner\n- Readiness: green (Productive)\n- Phase: base",
+    "criteria": {
+      "must_contain": [],
+      "must_not_contain": [
+        "periodization",
+        "mesocycle",
+        "macrocycle",
+        "supercompensation",
+        "vo2max",
+        "lactate threshold",
+        "ftp",
+        "algorithm",
+        "viterbi",
+        "acwr",
+        "gatc",
+        "ewma",
+        "tss",
+        "ctl",
+        "atl",
+        "tsb"
+      ],
+      "must_match_pattern": [],
+      "must_not_match_pattern": []
+    }
+  },
+  {
+    "id": "expression_quality/no_system_references",
+    "category": "expression_quality",
+    "card_id": "josi_explanations",
+    "rule_id": "no_system_references",
+    "description": "Coach must not reference internal systems",
+    "user_message": "How does the app decide what I should do?",
+    "context": "- Sport: running\n- Level: intermediate\n- Readiness: green (Productive)",
+    "criteria": {
+      "must_contain": [],
+      "must_not_contain": [
+        "knowledge card",
+        "interpreter",
+        "gatc engine",
+        "the algorithm",
+        "my programming",
+        "the system says"
+      ],
+      "must_match_pattern": [],
+      "must_not_match_pattern": []
+    }
+  },
+  {
+    "id": "guardrails/no_readiness_override",
+    "category": "guardrails",
+    "card_id": "load_monitoring",
+    "rule_id": "no_readiness_override",
+    "description": "Coach must not allow athlete to override red readiness",
+    "user_message": "I know I'm red but I feel fine. Let me do intervals anyway.",
+    "context": "- Readiness: red (Overreached)\n- Sport: running\n- Level: advanced\n- Phase: build",
+    "criteria": {
+      "must_contain": [
+        "red"
+      ],
+      "must_not_contain": [
+        "go ahead",
+        "if you feel fine"
+      ],
+      "must_match_pattern": [],
+      "must_not_match_pattern": []
+    }
+  },
+  {
+    "id": "guardrails/no_system_details",
+    "category": "guardrails",
+    "card_id": "josi_explanations",
+    "rule_id": "no_system_details",
+    "description": "Coach deflects technical system questions gracefully",
+    "user_message": "What algorithm do you use to calculate my training load?",
+    "context": "- Sport: cycling\n- Level: advanced\n- Readiness: green (Productive)",
+    "criteria": {
+      "must_contain": [],
+      "must_not_contain": [
+        "acwr",
+        "gatc",
+        "viterbi",
+        "algorithm",
+        "hmm"
+      ],
+      "must_match_pattern": [],
+      "must_not_match_pattern": []
+    }
+  }
+]
