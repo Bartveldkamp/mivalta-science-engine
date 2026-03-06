@@ -1,0 +1,176 @@
+# domain: multi_turn_coaching
+
+USER:
+But I feel fine! Can't I at least do tempo?
+
+CONTEXT:
+- Readiness: Yellow (Accumulated)
+- Readiness confidence: 85%
+- Data tier: Standard
+- Max zone allowed: Z4
+- Zone cap reason: accumulated fatigue — Z5+ blocked
+- Session: Z2 50min "Continuous Z2 50min"
+- Sport: running
+- Level: intermediate
+- Phase: build
+- Meso position: overload
+- Meso day: 6
+- Weekly load: 72% of target
+- Previous message: Josi explained why today is Z2 due to fatigue
+
+[KNOWLEDGE]
+
+Here's the thing about long runs: they build adaptations that no amount of intervals can replicate. Your body learns to burn fat more efficiently, stores more glycogen, develops mental resilience, and maintains form when fatigued. These are marathon-specific skills that only come from time on your feet.
+
+Build duration gradually—about 10 to 15 minutes more each mesocycle. For marathon training, you'll peak around 150 to 180 minutes. Half marathon peaks at 90 to 120 minutes.
+
+Here's the thing about getting fitter: training doesn't actually make you stronger. Training breaks you down—it damages muscle fibers, depletes energy stores, and stresses your systems. Recovery is where the magic happens, where your body rebuilds everything a little bit better than before. Skip the recovery and you skip the gains.
+
+Think of a hard workout as making a withdrawal from your body. Recovery is when you make the deposit that leaves you richer than before.
+
+[INTERPRETER]
+{"action": "explain", "question": "Can I do tempo instead?", "free_text": "But I feel fine! Can't I at least do tempo?"}
+
+JOSI:
+I know it's frustrating. Feeling good doesn't always mean your body is ready for hard work — deeper fatigue doesn't show up as tiredness. Your max zone is Z4 right now, so tempo at Z3 IS actually an option if you really want more intensity. But the plan put you in Z2 for a reason — it's overload week and you're already at 72% of your load target. How about this: do the Z2 today, and if you're still feeling strong tomorrow, we'll push harder then.
+
+---
+
+USER:
+Okay but then what does the rest of the week look like?
+
+CONTEXT:
+- Readiness: Yellow (Accumulated)
+- Readiness confidence: 85%
+- Data tier: Standard
+- Max zone allowed: Z4
+- Session: Z2 50min "Continuous Z2 50min"
+- Sport: running
+- Level: intermediate
+- Phase: build
+- Meso position: overload
+- Meso day: 6
+- Weekly load: 72% of target
+- Previous message: Josi suggested doing Z2 today and pushing harder tomorrow
+
+[KNOWLEDGE]
+
+Here's the thing about long runs: they build adaptations that no amount of intervals can replicate. Your body learns to burn fat more efficiently, stores more glycogen, develops mental resilience, and maintains form when fatigued. These are marathon-specific skills that only come from time on your feet.
+
+Build duration gradually—about 10 to 15 minutes more each mesocycle. For marathon training, you'll peak around 150 to 180 minutes. Half marathon peaks at 90 to 120 minutes.
+
+Net Time In Zone measures something crucial: not how long you trained, but what intensity you actually spent time at. It's the difference between watching the clock and understanding your true training dose.
+
+Think of a 90-minute workout as a container. NTIZ tells us what's inside that container—maybe 55 minutes of easy Zone 1 cruising, 30 minutes of hard Zone 3 tempo work, and five minutes of transitions that don't count.
+
+[INTERPRETER]
+{"action": "explain", "question": "What does the rest of the week look like?", "free_text": "Okay but then what does the rest of the week look like?"}
+
+JOSI:
+You're on day 6 of your overload block, so the hardest push is behind you. If your readiness recovers to green, you might get a quality Z4 session in the next couple of days. Then deload starts — lighter sessions to let your body absorb all this work. Think of this week as finishing strong and controlled, not going all-out.
+
+---
+
+USER:
+Can I do another session this afternoon? I have time.
+
+CONTEXT:
+- Readiness: Green (Productive)
+- Readiness confidence: 89%
+- Data tier: Good
+- Max zone allowed: Z6
+- Session: Z4 "3x8min Z4 / 4min Z1"
+- Zone load factor: 2.0
+- Sport: cycling
+- Level: advanced
+- Phase: build
+- Meso position: overload
+- Meso day: 8
+- Weekly load: 75% of target
+- Previous message: Athlete said they crushed today's Z4 session
+
+[KNOWLEDGE]
+
+Indoor training has one nemesis: heat. Without the natural cooling of wind passing over you, your core temperature climbs and power drops. Most cyclists see their indoor FTP run 5 to 10 percent lower than outdoors, even when fitness is identical.
+
+You have two options. First, you can set a separate indoor FTP at about 90 to 95 percent of your outdoor number and train to those zones. This keeps the relative effort honest. Second—and this is what I'd recommend—get serious about cooling.
+
+Here's a principle that transforms training effectiveness: every workout should have one clear focus. No zone soup.
+
+When you do 20 minutes at easy pace, then five minutes of tempo, then a couple minutes of hard effort all mixed together, your body receives metabolic noise. It doesn't know what adaptation to prioritize. The signal is muddy.
+
+A clean workout looks different. You warm up for 15 minutes, then do your main set—say eight three-minute VO2max intervals—then cool down for 10 minutes.
+
+[INTERPRETER]
+{"action": "explain", "question": "Can I add a second session today?", "free_text": "Can I do another session this afternoon? I have time."}
+
+JOSI:
+You just hit a Z4 session with a 2.0 load factor — that's already a big deposit. Adding another session today would push your weekly load past 85% with days still to go in the overload block. An easy Z1 spin to loosen up is fine, but anything with intensity would steal from tomorrow's session quality. Bank the good feeling and use that energy when it counts most.
+
+---
+
+USER:
+I want to run a sub-3 marathon in 4 months. Is that realistic?
+
+CONTEXT:
+- Readiness: Green (Recovered)
+- Readiness confidence: 88%
+- Data tier: Standard
+- Sport: running
+- Level: intermediate
+- Age: 35
+- Phase: base
+- Meso position: ramp_in
+- Meso day: 3
+- Weekly load: 40% of target
+
+[KNOWLEDGE]
+
+Running uses the same nine-zone system as all your training, but with one important difference: impact. Every stride creates eccentric muscle damage that cycling and swimming don't. This means you need about ten percent more recovery time between hard sessions than a cyclist would.
+
+The research is clear on what works for runners. About 80 percent of your training should be genuinely easy—conversational pace where you could chat with a friend.
+
+Your goal shapes how we distribute your training. Different events demand different emphases.
+
+For shorter races like 5K and 10K, you need more threshold and VO2max work. These events require speed and the ability to hold hard efforts when it counts. Longer races—half marathons, marathons, ultras—flip that equation.
+
+[INTERPRETER]
+{"action": "answer_question", "question": "Can I run sub-3 marathon in 4 months?", "free_text": "I want to run a sub-3 marathon in 4 months. Is that realistic?"}
+
+JOSI:
+That depends on where you are now. Sub-3 requires holding about 4:15/km for 42km — that needs a strong aerobic base and sustained threshold fitness. You're currently in base phase, ramp-in, at 40% weekly load. Four months is tight for a sub-3 if you haven't been close before. What's your current long run distance and pace? That'll tell me if this is a stretch goal or a fantasy. Either way, I'd rather give you a realistic target than set you up for disappointment.
+
+---
+
+USER:
+My best is 3:15 from last year. I've been running consistently since.
+
+CONTEXT:
+- Readiness: Green (Recovered)
+- Readiness confidence: 88%
+- Data tier: Standard
+- Sport: running
+- Level: intermediate
+- Age: 35
+- Phase: base
+- Meso position: ramp_in
+- Meso day: 3
+- Weekly load: 40% of target
+- Previous message: Josi asked about current long run distance and pace
+- Athlete has 3:15 marathon PR from last year
+
+[KNOWLEDGE]
+
+Running uses the same nine-zone system as all your training, but with one important difference: impact. Every stride creates eccentric muscle damage that cycling and swimming don't. This means you need about ten percent more recovery time between hard sessions than a cyclist would.
+
+The research is clear on what works for runners. About 80 percent of your training should be genuinely easy—conversational pace where you could chat with a friend.
+
+Let me explain how improvement actually works, because understanding this changes everything about your expectations.
+
+Your body's ability to improve depends on several factors, but training age matters most. If you're new to structured training, expect rapid gains—8 to 15 percent in your first year. Been training consistently for two to four years? Solid gains are still possible, maybe 5 to 10 percent.
+
+[INTERPRETER]
+{"action": "answer_question", "question": "Can I improve from 3:15 to sub-3?", "free_text": "My best is 3:15 from last year. I've been running consistently since."}
+
+JOSI:
+3:15 to sub-3 is a 15-minute improvement — ambitious but doable with 4 months if your base is solid. You've been consistent, which is the most important factor. The plan will build through base into a specific build phase with tempo and threshold work targeting that 4:15/km pace. Key question: are you able to train 5-6 days a week? That volume will matter for the jump from 3:15 to sub-3.

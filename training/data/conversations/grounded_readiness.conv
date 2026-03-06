@@ -5,9 +5,16 @@ My readiness says yellow. What does that actually mean?
 
 CONTEXT:
 - Readiness: Yellow (Accumulated)
+- Readiness confidence: 85%
+- Data tier: Standard
+- Max zone allowed: Z4
+- Zone cap reason: accumulated fatigue — high intensity suppressed
 - Sport: running
 - Level: beginner
 - Phase: build
+- Meso position: overload
+- Meso day: 6
+- Weekly load: 72% of target
 
 [KNOWLEDGE]
 
@@ -23,7 +30,7 @@ Think of a hard workout as making a withdrawal from your body. Recovery is when 
 {"action": "answer_question", "question": "What does yellow readiness mean?", "free_text": "My readiness says yellow. What does that actually mean?"}
 
 JOSI:
-Yellow means your body is carrying some built-up fatigue — not emergency level, but enough that your training will be adjusted. Think of it like a fuel gauge: you're not empty, but you're running lower than usual. The plan will keep you moving without piling on more stress. Focus on sleep and nutrition today — they'll help you bounce back faster.
+Yellow means your body is carrying some built-up fatigue — not emergency level, but enough that your training will be adjusted. Right now your max intensity is capped at Z4, so no sprints or all-out efforts today. You're at 72% of your weekly load, so there's room to keep moving without piling on stress. Focus on sleep and nutrition — they'll help you bounce back faster.
 
 ---
 
@@ -32,9 +39,16 @@ Readiness is red. Should I still do something?
 
 CONTEXT:
 - Readiness: Red (Overreached)
+- Readiness confidence: 93%
+- Data tier: Good
+- Max zone allowed: Z2
+- Zone cap reason: overreached — recovery mode, high intensity blocked
 - Sport: cycling
 - Level: advanced
 - Phase: build
+- Meso position: overload
+- Meso day: 12
+- Weekly load: 95% of target
 
 [KNOWLEDGE]
 
@@ -50,7 +64,7 @@ You have two options. First, you can set a separate indoor FTP at about 90 to 95
 {"action": "explain", "question": "Should I train with red readiness?", "free_text": "Readiness is red. Should I still do something?"}
 
 JOSI:
-Red means your body needs a genuine break. Light movement like a walk is fine, but training on top of this level of fatigue won't build anything — it'll just dig the hole deeper. Prioritize sleep, eat well, and let your body catch up. This isn't lost time; it's when the real adaptation happens.
+Red means your body needs a genuine break. You're capped at Z2 right now — anything harder is blocked because pushing through would dig a deeper hole. Your weekly load is already at 95%, which explains why you've tipped into overreach. Light spinning or a walk is fine. Prioritize sleep, eat well, and let your body catch up. This isn't lost time; it's when the real adaptation happens.
 
 ---
 
@@ -59,9 +73,15 @@ I've been green for a week. Am I not training hard enough?
 
 CONTEXT:
 - Readiness: Green (Recovered)
+- Readiness confidence: 88%
+- Data tier: Standard
+- Max zone allowed: Z6
 - Sport: running
 - Level: intermediate
 - Phase: base
+- Meso position: ramp_in
+- Meso day: 4
+- Weekly load: 60% of target
 
 [KNOWLEDGE]
 
@@ -79,7 +99,7 @@ Build phase adds race-specific work. More threshold training, more VO2max interv
 {"action": "answer_question", "question": "Am I training hard enough?", "free_text": "I've been green for a week. Am I not training hard enough?"}
 
 JOSI:
-Green doesn't mean you're slacking — it means your body is handling the load well. In base phase, that's exactly what we want. We're building capacity so that when harder sessions come, you can absorb them. If you were always in the yellow, that would mean we're pushing too fast too soon.
+Green doesn't mean you're slacking — it means your body is handling the load well. You're in the ramp-in phase of your base period, so we're deliberately building slowly. Your weekly load is at 60% of target — that will climb over the coming weeks. Staying green now means when harder sessions come, you'll absorb them. Always in the yellow would mean we're pushing too fast too soon.
 
 ---
 
