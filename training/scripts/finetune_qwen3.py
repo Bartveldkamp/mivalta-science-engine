@@ -127,12 +127,12 @@ MODEL_CONFIGS = {
         "params": "4B",
         "gguf_size": "~2.5 GB",
         "vram_needed": "~16 GB",
-        "lr": 2e-5,            # Slightly higher for smaller model
+        "lr": 3e-5,            # Higher for smaller model (was 2e-5, underfitting)
         "batch_size": 1,       # Safe for 19.5 GB RTX 4000 SFF Ada
         "grad_accum": 16,      # Effective batch = 16
-        "epochs": 3,
-        "lora_r": 32,
-        "lora_alpha": 64,
+        "epochs": 5,           # More epochs (was 3, still improving at epoch 3)
+        "lora_r": 64,          # 2x capacity (was 32, insufficient for 4689 diverse examples)
+        "lora_alpha": 128,     # Keep alpha/r = 2
     },
 }
 
@@ -157,7 +157,7 @@ def resolve_model_id(size: str = None):
     return cfg["model_id"]
 
 
-LORA_DROPOUT = 0.05
+LORA_DROPOUT = 0.03              # Was 0.05, reduced for small model
 
 # LoRA targets on the language model backbone
 LORA_TARGET_MODULES = [
@@ -166,10 +166,10 @@ LORA_TARGET_MODULES = [
 ]
 
 MAX_SEQ_LENGTH = 4096       # Training context (Qwen3 supports 32K, we use 4K)
-WARMUP_RATIO = 0.05
+WARMUP_RATIO = 0.10              # Was 0.05, more warmup for stable convergence
 
 # Early stopping
-EARLY_STOPPING_PATIENCE = 3
+EARLY_STOPPING_PATIENCE = 4      # Was 3, allow more patience with 5 epochs
 EARLY_STOPPING_THRESHOLD = 0.001
 
 # Paths
@@ -290,7 +290,8 @@ def unroll_multi_turn(messages: list[dict]) -> list[tuple[list[dict], str]]:
     return examples
 
 
-def prepare_dataset(path: str, tokenizer, max_seq_length: int = 4096) -> Dataset:
+def prepare_dataset(path: str, tokenizer, max_seq_length: int = 4096,
+                    balance_modes: bool = False) -> Dataset:
     """Load JSONL and split into prompt/completion format for completion-only loss.
 
     Training data is in ChatML format (system/user/assistant messages).
@@ -310,6 +311,9 @@ def prepare_dataset(path: str, tokenizer, max_seq_length: int = 4096) -> Dataset
     TRL's SFTTrainer auto-detects prompt/completion format and creates a
     completion_mask, so the model only trains on the completion — not the
     system prompt or user message.
+
+    If balance_modes=True, oversamples interpreter (JSON) examples to match
+    the coach count, fixing the 80/20 class imbalance.
     """
     raw = load_jsonl(path)
     print(f"  Loaded {len(raw)} examples from {path}")
@@ -403,6 +407,23 @@ def prepare_dataset(path: str, tokenizer, max_seq_length: int = 4096) -> Dataset
                 break
 
     print(f"  Total training examples: {len(examples)} (from {len(raw)} conversations)")
+
+    # Balance interpreter vs coach examples by oversampling the minority class
+    if balance_modes and examples:
+        interpreter_examples = [e for e in examples if e["completion"].strip().startswith("{")]
+        coach_examples = [e for e in examples if not e["completion"].strip().startswith("{")]
+        if interpreter_examples and coach_examples:
+            ratio = len(coach_examples) / len(interpreter_examples)
+            if ratio > 1.5:
+                # Oversample interpreter examples to ~50/50 balance
+                oversample_factor = round(ratio)
+                oversampled = interpreter_examples * oversample_factor
+                balanced = coach_examples + oversampled
+                random.shuffle(balanced)
+                print(f"  Mode balancing: {len(interpreter_examples)} interpreter → {len(oversampled)} "
+                      f"(x{oversample_factor}), {len(coach_examples)} coach")
+                print(f"  Balanced total: {len(balanced)} (was {len(examples)})")
+                examples = balanced
 
     ds = Dataset.from_list(examples)
     return ds
@@ -611,8 +632,8 @@ def train(
 
     # Load datasets
     print(f"\nLoading datasets (max_seq_length={MAX_SEQ_LENGTH})...")
-    train_dataset = prepare_dataset(train_path, tokenizer, MAX_SEQ_LENGTH)
-    val_dataset = prepare_dataset(val_path, tokenizer, MAX_SEQ_LENGTH)
+    train_dataset = prepare_dataset(train_path, tokenizer, MAX_SEQ_LENGTH, balance_modes=True)
+    val_dataset = prepare_dataset(val_path, tokenizer, MAX_SEQ_LENGTH, balance_modes=False)
 
     # Verify a sample
     sample = train_dataset[0]
