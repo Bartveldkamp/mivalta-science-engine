@@ -58,17 +58,45 @@ class AthleteContext:
     phase: str = ""             # base, build, peak, deload
     session: str = ""           # e.g. "Z2 60min", "Z4 4x5min"
     extra: str = ""             # additional context lines
+    # GATC + Viterbi enrichment
+    confidence: float = 0.0     # Viterbi confidence (0.0-1.0), 0 = not specified
+    data_tier: str = ""         # None/Minimal/Basic/Standard/Good/Full/Enhanced
+    meso_position: str = ""     # ramp_in/overload/deload
+    meso_day: int = 0           # Day within mesocycle (1-28)
+    zone_load_factor: float = 0.0   # Zone load factor (e.g. Z4=2.0, Z1=0.8)
+    max_zone: str = ""          # Zone cap from Viterbi (e.g. "Z4" when Yellow)
+    zone_cap_reason: str = ""   # Why zone was capped (e.g. "accumulated fatigue")
+    weekly_load: str = ""       # Weekly load context (e.g. "82% of target")
+    age: int = 0                # Athlete age
 
     def to_block(self) -> str:
         lines = [
             f"- Readiness: {self.readiness}",
         ]
+        if self.confidence > 0:
+            lines.append(f"- Readiness confidence: {self.confidence:.0%}")
+        if self.data_tier:
+            lines.append(f"- Data tier: {self.data_tier}")
+        if self.max_zone:
+            lines.append(f"- Max zone allowed: {self.max_zone}")
+        if self.zone_cap_reason:
+            lines.append(f"- Zone cap reason: {self.zone_cap_reason}")
         if self.session:
             lines.append(f"- Session: {self.session}")
+        if self.zone_load_factor > 0:
+            lines.append(f"- Zone load factor: {self.zone_load_factor}")
         lines.append(f"- Sport: {self.sport}")
         lines.append(f"- Level: {self.level}")
+        if self.age:
+            lines.append(f"- Age: {self.age}")
         if self.phase:
             lines.append(f"- Phase: {self.phase}")
+        if self.meso_position:
+            lines.append(f"- Meso position: {self.meso_position}")
+        if self.meso_day:
+            lines.append(f"- Meso day: {self.meso_day}")
+        if self.weekly_load:
+            lines.append(f"- Weekly load: {self.weekly_load}")
         if self.extra:
             lines.append(self.extra)
         return "CONTEXT:\n" + "\n".join(lines)
@@ -113,12 +141,20 @@ def build_session_coaching_domain() -> ConvDomain:
                     level="intermediate",
                     phase="build",
                     session='Z2 50min "Continuous Z2 50min"',
+                    confidence=0.82,
+                    data_tier="Standard",
+                    max_zone="Z4",
+                    zone_cap_reason="accumulated fatigue — intensity suppressed",
+                    zone_load_factor=1.0,
+                    meso_position="overload",
+                    meso_day=5,
+                    weekly_load="78% of target",
                 ),
                 interpreter_action="explain",
                 interpreter_json={"action": "explain", "question": "Why is today an easy session?", "free_text": "Why is today just an easy run? I feel amazing!"},
                 knowledge_query="zone 2 easy aerobic base recovery fatigue",
                 knowledge_sport="run",
-                josi_response="I love that you're feeling strong! But your body is carrying some fatigue from this week's harder sessions — even when your legs feel fresh, your deeper systems are still catching up. Today's easy run keeps blood flowing to help absorb that work. You'll feel the difference when we push harder later this week.",
+                josi_response="I love that you're feeling strong! But your body is carrying some fatigue from this week's harder sessions — your readiness data confirms it with 82% confidence, even when your legs feel fresh. Today's easy run keeps blood flowing to help absorb that work. You're at 78% of your weekly load target, so there's still room for harder efforts later this week.",
             ),
             Scenario(
                 athlete_message="Why do I have intervals today? I'm still sore from yesterday.",
@@ -128,12 +164,19 @@ def build_session_coaching_domain() -> ConvDomain:
                     level="intermediate",
                     phase="build",
                     session='Z4 "4x4min Z4 / 3min Z1" (build phase)',
+                    confidence=0.91,
+                    data_tier="Good",
+                    max_zone="Z6",
+                    zone_load_factor=2.0,
+                    meso_position="overload",
+                    meso_day=8,
+                    weekly_load="65% of target",
                 ),
                 interpreter_action="explain",
                 interpreter_json={"action": "explain", "question": "Why intervals when still sore?", "free_text": "Why do I have intervals today? I'm still sore from yesterday."},
                 knowledge_query="zone 4 threshold intervals training stimulus recovery",
                 knowledge_sport="run",
-                josi_response="I hear you — soreness can feel like a red flag. But your readiness signals are green, which means your body has recovered enough for quality work. Some muscle soreness doesn't mean your energy systems aren't ready. These Z4 intervals build your threshold — the pace you can hold for longer efforts. Warm up well, and if something feels genuinely wrong during the intervals, ease off.",
+                josi_response="I hear you — soreness can feel like a red flag. But your readiness is solidly green, which means your body has recovered enough for quality work. Some muscle soreness doesn't mean your energy systems aren't ready. These Z4 intervals build your threshold — the pace you can hold for longer efforts. You're in the overload block of your build phase, so this is exactly when we push. Warm up well, and if something feels genuinely wrong during the intervals, ease off.",
             ),
             Scenario(
                 athlete_message="Waarom is de training vandaag zo kort?",
@@ -242,12 +285,19 @@ def build_readiness_coaching_domain() -> ConvDomain:
                     sport="running",
                     level="beginner",
                     phase="build",
+                    confidence=0.85,
+                    data_tier="Standard",
+                    max_zone="Z4",
+                    zone_cap_reason="accumulated fatigue — high intensity suppressed",
+                    weekly_load="72% of target",
+                    meso_position="overload",
+                    meso_day=6,
                 ),
                 interpreter_action="answer_question",
                 interpreter_json={"action": "answer_question", "question": "What does yellow readiness mean?", "free_text": "My readiness says yellow. What does that actually mean?"},
                 knowledge_query="readiness fatigue accumulated recovery training load",
                 knowledge_sport="run",
-                josi_response="Yellow means your body is carrying some built-up fatigue — not emergency level, but enough that your training will be adjusted. Think of it like a fuel gauge: you're not empty, but you're running lower than usual. The plan will keep you moving without piling on more stress. Focus on sleep and nutrition today — they'll help you bounce back faster.",
+                josi_response="Yellow means your body is carrying some built-up fatigue — not emergency level, but enough that your training will be adjusted. Right now your max intensity is capped at Z4, so no sprints or all-out efforts today. You're at 72% of your weekly load, so there's room to keep moving without piling on stress. Focus on sleep and nutrition — they'll help you bounce back faster.",
             ),
             Scenario(
                 athlete_message="Readiness is red. Should I still do something?",
@@ -256,12 +306,19 @@ def build_readiness_coaching_domain() -> ConvDomain:
                     sport="cycling",
                     level="advanced",
                     phase="build",
+                    confidence=0.93,
+                    data_tier="Good",
+                    max_zone="Z2",
+                    zone_cap_reason="overreached — recovery mode, high intensity blocked",
+                    weekly_load="95% of target",
+                    meso_position="overload",
+                    meso_day=12,
                 ),
                 interpreter_action="explain",
                 interpreter_json={"action": "explain", "question": "Should I train with red readiness?", "free_text": "Readiness is red. Should I still do something?"},
                 knowledge_query="overreached red fatigue rest recovery needed",
                 knowledge_sport="bike",
-                josi_response="Red means your body needs a genuine break. Light movement like a walk is fine, but training on top of this level of fatigue won't build anything — it'll just dig the hole deeper. Prioritize sleep, eat well, and let your body catch up. This isn't lost time; it's when the real adaptation happens.",
+                josi_response="Red means your body needs a genuine break. You're capped at Z2 right now — anything harder is blocked because pushing through would dig a deeper hole. Your weekly load is already at 95%, which explains why you've tipped into overreach. Light spinning or a walk is fine. Prioritize sleep, eat well, and let your body catch up. This isn't lost time; it's when the real adaptation happens.",
             ),
             Scenario(
                 athlete_message="I've been green for a week. Am I not training hard enough?",
@@ -270,12 +327,18 @@ def build_readiness_coaching_domain() -> ConvDomain:
                     sport="running",
                     level="intermediate",
                     phase="base",
+                    confidence=0.88,
+                    data_tier="Standard",
+                    max_zone="Z6",
+                    weekly_load="60% of target",
+                    meso_position="ramp_in",
+                    meso_day=4,
                 ),
                 interpreter_action="answer_question",
                 interpreter_json={"action": "answer_question", "question": "Am I training hard enough?", "free_text": "I've been green for a week. Am I not training hard enough?"},
                 knowledge_query="green readiness recovered base phase progressive load",
                 knowledge_sport="run",
-                josi_response="Green doesn't mean you're slacking — it means your body is handling the load well. In base phase, that's exactly what we want. We're building capacity so that when harder sessions come, you can absorb them. If you were always in the yellow, that would mean we're pushing too fast too soon.",
+                josi_response="Green doesn't mean you're slacking — it means your body is handling the load well. You're in the ramp-in phase of your base period, so we're deliberately building slowly. Your weekly load is at 60% of target — that will climb over the coming weeks. Staying green now means when harder sessions come, you'll absorb them. Always in the yellow would mean we're pushing too fast too soon.",
             ),
             Scenario(
                 athlete_message="Waarom wisselt mijn bereidheid zo vaak?",
@@ -794,6 +857,333 @@ def build_motivation_coaching_domain() -> ConvDomain:
 # All domains
 # ---------------------------------------------------------------------------
 
+def build_engine_decision_domain() -> ConvDomain:
+    """Zone capping, Viterbi decisions, and engine-grounded explanations.
+
+    These are the critical examples that teach the model to reference
+    GATC engine decisions: why a zone was capped, why load was adjusted,
+    what the readiness confidence means, and how meso position affects sessions.
+    """
+    return ConvDomain(
+        name="engine_decisions",
+        file_prefix="grounded_engine_decisions",
+        scenarios=[
+            # Zone capping — the core Viterbi integration
+            Scenario(
+                athlete_message="I wanted to do Z5 intervals but the plan says Z4. Why?",
+                context=AthleteContext(
+                    readiness="Yellow (Accumulated)",
+                    sport="running",
+                    level="advanced",
+                    phase="build",
+                    session='Z4 "3x6min Z4 / 3min Z1"',
+                    confidence=0.87,
+                    data_tier="Good",
+                    max_zone="Z4",
+                    zone_cap_reason="accumulated fatigue — Z5+ blocked",
+                    zone_load_factor=2.0,
+                    meso_position="overload",
+                    meso_day=10,
+                    weekly_load="82% of target",
+                ),
+                interpreter_action="explain",
+                interpreter_json={"action": "explain", "question": "Why Z4 instead of Z5?", "free_text": "I wanted to do Z5 intervals but the plan says Z4. Why?"},
+                knowledge_query="zone cap readiness fatigue accumulated intensity restriction",
+                knowledge_sport="run",
+                josi_response="Your readiness shows accumulated fatigue — with 87% confidence. That means Z5 and above are capped right now to protect you from overtraining. Z4 still gives you a strong stimulus at a 2.0 load factor, but without the risk of digging into a hole you can't recover from. You're already at 82% of your weekly load in an overload block. Z4 today is the smart play — you'll get your Z5 sessions back when your body has caught up.",
+            ),
+            Scenario(
+                athlete_message="Why is everything capped at Z2 today? I'm not injured.",
+                context=AthleteContext(
+                    readiness="Red (Overreached)",
+                    sport="cycling",
+                    level="intermediate",
+                    phase="build",
+                    session='Z2 45min "Continuous Z2 45min"',
+                    confidence=0.94,
+                    data_tier="Standard",
+                    max_zone="Z2",
+                    zone_cap_reason="overreached — recovery mode, all intensity blocked",
+                    zone_load_factor=1.0,
+                    meso_position="overload",
+                    meso_day=11,
+                    weekly_load="93% of target",
+                ),
+                interpreter_action="explain",
+                interpreter_json={"action": "explain", "question": "Why capped at Z2?", "free_text": "Why is everything capped at Z2 today? I'm not injured."},
+                knowledge_query="overreached red zone restriction recovery fatigue",
+                knowledge_sport="bike",
+                josi_response="You don't need to be injured for your body to need a break. Your readiness is red with 94% confidence — that's a strong signal you've accumulated too much fatigue. You're at 93% of your weekly target already, in an overload block. Your body is saying: enough. Z2 keeps you moving while everything above it is blocked until you recover. This isn't punishment — it's protection. A day or two at this pace and you'll be back to pushing hard.",
+            ),
+            Scenario(
+                athlete_message="Waarom mag ik vandaag geen intervallen doen?",
+                context=AthleteContext(
+                    readiness="Orange (Fatigued)",
+                    sport="running",
+                    level="intermediate",
+                    phase="build",
+                    session='Z2 40min "Continuous Z2 40min"',
+                    confidence=0.79,
+                    data_tier="Basic",
+                    max_zone="Z3",
+                    zone_cap_reason="fatigue — high intensity suppressed",
+                    zone_load_factor=1.0,
+                    meso_position="ramp_in",
+                    meso_day=3,
+                    weekly_load="45% of target",
+                ),
+                interpreter_action="explain",
+                interpreter_json={"action": "explain", "question": "Why no intervals today?", "free_text": "Waarom mag ik vandaag geen intervallen doen?"},
+                knowledge_query="fatigue zone restriction recovery intensity cap",
+                knowledge_sport="run",
+                josi_response="Je lichaam laat zien dat je vermoeid bent — je maximale zone is nu Z3, dus intensieve intervallen zijn geblokkeerd. Dat is geen straf, maar bescherming. Je bent pas op dag 3 van je huidige blok, dus er is nog genoeg tijd voor harde sessies als je hersteld bent. Vandaag houden we het rustig zodat je later deze week echt kwaliteit kunt leveren.",
+            ),
+            # Confidence and data tier explanations
+            Scenario(
+                athlete_message="How reliable is my readiness score? I only have a basic watch.",
+                context=AthleteContext(
+                    readiness="Yellow (Accumulated)",
+                    sport="running",
+                    level="beginner",
+                    phase="base",
+                    confidence=0.62,
+                    data_tier="Minimal",
+                    max_zone="Z4",
+                    zone_cap_reason="accumulated fatigue — limited data confidence",
+                ),
+                interpreter_action="answer_question",
+                interpreter_json={"action": "answer_question", "question": "How reliable is readiness?", "free_text": "How reliable is my readiness score? I only have a basic watch."},
+                knowledge_query="readiness confidence data tier accuracy biometrics",
+                knowledge_sport="run",
+                josi_response="With minimal data, your readiness confidence is at 62% — it's a reasonable estimate but not as precise as it could be. The more data you provide — sleep, heart rate, how sessions feel — the more accurate it gets. Right now we're being slightly cautious with your training because of the lower confidence. As more data comes in over the next weeks, the system learns your patterns better.",
+            ),
+            Scenario(
+                athlete_message="My readiness jumped from green to yellow overnight. What happened?",
+                context=AthleteContext(
+                    readiness="Yellow (Accumulated)",
+                    sport="cycling",
+                    level="advanced",
+                    phase="build",
+                    session='Z3 "2x12min Z3 / 4min Z1"',
+                    confidence=0.83,
+                    data_tier="Good",
+                    max_zone="Z4",
+                    zone_cap_reason="accumulated fatigue — sleep quality drop detected",
+                    zone_load_factor=1.5,
+                    meso_position="overload",
+                    meso_day=9,
+                    weekly_load="76% of target",
+                ),
+                interpreter_action="explain",
+                interpreter_json={"action": "explain", "question": "Why did readiness drop overnight?", "free_text": "My readiness jumped from green to yellow overnight. What happened?"},
+                knowledge_query="readiness change sleep stress fatigue recovery biometrics",
+                knowledge_sport="bike",
+                josi_response="Readiness looks at the full picture — not just one night. You're in day 9 of an overload block at 76% weekly load, so fatigue has been building. One poor night of sleep or extra life stress can tip the balance. The system detected the shift with 83% confidence. Your max zone dropped to Z4, but you're still cleared for Z3 work today. Focus on recovery tonight and you'll likely bounce back.",
+            ),
+            # Meso position and phase explanations
+            Scenario(
+                athlete_message="What does 'overload week' mean for my training this week?",
+                context=AthleteContext(
+                    readiness="Green (Productive)",
+                    sport="running",
+                    level="intermediate",
+                    phase="build",
+                    session='Z4 "4x5min Z4 / 3min Z1"',
+                    confidence=0.90,
+                    data_tier="Standard",
+                    max_zone="Z6",
+                    zone_load_factor=2.0,
+                    meso_position="overload",
+                    meso_day=8,
+                    weekly_load="55% of target",
+                ),
+                interpreter_action="explain",
+                interpreter_json={"action": "explain", "question": "What does overload week mean?", "free_text": "What does 'overload week' mean for my training this week?"},
+                knowledge_query="overload week mesocycle peak stress hard training block",
+                knowledge_sport="run",
+                josi_response="Overload week is the peak of your current training block — this is when we deliberately push harder. Your readiness is green and you're cleared up to Z6, so your body is ready for it. You're at 55% of the weekly target with the harder sessions still to come. Expect to feel tired by the end of the week — that's the point. Deload follows right after, giving your body time to absorb all this work and come back stronger.",
+            ),
+            Scenario(
+                athlete_message="Why am I doing such light training in peak phase? Shouldn't peak be the hardest?",
+                context=AthleteContext(
+                    readiness="Green (Recovered)",
+                    sport="cycling",
+                    level="advanced",
+                    phase="peak",
+                    session='Z2 50min "Continuous Z2 50min"',
+                    confidence=0.91,
+                    data_tier="Good",
+                    max_zone="Z6",
+                    zone_load_factor=1.0,
+                    meso_position="deload",
+                    meso_day=2,
+                    weekly_load="20% of target",
+                ),
+                interpreter_action="explain",
+                interpreter_json={"action": "explain", "question": "Why light training in peak phase?", "free_text": "Why am I doing such light training in peak phase? Shouldn't peak be the hardest?"},
+                knowledge_query="peak phase taper deload race preparation sharpening",
+                knowledge_sport="bike",
+                josi_response="Peak phase isn't about volume — it's about sharpening. You're in a deload block right now, only at 20% of weekly target. This is deliberate: we drop the volume to let your body fully absorb the hard training from the build phase. You'll still hit some sharp, short efforts later this week to stay sharp. But the heavy lifting is done. Your fitness is in the bank — now we're letting you access it.",
+            ),
+            # Load score explanations
+            Scenario(
+                athlete_message="My Z4 session shows a load factor of 2.0. What does that mean?",
+                context=AthleteContext(
+                    readiness="Green (Productive)",
+                    sport="running",
+                    level="intermediate",
+                    phase="build",
+                    session='Z4 "3x6min Z4 / 3min Z1"',
+                    confidence=0.88,
+                    data_tier="Standard",
+                    max_zone="Z6",
+                    zone_load_factor=2.0,
+                    meso_position="overload",
+                    meso_day=7,
+                    weekly_load="60% of target",
+                ),
+                interpreter_action="explain",
+                interpreter_json={"action": "explain", "question": "What does load factor 2.0 mean?", "free_text": "My Z4 session shows a load factor of 2.0. What does that mean?"},
+                knowledge_query="zone load factor training stress intensity weight session",
+                knowledge_sport="run",
+                josi_response="Load factor tells you how hard a session counts relative to easy running. Z2 is the baseline at 1.0. Your Z4 session at 2.0 means it counts as twice the training stress of the same time in Z2. So 30 minutes of Z4 work loads your body like 60 minutes of easy running. That's why you don't do Z4 every day — and why recovery after today matters.",
+            ),
+        ],
+    )
+
+
+def build_multi_turn_coaching_domain() -> ConvDomain:
+    """Multi-turn coaching conversations — teaching the model to discuss,
+    challenge, adapt, and follow up like a real human coach.
+
+    These are NOT generated as Scenarios (single-turn) but as raw .conv
+    multi-turn blocks. We override the domain generator to handle this.
+    """
+    # We'll use scenarios for single-turn within this domain,
+    # but the real value is in the multi-turn .conv format.
+    # For now, add key follow-up scenarios that train contextual responses.
+    return ConvDomain(
+        name="multi_turn_coaching",
+        file_prefix="grounded_multi_turn",
+        scenarios=[
+            # Turn 2 of a discussion: user pushes back after being told to rest
+            Scenario(
+                athlete_message="But I feel fine! Can't I at least do tempo?",
+                context=AthleteContext(
+                    readiness="Yellow (Accumulated)",
+                    sport="running",
+                    level="intermediate",
+                    phase="build",
+                    session='Z2 50min "Continuous Z2 50min"',
+                    confidence=0.85,
+                    data_tier="Standard",
+                    max_zone="Z4",
+                    zone_cap_reason="accumulated fatigue — Z5+ blocked",
+                    meso_position="overload",
+                    meso_day=6,
+                    weekly_load="72% of target",
+                    extra="- Previous message: Josi explained why today is Z2 due to fatigue",
+                ),
+                interpreter_action="explain",
+                interpreter_json={"action": "explain", "question": "Can I do tempo instead?", "free_text": "But I feel fine! Can't I at least do tempo?"},
+                knowledge_query="readiness feeling vs data perception fatigue deeper recovery",
+                knowledge_sport="run",
+                josi_response="I know it's frustrating. Feeling good doesn't always mean your body is ready for hard work — deeper fatigue doesn't show up as tiredness. Your max zone is Z4 right now, so tempo at Z3 IS actually an option if you really want more intensity. But the plan put you in Z2 for a reason — it's overload week and you're already at 72% of your load target. How about this: do the Z2 today, and if you're still feeling strong tomorrow, we'll push harder then.",
+            ),
+            # Turn 2: user wants to understand their training plan
+            Scenario(
+                athlete_message="Okay but then what does the rest of the week look like?",
+                context=AthleteContext(
+                    readiness="Yellow (Accumulated)",
+                    sport="running",
+                    level="intermediate",
+                    phase="build",
+                    session='Z2 50min "Continuous Z2 50min"',
+                    confidence=0.85,
+                    data_tier="Standard",
+                    max_zone="Z4",
+                    meso_position="overload",
+                    meso_day=6,
+                    weekly_load="72% of target",
+                    extra="- Previous message: Josi suggested doing Z2 today and pushing harder tomorrow",
+                ),
+                interpreter_action="explain",
+                interpreter_json={"action": "explain", "question": "What does the rest of the week look like?", "free_text": "Okay but then what does the rest of the week look like?"},
+                knowledge_query="weekly plan structure overload deload periodization",
+                knowledge_sport="run",
+                josi_response="You're on day 6 of your overload block, so the hardest push is behind you. If your readiness recovers to green, you might get a quality Z4 session in the next couple of days. Then deload starts — lighter sessions to let your body absorb all this work. Think of this week as finishing strong and controlled, not going all-out.",
+            ),
+            # Turn 2: after a great session, athlete wants more
+            Scenario(
+                athlete_message="Can I do another session this afternoon? I have time.",
+                context=AthleteContext(
+                    readiness="Green (Productive)",
+                    sport="cycling",
+                    level="advanced",
+                    phase="build",
+                    session='Z4 "3x8min Z4 / 4min Z1"',
+                    confidence=0.89,
+                    data_tier="Good",
+                    max_zone="Z6",
+                    zone_load_factor=2.0,
+                    meso_position="overload",
+                    meso_day=8,
+                    weekly_load="75% of target",
+                    extra="- Previous message: Athlete said they crushed today's Z4 session",
+                ),
+                interpreter_action="explain",
+                interpreter_json={"action": "explain", "question": "Can I add a second session today?", "free_text": "Can I do another session this afternoon? I have time."},
+                knowledge_query="double session recovery load management extra training",
+                knowledge_sport="bike",
+                josi_response="You just hit a Z4 session with a 2.0 load factor — that's already a big deposit. Adding another session today would push your weekly load past 85% with days still to go in the overload block. An easy Z1 spin to loosen up is fine, but anything with intensity would steal from tomorrow's session quality. Bank the good feeling and use that energy when it counts most.",
+            ),
+            # Goal-setting discussion
+            Scenario(
+                athlete_message="I want to run a sub-3 marathon in 4 months. Is that realistic?",
+                context=AthleteContext(
+                    readiness="Green (Recovered)",
+                    sport="running",
+                    level="intermediate",
+                    phase="base",
+                    confidence=0.88,
+                    data_tier="Standard",
+                    meso_position="ramp_in",
+                    meso_day=3,
+                    weekly_load="40% of target",
+                    age=35,
+                ),
+                interpreter_action="answer_question",
+                interpreter_json={"action": "answer_question", "question": "Can I run sub-3 marathon in 4 months?", "free_text": "I want to run a sub-3 marathon in 4 months. Is that realistic?"},
+                knowledge_query="marathon goal setting realistic timeframe training",
+                knowledge_sport="run",
+                josi_response="That depends on where you are now. Sub-3 requires holding about 4:15/km for 42km — that needs a strong aerobic base and sustained threshold fitness. You're currently in base phase, ramp-in, at 40% weekly load. Four months is tight for a sub-3 if you haven't been close before. What's your current long run distance and pace? That'll tell me if this is a stretch goal or a fantasy. Either way, I'd rather give you a realistic target than set you up for disappointment.",
+            ),
+            # Follow-up: user provides more context
+            Scenario(
+                athlete_message="My best is 3:15 from last year. I've been running consistently since.",
+                context=AthleteContext(
+                    readiness="Green (Recovered)",
+                    sport="running",
+                    level="intermediate",
+                    phase="base",
+                    confidence=0.88,
+                    data_tier="Standard",
+                    meso_position="ramp_in",
+                    meso_day=3,
+                    weekly_load="40% of target",
+                    age=35,
+                    extra="- Previous message: Josi asked about current long run distance and pace\n- Athlete has 3:15 marathon PR from last year",
+                ),
+                interpreter_action="answer_question",
+                interpreter_json={"action": "answer_question", "question": "Can I improve from 3:15 to sub-3?", "free_text": "My best is 3:15 from last year. I've been running consistently since."},
+                knowledge_query="marathon improvement realistic training plan periodization",
+                knowledge_sport="run",
+                josi_response="3:15 to sub-3 is a 15-minute improvement — ambitious but doable with 4 months if your base is solid. You've been consistent, which is the most important factor. The plan will build through base into a specific build phase with tempo and threshold work targeting that 4:15/km pace. Key question: are you able to train 5-6 days a week? That volume will matter for the jump from 3:15 to sub-3.",
+            ),
+        ],
+    )
+
+
 ALL_DOMAIN_BUILDERS = [
     build_session_coaching_domain,
     build_readiness_coaching_domain,
@@ -802,6 +1192,8 @@ ALL_DOMAIN_BUILDERS = [
     build_sport_specific_domain,
     build_load_management_domain,
     build_motivation_coaching_domain,
+    build_engine_decision_domain,
+    build_multi_turn_coaching_domain,
 ]
 
 

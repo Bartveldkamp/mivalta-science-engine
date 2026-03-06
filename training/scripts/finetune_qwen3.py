@@ -252,14 +252,59 @@ def validate_single_turn(messages: list[dict]) -> bool:
     return True
 
 
+def unroll_multi_turn(messages: list[dict]) -> list[tuple[list[dict], str]]:
+    """Unroll a multi-turn conversation into multiple training examples.
+
+    Each assistant turn becomes its own example, with the full conversation
+    history up to that point as the prompt context. This teaches the model
+    to produce the right response given prior conversation, while still
+    outputting a single response per call (on-device compatible).
+
+    Returns list of (prompt_messages, completion_text) tuples.
+    """
+    examples = []
+    # Find system message(s) at the start
+    system_msgs = []
+    rest = messages
+    for i, m in enumerate(messages):
+        if m["role"] == "system":
+            system_msgs.append(m)
+        else:
+            rest = messages[i:]
+            break
+
+    # Walk through the conversation, collecting context
+    context = list(system_msgs)
+    for m in rest:
+        if m["role"] == "assistant":
+            # This assistant response becomes a training target
+            # prompt = everything before this response
+            # completion = this assistant response
+            examples.append((list(context), m["content"]))
+            # Add this response to context for next turns
+            context.append(m)
+        else:
+            # User message — add to growing context
+            context.append(m)
+
+    return examples
+
+
 def prepare_dataset(path: str, tokenizer, max_seq_length: int = 4096) -> Dataset:
     """Load JSONL and split into prompt/completion format for completion-only loss.
 
     Training data is in ChatML format (system/user/assistant messages).
     Qwen3 uses ChatML natively, so no format conversion is needed.
 
+    Handles both single-turn and multi-turn conversations:
+      - Single-turn: system + user → assistant (1 training example)
+      - Multi-turn: unrolled into N examples, one per assistant turn,
+        each with full conversation history as context. This teaches
+        the model to respond correctly given prior conversation while
+        still producing a single output per call (on-device compatible).
+
     We split into:
-      prompt:     system + user turns + generation marker
+      prompt:     system + user turns (+ history for multi-turn) + generation marker
       completion: assistant response + EOS token
 
     TRL's SFTTrainer auto-detects prompt/completion format and creates a
@@ -273,56 +318,70 @@ def prepare_dataset(path: str, tokenizer, max_seq_length: int = 4096) -> Dataset
     examples = []
     truncated = 0
     skipped = 0
-    multi_turn = 0
+    multi_turn_count = 0
+    multi_turn_examples = 0
 
     for ex in raw:
         messages = ex["messages"]
 
-        # Validate single-turn
-        if not validate_single_turn(messages):
-            multi_turn += 1
-            if multi_turn <= 3:
-                roles = [m["role"] for m in messages]
-                print(f"  WARNING: Multi-turn example skipped (roles: {roles})")
-            continue
+        # Determine if single-turn or multi-turn
+        assistant_count = sum(1 for m in messages if m["role"] == "assistant")
 
-        # Split into prompt (system+user) and completion (assistant response)
-        prompt_messages = messages[:-1]  # system + user
-        try:
-            prompt = tokenizer.apply_chat_template(
-                prompt_messages,
-                tokenize=False,
-                add_generation_prompt=True,
-            )
-        except Exception as e:
+        if assistant_count == 0:
             skipped += 1
             if skipped <= 3:
-                print(f"  WARNING: Skipping example (template error): {e}")
+                print(f"  WARNING: Skipping example (no assistant response)")
             continue
 
-        # Completion: assistant response + EOS
-        completion = messages[-1]["content"] + eos_token
+        # Build list of (prompt_messages, completion_text) pairs
+        if assistant_count == 1 and messages[-1]["role"] == "assistant":
+            # Single-turn: simple split
+            pairs = [(messages[:-1], messages[-1]["content"])]
+        else:
+            # Multi-turn: unroll into multiple training examples
+            pairs = unroll_multi_turn(messages)
+            if pairs:
+                multi_turn_count += 1
+                multi_turn_examples += len(pairs)
+                if multi_turn_count <= 3:
+                    print(f"  Multi-turn conversation unrolled into {len(pairs)} training examples")
 
-        # Truncation check
-        full_text = prompt + completion
-        tokens = tokenizer(full_text, truncation=True, max_length=max_seq_length)
-        if len(tokens["input_ids"]) >= max_seq_length:
-            truncated += 1
-            prompt_tokens = tokenizer(prompt, add_special_tokens=False)
-            remaining = max_seq_length - len(prompt_tokens["input_ids"])
-            if remaining <= 10:
-                continue  # Prompt alone exceeds limit, skip
-            completion_tokens = tokenizer(completion, truncation=True, max_length=remaining)
-            completion = tokenizer.decode(completion_tokens["input_ids"], skip_special_tokens=False)
+        for prompt_messages, completion_text in pairs:
+            try:
+                prompt = tokenizer.apply_chat_template(
+                    prompt_messages,
+                    tokenize=False,
+                    add_generation_prompt=True,
+                )
+            except Exception as e:
+                skipped += 1
+                if skipped <= 3:
+                    print(f"  WARNING: Skipping example (template error): {e}")
+                continue
 
-        examples.append({"prompt": prompt, "completion": completion})
+            # Completion: assistant response + EOS
+            completion = completion_text + eos_token
 
-    if multi_turn:
-        print(f"  WARNING: {multi_turn}/{len(raw)} multi-turn examples skipped")
+            # Truncation check
+            full_text = prompt + completion
+            tokens = tokenizer(full_text, truncation=True, max_length=max_seq_length)
+            if len(tokens["input_ids"]) >= max_seq_length:
+                truncated += 1
+                prompt_tokens = tokenizer(prompt, add_special_tokens=False)
+                remaining = max_seq_length - len(prompt_tokens["input_ids"])
+                if remaining <= 10:
+                    continue  # Prompt alone exceeds limit, skip
+                completion_tokens = tokenizer(completion, truncation=True, max_length=remaining)
+                completion = tokenizer.decode(completion_tokens["input_ids"], skip_special_tokens=False)
+
+            examples.append({"prompt": prompt, "completion": completion})
+
+    if multi_turn_count:
+        print(f"  Multi-turn: {multi_turn_count} conversations unrolled into {multi_turn_examples} training examples")
     if truncated:
-        print(f"  WARNING: {truncated}/{len(raw)} examples truncated to {max_seq_length} tokens")
+        print(f"  WARNING: {truncated} examples truncated to {max_seq_length} tokens")
     if skipped:
-        print(f"  WARNING: {skipped}/{len(raw)} examples skipped (template errors)")
+        print(f"  WARNING: {skipped} examples skipped (no assistant / template errors)")
 
     # Verify stop token
     eos_count = sum(1 for e in examples if eos_token in e["completion"])
@@ -330,10 +389,20 @@ def prepare_dataset(path: str, tokenizer, max_seq_length: int = 4096) -> Dataset
     if eos_count < len(examples):
         print(f"  WARNING: {len(examples) - eos_count} completions missing stop token!")
 
-    # Show a sample
+    # Show samples
     if examples:
         print(f"  Sample prompt  (last 80 chars): ...{examples[0]['prompt'][-80:]}")
         print(f"  Sample completion (first 80 chars): {examples[0]['completion'][:80]}...")
+
+    # Show a multi-turn sample if available (one with history in prompt)
+    if multi_turn_examples > 0:
+        for e in examples:
+            if e["prompt"].count("<|im_start|>assistant") >= 1:
+                print(f"\n  Sample prompt  (last 100 chars): ...{e['prompt'][-100:]}")
+                print(f"  Sample completion (first 100 chars): {e['completion'][:100]}...")
+                break
+
+    print(f"  Total training examples: {len(examples)} (from {len(raw)} conversations)")
 
     ds = Dataset.from_list(examples)
     return ds
