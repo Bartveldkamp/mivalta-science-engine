@@ -1,0 +1,235 @@
+# domain: session_coaching
+
+USER:
+Why is today just an easy run? I feel amazing!
+
+CONTEXT:
+- Readiness: Yellow (Accumulated)
+- Session: Z2 50min "Continuous Z2 50min"
+- Sport: running
+- Level: intermediate
+- Phase: build
+
+[KNOWLEDGE]
+
+Here's the thing about long runs: they build adaptations that no amount of intervals can replicate. Your body learns to burn fat more efficiently, stores more glycogen, develops mental resilience, and maintains form when fatigued. These are marathon-specific skills that only come from time on your feet.
+
+Build duration gradually—about 10 to 15 minutes more each mesocycle. For marathon training, you'll peak around 150 to 180 minutes. Half marathon peaks at 90 to 120 minutes.
+
+Think of training zones like gears on a bike—nine different effort levels, each with its own purpose. Let me walk you through them.
+
+Recovery, or R, is barely moving. A gentle walk or easy spin. This isn't training at all—it's active restoration, helping your body recover between real sessions.
+
+Z1 and Z2 are your easy gears. You should be able to chat comfortably in paragraphs at Z1, and in full sentences with slight breathlessness at Z2.
+
+[INTERPRETER]
+{"action": "explain", "question": "Why is today an easy session?", "free_text": "Why is today just an easy run? I feel amazing!"}
+
+JOSI:
+I love that you're feeling strong! But your body is carrying some fatigue from this week's harder sessions — even when your legs feel fresh, your deeper systems are still catching up. Today's easy run keeps blood flowing to help absorb that work. You'll feel the difference when we push harder later this week.
+
+---
+
+USER:
+Why do I have intervals today? I'm still sore from yesterday.
+
+CONTEXT:
+- Readiness: Green (Productive)
+- Session: Z4 "4x4min Z4 / 3min Z1" (build phase)
+- Sport: running
+- Level: intermediate
+- Phase: build
+
+[KNOWLEDGE]
+
+Think of training zones like gears on a bike—nine different effort levels, each with its own purpose. Let me walk you through them.
+
+Recovery, or R, is barely moving. A gentle walk or easy spin. This isn't training at all—it's active restoration, helping your body recover between real sessions.
+
+Z1 and Z2 are your easy gears. You should be able to chat comfortably in paragraphs at Z1, and in full sentences with slight breathlessness at Z2.
+
+Here's the thing about long runs: they build adaptations that no amount of intervals can replicate. Your body learns to burn fat more efficiently, stores more glycogen, develops mental resilience, and maintains form when fatigued. These are marathon-specific skills that only come from time on your feet.
+
+Build duration gradually—about 10 to 15 minutes more each mesocycle. For marathon training, you'll peak around 150 to 180 minutes. Half marathon peaks at 90 to 120 minutes.
+
+[INTERPRETER]
+{"action": "explain", "question": "Why intervals when still sore?", "free_text": "Why do I have intervals today? I'm still sore from yesterday."}
+
+JOSI:
+I hear you — soreness can feel like a red flag. But your readiness signals are green, which means your body has recovered enough for quality work. Some muscle soreness doesn't mean your energy systems aren't ready. These Z4 intervals build your threshold — the pace you can hold for longer efforts. Warm up well, and if something feels genuinely wrong during the intervals, ease off.
+
+---
+
+USER:
+Waarom is de training vandaag zo kort?
+
+CONTEXT:
+- Readiness: Green (Recovered)
+- Session: Z2 30min "Continuous Z2 30min"
+- Sport: running
+- Level: beginner
+- Phase: base
+
+[KNOWLEDGE]
+
+Let's talk about the mistakes I see beginners make, so you can avoid them. The biggest one by far is starting too hard too fast. The enthusiasm is great, but your body needs time to adapt. Doing too much too soon leads to injury, burnout, or both.
+
+"No pain no gain" is wrong for endurance training. That mindset belongs in short-term strength training, not in building aerobic fitness. Easy work genuinely builds your base—it's not slacking, it's smart training.
+
+Training isn't random—it's organized into phases, each building on the last toward your goal. Let me explain how this works.
+
+Base phase builds your aerobic foundation. Most of your training stays easy—over 78 percent in the lower zones. This might feel slow, but it's where endurance is actually built. The adaptations happening in your mitochondria, capillaries, and connective tissue take time and easy effort.
+
+Build phase adds race-specific work. More threshold training, more VO2max intervals.
+
+[INTERPRETER]
+{"action": "explain", "question": "Why is today's session short?", "free_text": "Waarom is de training vandaag zo kort?"}
+
+JOSI:
+We bouwen op dit moment je basis op — en dat doen we stap voor stap. Een korte sessie nu is geen verloren tijd, het is een investering. Je lichaam leert omgaan met de belasting zonder dat we risico nemen. Over een paar weken zijn de sessies langer, en dan ben je er klaar voor.
+
+---
+
+USER:
+Why tempo work instead of intervals today?
+
+CONTEXT:
+- Readiness: Green (Productive)
+- Session: Z3 "2x15min Z3 / 5min Z1" (build phase)
+- Sport: cycling
+- Level: advanced
+- Phase: build
+
+[KNOWLEDGE]
+
+Think of training zones like gears on a bike—nine different effort levels, each with its own purpose. Let me walk you through them.
+
+Recovery, or R, is barely moving. A gentle walk or easy spin. This isn't training at all—it's active restoration, helping your body recover between real sessions.
+
+Z1 and Z2 are your easy gears. You should be able to chat comfortably in paragraphs at Z1, and in full sentences with slight breathlessness at Z2.
+
+Your workout structure gets chosen based on your training phase, experience level, and available time. Same zone, different structures—and that's by design.
+
+Two athletes both doing Zone 4 threshold work might get very different sessions. A beginner in base phase might do three 8-minute intervals with four minutes rest between—shorter intervals, more recovery.
+
+[INTERPRETER]
+{"action": "explain", "question": "Why tempo instead of intervals?", "free_text": "Why tempo work instead of intervals today?"}
+
+JOSI:
+Good question. Your training needs variety — hitting the same type of hard session repeatedly leads to diminishing returns. Today's tempo work targets a different system than your recent intervals. It builds your ability to sustain effort just below threshold. Think of it as widening the road, not just raising the speed limit.
+
+---
+
+USER:
+I was expecting a hard session but got Z1. What gives?
+
+CONTEXT:
+- Readiness: Orange (Fatigued)
+- Session: Z1 40min "Continuous Z1 40min"
+- Sport: running
+- Level: advanced
+- Phase: build
+
+[KNOWLEDGE]
+
+Here's the thing about getting fitter: training doesn't actually make you stronger. Training breaks you down—it damages muscle fibers, depletes energy stores, and stresses your systems. Recovery is where the magic happens, where your body rebuilds everything a little bit better than before. Skip the recovery and you skip the gains.
+
+Think of a hard workout as making a withdrawal from your body. Recovery is when you make the deposit that leaves you richer than before.
+
+Here's the thing about long runs: they build adaptations that no amount of intervals can replicate. Your body learns to burn fat more efficiently, stores more glycogen, develops mental resilience, and maintains form when fatigued. These are marathon-specific skills that only come from time on your feet.
+
+Build duration gradually—about 10 to 15 minutes more each mesocycle. For marathon training, you'll peak around 150 to 180 minutes. Half marathon peaks at 90 to 120 minutes.
+
+[INTERPRETER]
+{"action": "explain", "question": "Why Z1 instead of hard session?", "free_text": "I was expecting a hard session but got Z1. What gives?"}
+
+JOSI:
+Your body is asking for a breather — your fatigue signals are elevated. Pushing through when you're this tired doesn't build fitness, it just digs a deeper hole. Today's Z1 keeps you moving without adding stress. One well-timed easy day now means you'll actually be able to push hard when it counts.
+
+---
+
+USER:
+It's deload week and I feel fine. Can I train harder?
+
+CONTEXT:
+- Readiness: Green (Recovered)
+- Session: Z2 45min "Continuous Z2 45min"
+- Sport: cycling
+- Level: intermediate
+- Phase: deload
+
+[KNOWLEDGE]
+
+Indoor training has one nemesis: heat. Without the natural cooling of wind passing over you, your core temperature climbs and power drops. Most cyclists see their indoor FTP run 5 to 10 percent lower than outdoors, even when fitness is identical.
+
+You have two options. First, you can set a separate indoor FTP at about 90 to 95 percent of your outdoor number and train to those zones. This keeps the relative effort honest. Second—and this is what I'd recommend—get serious about cooling.
+
+Training isn't random—it's organized into phases, each building on the last toward your goal. Let me explain how this works.
+
+Base phase builds your aerobic foundation. Most of your training stays easy—over 78 percent in the lower zones. This might feel slow, but it's where endurance is actually built. The adaptations happening in your mitochondria, capillaries, and connective tissue take time and easy effort.
+
+Build phase adds race-specific work. More threshold training, more VO2max intervals.
+
+[INTERPRETER]
+{"action": "explain", "question": "Can I train harder during deload?", "free_text": "It's deload week and I feel fine. Can I train harder?"}
+
+JOSI:
+Feeling good during deload is actually the point — it means recovery is working. This week isn't about pushing; it's about letting your body finish absorbing the last few weeks of hard work. The gains happen now, not during the hard sessions. Trust it. You'll come back stronger next week.
+
+---
+
+USER:
+Why is my workout different from yesterday? They look the same to me.
+
+CONTEXT:
+- Readiness: Green (Productive)
+- Session: Z2 40min "Continuous Z2 40min"
+- Sport: running
+- Level: beginner
+- Phase: base
+
+[KNOWLEDGE]
+
+Here's the thing about long runs: they build adaptations that no amount of intervals can replicate. Your body learns to burn fat more efficiently, stores more glycogen, develops mental resilience, and maintains form when fatigued. These are marathon-specific skills that only come from time on your feet.
+
+Build duration gradually—about 10 to 15 minutes more each mesocycle. For marathon training, you'll peak around 150 to 180 minutes. Half marathon peaks at 90 to 120 minutes.
+
+Training isn't random—it's organized into phases, each building on the last toward your goal. Let me explain how this works.
+
+Base phase builds your aerobic foundation. Most of your training stays easy—over 78 percent in the lower zones. This might feel slow, but it's where endurance is actually built. The adaptations happening in your mitochondria, capillaries, and connective tissue take time and easy effort.
+
+Build phase adds race-specific work. More threshold training, more VO2max intervals.
+
+[INTERPRETER]
+{"action": "explain", "question": "Why does today look like yesterday?", "free_text": "Why is my workout different from yesterday? They look the same to me."}
+
+JOSI:
+In base phase, a lot of sessions will look similar — and that's by design. Right now you're building your aerobic engine, and that takes repetition. Each Z2 session adds another layer to your endurance foundation. It's like compound interest — not exciting day to day, but powerful over weeks.
+
+---
+
+USER:
+Ik heb vandaag maar 30 minuten. Wat kan ik doen?
+
+CONTEXT:
+- Readiness: Green (Productive)
+- Session: Z3 "2x12min Z3 / 4min Z1" (build phase)
+- Sport: running
+- Level: intermediate
+- Phase: build
+
+[KNOWLEDGE]
+
+Here's the thing about long runs: they build adaptations that no amount of intervals can replicate. Your body learns to burn fat more efficiently, stores more glycogen, develops mental resilience, and maintains form when fatigued. These are marathon-specific skills that only come from time on your feet.
+
+Build duration gradually—about 10 to 15 minutes more each mesocycle. For marathon training, you'll peak around 150 to 180 minutes. Half marathon peaks at 90 to 120 minutes.
+
+Science confirms something that might surprise you: short bursts count. You don't need an hour to make meaningful improvements.
+
+The research is remarkably clear. Three daily bursts of one to two minutes of vigorous activity reduces cardiovascular mortality risk by 48 percent. Cycling commutes show 52 percent lower heart disease and 40 percent lower cancer risk. Four-minute Tabata protocols match 60 minutes of steady-state for VO2max gains.
+
+[INTERPRETER]
+{"action": "replan", "replan_type": "reduce_duration", "free_text": "Ik heb vandaag maar 30 minuten. Wat kan ik doen?"}
+
+JOSI:
+Dertig minuten is prima — daar kunnen we iets goeds mee doen. Ik pas de sessie aan zodat het past. Je verliest geen vooruitgang van een kortere dag. Wat telt is dat je beweegt.

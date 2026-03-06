@@ -1,0 +1,210 @@
+# domain: zone_coaching
+
+USER:
+Zone 2 feels too easy. I don't feel like I'm training.
+
+CONTEXT:
+- Readiness: Green (Recovered)
+- Session: Z2 45min "Continuous Z2 45min"
+- Sport: running
+- Level: beginner
+- Phase: base
+
+[KNOWLEDGE]
+
+Here's the thing about long runs: they build adaptations that no amount of intervals can replicate. Your body learns to burn fat more efficiently, stores more glycogen, develops mental resilience, and maintains form when fatigued. These are marathon-specific skills that only come from time on your feet.
+
+Build duration gradually—about 10 to 15 minutes more each mesocycle. For marathon training, you'll peak around 150 to 180 minutes. Half marathon peaks at 90 to 120 minutes.
+
+Think of training zones like gears on a bike—nine different effort levels, each with its own purpose. Let me walk you through them.
+
+Recovery, or R, is barely moving. A gentle walk or easy spin. This isn't training at all—it's active restoration, helping your body recover between real sessions.
+
+Z1 and Z2 are your easy gears. You should be able to chat comfortably in paragraphs at Z1, and in full sentences with slight breathlessness at Z2.
+
+[INTERPRETER]
+{"action": "explain", "question": "Why is Z2 so easy?", "free_text": "Zone 2 feels too easy. I don't feel like I'm training."}
+
+JOSI:
+If it feels too easy, you're doing it right. That's genuinely how it should feel. At this effort level, your body is building the engine — more capillaries, better fat burning, a stronger heart. Go harder and you train different systems, but you miss these foundational changes. The best endurance athletes spend most of their time right where you are now.
+
+---
+
+USER:
+What's the point of Zone 3? It's just uncomfortable.
+
+CONTEXT:
+- Readiness: Green (Productive)
+- Session: Z3 "2x15min Z3 / 5min Z1"
+- Sport: cycling
+- Level: intermediate
+- Phase: build
+
+[KNOWLEDGE]
+
+Think of training zones like gears on a bike—nine different effort levels, each with its own purpose. Let me walk you through them.
+
+Recovery, or R, is barely moving. A gentle walk or easy spin. This isn't training at all—it's active restoration, helping your body recover between real sessions.
+
+Z1 and Z2 are your easy gears. You should be able to chat comfortably in paragraphs at Z1, and in full sentences with slight breathlessness at Z2.
+
+Indoor training has one nemesis: heat. Without the natural cooling of wind passing over you, your core temperature climbs and power drops. Most cyclists see their indoor FTP run 5 to 10 percent lower than outdoors, even when fitness is identical.
+
+You have two options. First, you can set a separate indoor FTP at about 90 to 95 percent of your outdoor number and train to those zones. This keeps the relative effort honest. Second—and this is what I'd recommend—get serious about cooling.
+
+[INTERPRETER]
+{"action": "explain", "question": "What's the point of Z3?", "free_text": "What's the point of Zone 3? It's just uncomfortable."}
+
+JOSI:
+Zone 3 is that comfortably hard effort — you can talk in short sentences but not hold a real conversation. It trains your body to clear fatigue while sustaining effort. We don't use it every day because it's tiring without the punch of harder intervals. But in the right doses, it builds durability you can't get any other way.
+
+---
+
+USER:
+How hard should Z4 feel? I'm not sure I'm pushing enough.
+
+CONTEXT:
+- Readiness: Green (Recovered)
+- Session: Z4 "4x5min Z4 / 3min Z1"
+- Sport: running
+- Level: intermediate
+- Phase: build
+
+[KNOWLEDGE]
+
+Think of training zones like gears on a bike—nine different effort levels, each with its own purpose. Let me walk you through them.
+
+Recovery, or R, is barely moving. A gentle walk or easy spin. This isn't training at all—it's active restoration, helping your body recover between real sessions.
+
+Z1 and Z2 are your easy gears. You should be able to chat comfortably in paragraphs at Z1, and in full sentences with slight breathlessness at Z2.
+
+Here's the thing about long runs: they build adaptations that no amount of intervals can replicate. Your body learns to burn fat more efficiently, stores more glycogen, develops mental resilience, and maintains form when fatigued. These are marathon-specific skills that only come from time on your feet.
+
+Build duration gradually—about 10 to 15 minutes more each mesocycle. For marathon training, you'll peak around 150 to 180 minutes. Half marathon peaks at 90 to 120 minutes.
+
+[INTERPRETER]
+{"action": "explain", "question": "How hard should Z4 feel?", "free_text": "How hard should Z4 feel? I'm not sure I'm pushing enough."}
+
+JOSI:
+Z4 should feel hard but controlled — you can squeeze out a few words, but not hold a conversation. Your breathing is heavy, your legs are working. If you can chat comfortably, push a bit more. If you're gasping and can't maintain the effort for the full interval, back off a notch. The sweet spot is strong and sustainable.
+
+---
+
+USER:
+Wat is het verschil tussen Zone 1 en Zone 2?
+
+CONTEXT:
+- Readiness: Green (Recovered)
+- Sport: running
+- Level: beginner
+- Phase: base
+
+[KNOWLEDGE]
+
+Good question about training approaches. There are several that work, and the right one depends on your time and experience.
+
+Polarized training is what I recommend for most runners. Keep about 80 percent of your running genuinely easy, minimize the moderate zone, and make your hard sessions count. This protects against overtraining while building serious fitness.
+
+Think of training zones like gears on a bike—nine different effort levels, each with its own purpose. Let me walk you through them.
+
+Recovery, or R, is barely moving. A gentle walk or easy spin. This isn't training at all—it's active restoration, helping your body recover between real sessions.
+
+Z1 and Z2 are your easy gears. You should be able to chat comfortably in paragraphs at Z1, and in full sentences with slight breathlessness at Z2.
+
+[INTERPRETER]
+{"action": "answer_question", "question": "Difference between Z1 and Z2?", "free_text": "Wat is het verschil tussen Zone 1 en Zone 2?"}
+
+JOSI:
+Zone 1 is echt heel rustig — denk aan een wandeling of heel licht joggen. Je ademt nauwelijks sneller dan normaal. Zone 2 is iets steviger — je bent duidelijk aan het bewegen, maar je kunt nog prima een gesprek voeren. Beide bouwen je basis op, maar Z1 is meer voor herstel en Z2 voor uithoudingsvermogen.
+
+---
+
+USER:
+I went all-out on my Z5 intervals and now I feel destroyed. Normal?
+
+CONTEXT:
+- Readiness: Green (Productive)
+- Session: Z5 "5x3min Z5 / 3min Z1"
+- Sport: cycling
+- Level: advanced
+- Phase: build
+
+[KNOWLEDGE]
+
+Indoor training has one nemesis: heat. Without the natural cooling of wind passing over you, your core temperature climbs and power drops. Most cyclists see their indoor FTP run 5 to 10 percent lower than outdoors, even when fitness is identical.
+
+You have two options. First, you can set a separate indoor FTP at about 90 to 95 percent of your outdoor number and train to those zones. This keeps the relative effort honest. Second—and this is what I'd recommend—get serious about cooling.
+
+Think of training zones like gears on a bike—nine different effort levels, each with its own purpose. Let me walk you through them.
+
+Recovery, or R, is barely moving. A gentle walk or easy spin. This isn't training at all—it's active restoration, helping your body recover between real sessions.
+
+Z1 and Z2 are your easy gears. You should be able to chat comfortably in paragraphs at Z1, and in full sentences with slight breathlessness at Z2.
+
+[INTERPRETER]
+{"action": "explain", "question": "Is feeling destroyed after Z5 normal?", "free_text": "I went all-out on my Z5 intervals and now I feel destroyed. Normal?"}
+
+JOSI:
+That's expected after quality Z5 work — those intervals push your oxygen delivery to the limit. The next 24-48 hours are recovery time. Your body is processing that stimulus right now. Eat well, sleep well, and tomorrow should be an easier day. If you still feel wrecked in two days, we'll know you pushed a bit beyond what your body was ready for.
+
+---
+
+USER:
+Why can't I just stay in Zone 4 the whole ride? That's where I improve most.
+
+CONTEXT:
+- Readiness: Green (Recovered)
+- Session: Z2 60min "Continuous Z2 60min"
+- Sport: cycling
+- Level: intermediate
+- Phase: build
+
+[KNOWLEDGE]
+
+Think of training zones like gears on a bike—nine different effort levels, each with its own purpose. Let me walk you through them.
+
+Recovery, or R, is barely moving. A gentle walk or easy spin. This isn't training at all—it's active restoration, helping your body recover between real sessions.
+
+Z1 and Z2 are your easy gears. You should be able to chat comfortably in paragraphs at Z1, and in full sentences with slight breathlessness at Z2.
+
+Indoor training has one nemesis: heat. Without the natural cooling of wind passing over you, your core temperature climbs and power drops. Most cyclists see their indoor FTP run 5 to 10 percent lower than outdoors, even when fitness is identical.
+
+You have two options. First, you can set a separate indoor FTP at about 90 to 95 percent of your outdoor number and train to those zones. This keeps the relative effort honest. Second—and this is what I'd recommend—get serious about cooling.
+
+[INTERPRETER]
+{"action": "explain", "question": "Why not always Zone 4?", "free_text": "Why can't I just stay in Zone 4 the whole ride? That's where I improve most."}
+
+JOSI:
+Zone 4 is powerful but expensive — your body can't recover from it every day. If you went hard every ride, fatigue stacks up and your quality drops. The easy days build your aerobic base AND let your body absorb the hard sessions. It's the combination that works. Going easy today means your next Z4 session will be genuinely better.
+
+---
+
+USER:
+My heart rate was in Z3 during a Z2 run. Did I mess up?
+
+CONTEXT:
+- Readiness: Green (Recovered)
+- Session: Z2 40min "Continuous Z2 40min"
+- Sport: running
+- Level: beginner
+- Phase: base
+
+[KNOWLEDGE]
+
+Think of training zones like gears on a bike—nine different effort levels, each with its own purpose. Let me walk you through them.
+
+Recovery, or R, is barely moving. A gentle walk or easy spin. This isn't training at all—it's active restoration, helping your body recover between real sessions.
+
+Z1 and Z2 are your easy gears. You should be able to chat comfortably in paragraphs at Z1, and in full sentences with slight breathlessness at Z2.
+
+Your training zones are personal—they're based on your physiology, not generic formulas. Two people the same age might have completely different thresholds, which is why personalization matters so much.
+
+The key anchors are LT1 and LT2, your lactate thresholds. LT1 marks where lactate starts rising, the top of your easy zone. LT2 is where lactate rises rapidly, your threshold intensity. For cycling, FTP is your functional threshold power. For running, it's your threshold pace.
+
+Best data wins.
+
+[INTERPRETER]
+{"action": "explain", "question": "HR in Z3 during Z2 run", "free_text": "My heart rate was in Z3 during a Z2 run. Did I mess up?"}
+
+JOSI:
+Not necessarily a problem. Heart rate drifts upward during longer efforts — that's normal, especially in warm weather or if you're slightly dehydrated. If it felt easy and conversational, you were probably fine despite the numbers. Use the talk test as your backup: if you can chat comfortably, you're in the right zone regardless of what your watch says.

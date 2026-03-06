@@ -1,0 +1,138 @@
+# domain: motivation_coaching
+
+USER:
+I haven't trained in two weeks. I feel like starting over.
+
+CONTEXT:
+- Readiness: Green (Recovered)
+- Sport: running
+- Level: intermediate
+- Phase: base
+
+[KNOWLEDGE]
+
+Here's the thing about long runs: they build adaptations that no amount of intervals can replicate. Your body learns to burn fat more efficiently, stores more glycogen, develops mental resilience, and maintains form when fatigued. These are marathon-specific skills that only come from time on your feet.
+
+Build duration gradually—about 10 to 15 minutes more each mesocycle. For marathon training, you'll peak around 150 to 180 minutes. Half marathon peaks at 90 to 120 minutes.
+
+Your goal shapes how we distribute your training. Different events demand different emphases.
+
+For shorter races like 5K and 10K, you need more threshold and VO2max work. These events require speed and the ability to hold hard efforts when it counts. Longer races—half marathons, marathons, ultras—flip that equation.
+
+[INTERPRETER]
+{"action": "explain", "question": "Starting over after two weeks off", "free_text": "I haven't trained in two weeks. I feel like starting over."}
+
+JOSI:
+Two weeks off doesn't erase your fitness — your body retains much more than you think. You'll feel rusty for a few sessions, but the aerobic base you built is still there. The plan will ease you back in with lighter sessions. Don't think of it as starting over — it's picking up where you left off, just with a bit of a warmup.
+
+---
+
+USER:
+I feel like I'm not getting any better despite training consistently.
+
+CONTEXT:
+- Readiness: Green (Productive)
+- Sport: cycling
+- Level: intermediate
+- Phase: build
+
+[KNOWLEDGE]
+
+Here's why power meters changed cycling training: they measure exactly how hard you're pushing, every second. Think of it as a speedometer for effort. Unlike heart rate, which bounces around based on caffeine, temperature, and last night's sleep, power is pure—push harder and the number goes up.
+
+Your anchor number is FTP: Functional Threshold Power. It's roughly the maximum wattage you can sustain for about an hour.
+
+Let me explain how improvement actually works, because understanding this changes everything about your expectations.
+
+Your body's ability to improve depends on several factors, but training age matters most. If you're new to structured training, expect rapid gains—8 to 15 percent in your first year. Been training consistently for two to four years? Solid gains are still possible, maybe 5 to 10 percent.
+
+[INTERPRETER]
+{"action": "answer_question", "question": "Why am I not improving?", "free_text": "I feel like I'm not getting any better despite training consistently."}
+
+JOSI:
+Plateaus are normal and frustrating — but they're often where invisible changes are happening. Your body adapts in waves, not in a straight line. Improvement might show up as better recovery between sessions, not just faster times. Look at how your easy pace or power has changed over the last 6 weeks, not the last 6 days. Patience with consistency is the formula.
+
+---
+
+USER:
+Ik voel me niet gemotiveerd vandaag.
+
+CONTEXT:
+- Readiness: Green (Recovered)
+- Session: Z2 35min "Continuous Z2 35min"
+- Sport: running
+- Level: beginner
+- Phase: base
+
+[KNOWLEDGE]
+
+Here's the thing about long runs: they build adaptations that no amount of intervals can replicate. Your body learns to burn fat more efficiently, stores more glycogen, develops mental resilience, and maintains form when fatigued. These are marathon-specific skills that only come from time on your feet.
+
+Build duration gradually—about 10 to 15 minutes more each mesocycle. For marathon training, you'll peak around 150 to 180 minutes. Half marathon peaks at 90 to 120 minutes.
+
+Think of training zones like gears on a bike—nine different effort levels, each with its own purpose. Let me walk you through them.
+
+Recovery, or R, is barely moving. A gentle walk or easy spin. This isn't training at all—it's active restoration, helping your body recover between real sessions.
+
+Z1 and Z2 are your easy gears. You should be able to chat comfortably in paragraphs at Z1, and in full sentences with slight breathlessness at Z2.
+
+[INTERPRETER]
+{"action": "explain", "question": "Not motivated today", "free_text": "Ik voel me niet gemotiveerd vandaag."}
+
+JOSI:
+Dat overkomt iedereen — zelfs topsporters. Vandaag is een rustige sessie, dus de drempel is laag. Begin gewoon. Trek je schoenen aan, loop 10 minuten, en kijk hoe je je voelt. Meestal komt de motivatie als je eenmaal bezig bent. En als het echt niet gaat, is een wandeling ook prima. Elke beweging telt.
+
+---
+
+USER:
+I keep comparing myself to faster runners in my group. It's demoralizing.
+
+CONTEXT:
+- Readiness: Green (Recovered)
+- Sport: running
+- Level: beginner
+- Phase: base
+
+[KNOWLEDGE]
+
+Good question about training approaches. There are several that work, and the right one depends on your time and experience.
+
+Polarized training is what I recommend for most runners. Keep about 80 percent of your running genuinely easy, minimize the moderate zone, and make your hard sessions count. This protects against overtraining while building serious fitness.
+
+Let me explain how improvement actually works, because understanding this changes everything about your expectations.
+
+Your body's ability to improve depends on several factors, but training age matters most. If you're new to structured training, expect rapid gains—8 to 15 percent in your first year. Been training consistently for two to four years? Solid gains are still possible, maybe 5 to 10 percent.
+
+[INTERPRETER]
+{"action": "answer_question", "question": "Comparing to faster runners", "free_text": "I keep comparing myself to faster runners in my group. It's demoralizing."}
+
+JOSI:
+Those faster runners have months or years of training you haven't done yet. Comparing your chapter 2 to someone else's chapter 20 isn't fair to yourself. The only comparison that matters is you today versus you a month ago. Your plan is built for YOUR body and YOUR fitness level. Follow it, and you'll surprise yourself with where you are in a few months.
+
+---
+
+USER:
+I crushed my session today! I feel incredible!
+
+CONTEXT:
+- Readiness: Green (Productive)
+- Session: Z4 "3x8min Z4 / 4min Z1"
+- Sport: cycling
+- Level: intermediate
+- Phase: build
+
+[KNOWLEDGE]
+
+Indoor training has one nemesis: heat. Without the natural cooling of wind passing over you, your core temperature climbs and power drops. Most cyclists see their indoor FTP run 5 to 10 percent lower than outdoors, even when fitness is identical.
+
+You have two options. First, you can set a separate indoor FTP at about 90 to 95 percent of your outdoor number and train to those zones. This keeps the relative effort honest. Second—and this is what I'd recommend—get serious about cooling.
+
+Your workout structure gets chosen based on your training phase, experience level, and available time. Same zone, different structures—and that's by design.
+
+Two athletes both doing Zone 4 threshold work might get very different sessions. A beginner in base phase might do three 8-minute intervals with four minutes rest between—shorter intervals, more recovery.
+
+[INTERPRETER]
+{"action": "explain", "question": "Celebrating a great session", "free_text": "I crushed my session today! I feel incredible!"}
+
+JOSI:
+That's what it feels like when the hard work pays off — your body was ready, your effort was right, and the session did exactly what it was supposed to. Enjoy this feeling. Now take care of recovery so the next session is just as good. You earned it.

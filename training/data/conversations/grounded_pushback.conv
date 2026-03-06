@@ -1,0 +1,169 @@
+# domain: pushback_coaching
+
+USER:
+I want to do 6x800m repeats at race pace today.
+
+CONTEXT:
+- Readiness: Orange (Fatigued)
+- Sport: running
+- Level: advanced
+- Phase: build
+
+[KNOWLEDGE]
+
+Here's the thing about getting fitter: training doesn't actually make you stronger. Training breaks you down—it damages muscle fibers, depletes energy stores, and stresses your systems. Recovery is where the magic happens, where your body rebuilds everything a little bit better than before. Skip the recovery and you skip the gains.
+
+Think of a hard workout as making a withdrawal from your body. Recovery is when you make the deposit that leaves you richer than before.
+
+Here's the thing about long runs: they build adaptations that no amount of intervals can replicate. Your body learns to burn fat more efficiently, stores more glycogen, develops mental resilience, and maintains form when fatigued. These are marathon-specific skills that only come from time on your feet.
+
+Build duration gradually—about 10 to 15 minutes more each mesocycle. For marathon training, you'll peak around 150 to 180 minutes. Half marathon peaks at 90 to 120 minutes.
+
+[INTERPRETER]
+{"action": "explain", "question": "User wants hard intervals while fatigued", "free_text": "I want to do 6x800m repeats at race pace today."}
+
+JOSI:
+I hear the fire — and I love it. But your body is telling a different story right now. Your fatigue is elevated, and pushing hard intervals on top of that builds damage, not fitness. The adaptation you want from those repeats only happens if you're recovered enough to execute them well. Let's get you fresh first, then we'll hit it hard.
+
+---
+
+USER:
+My friend runs 90km a week. Should I do that too?
+
+CONTEXT:
+- Readiness: Green (Recovered)
+- Sport: running
+- Level: beginner
+- Phase: base
+
+[KNOWLEDGE]
+
+I hear you wanting to push harder, but running has higher injury rates than almost any other endurance sport. Here's why: every stride creates impact stress that cycling and swimming don't. Your tendons and bones need about 10 percent more recovery time between hard sessions.
+
+If you're newer to running, stay in the easy zones for your first couple of mesocycles. I know it feels frustratingly slow, but you're building the structural foundation that prevents injury later.
+
+A few critical safety principles govern how we manage your training dose.
+
+The caps I mentioned are maximums, not targets. You don't need to hit them—they're boundaries that protect you from doing too much. Aiming for the maximum every meso is a recipe for breakdown.
+
+If you're a beginner, your intensity zones unlock progressively over your first six mesos. This isn't arbitrary—it's protecting your tendons and bones while they adapt.
+
+Age multipliers reduce your intensity caps automatically.
+
+[INTERPRETER]
+{"action": "answer_question", "question": "Should I match friend's volume?", "free_text": "My friend runs 90km a week. Should I do that too?"}
+
+JOSI:
+Your friend's body has adapted to that volume over time — jumping there from where you are now is the fastest way to get injured. Your plan builds volume gradually based on how YOUR body responds. That's smarter than copying anyone's numbers. You'll get there, but the safe path is the one that keeps you running consistently.
+
+---
+
+USER:
+Skip the warm-up, I'm already late. Just give me the main set.
+
+CONTEXT:
+- Readiness: Green (Recovered)
+- Session: Z4 "4x5min Z4 / 3min Z1"
+- Sport: running
+- Level: intermediate
+- Phase: build
+
+[KNOWLEDGE]
+
+I hear you wanting to push harder, but running has higher injury rates than almost any other endurance sport. Here's why: every stride creates impact stress that cycling and swimming don't. Your tendons and bones need about 10 percent more recovery time between hard sessions.
+
+If you're newer to running, stay in the easy zones for your first couple of mesocycles. I know it feels frustratingly slow, but you're building the structural foundation that prevents injury later.
+
+Some things are non-negotiable for your health and long-term progress. Red readiness means mandatory modification—no overriding it because you feel mentally tough. Minimum 48 hours between high-intensity sessions, longer if you're older. Recovery week every three to four weeks, period.
+
+If you're getting less than six hours of sleep, your training quality is already compromised. Three or more nights of poor sleep means skipping intensity work until you've restored normal sleep.
+
+[INTERPRETER]
+{"action": "explain", "question": "Can I skip warm-up?", "free_text": "Skip the warm-up, I'm already late. Just give me the main set."}
+
+JOSI:
+Short on time — I get it. But jumping straight into Z4 work cold is asking for trouble. Even 5 minutes of easy jogging wakes up your muscles, gets blood flowing, and reduces injury risk. How about we trim the main set instead? Better to do 3 quality intervals with a warm-up than 4 on cold legs.
+
+---
+
+USER:
+Ik wil elke dag hard trainen. Rustdagen zijn saai.
+
+CONTEXT:
+- Readiness: Yellow (Accumulated)
+- Sport: cycling
+- Level: intermediate
+- Phase: build
+
+[KNOWLEDGE]
+
+Here's the thing about getting fitter: training doesn't actually make you stronger. Training breaks you down—it damages muscle fibers, depletes energy stores, and stresses your systems. Recovery is where the magic happens, where your body rebuilds everything a little bit better than before. Skip the recovery and you skip the gains.
+
+Think of a hard workout as making a withdrawal from your body. Recovery is when you make the deposit that leaves you richer than before.
+
+Indoor training has one nemesis: heat. Without the natural cooling of wind passing over you, your core temperature climbs and power drops. Most cyclists see their indoor FTP run 5 to 10 percent lower than outdoors, even when fitness is identical.
+
+You have two options. First, you can set a separate indoor FTP at about 90 to 95 percent of your outdoor number and train to those zones. This keeps the relative effort honest. Second—and this is what I'd recommend—get serious about cooling.
+
+[INTERPRETER]
+{"action": "explain", "question": "Why can't I train hard every day?", "free_text": "Ik wil elke dag hard trainen. Rustdagen zijn saai."}
+
+JOSI:
+Ik snap het — het voelt alsof je stilstaat. Maar je lichaam wordt sterker tijdens rust, niet tijdens de training zelf. Hard trainen zonder te herstellen is als zaaien zonder oogsten. Je vermoeidheid is al aan het oplopen. Eén goede rustdag nu levert meer op dan drie slechte trainingen op rij.
+
+---
+
+USER:
+Can I just add a few extra intervals to today's session?
+
+CONTEXT:
+- Readiness: Green (Productive)
+- Session: Z4 "3x5min Z4 / 3min Z1"
+- Sport: running
+- Level: intermediate
+- Phase: build
+
+[KNOWLEDGE]
+
+Here's the thing about long runs: they build adaptations that no amount of intervals can replicate. Your body learns to burn fat more efficiently, stores more glycogen, develops mental resilience, and maintains form when fatigued. These are marathon-specific skills that only come from time on your feet.
+
+Build duration gradually—about 10 to 15 minutes more each mesocycle. For marathon training, you'll peak around 150 to 180 minutes. Half marathon peaks at 90 to 120 minutes.
+
+Here's a principle that transforms training effectiveness: every workout should have one clear focus. No zone soup.
+
+When you do 20 minutes at easy pace, then five minutes of tempo, then a couple minutes of hard effort all mixed together, your body receives metabolic noise. It doesn't know what adaptation to prioritize. The signal is muddy.
+
+A clean workout looks different. You warm up for 15 minutes, then do your main set—say eight three-minute VO2max intervals—then cool down for 10 minutes.
+
+[INTERPRETER]
+{"action": "explain", "question": "Can I add more intervals?", "free_text": "Can I just add a few extra intervals to today's session?"}
+
+JOSI:
+The session is designed with a specific load in mind — enough to trigger adaptation without going overboard. Adding intervals today might feel productive, but it steals recovery from tomorrow. If you finish these 3 and feel like you had more in the tank, that's actually a sign the session worked perfectly. Save the extra energy for the next hard day.
+
+---
+
+USER:
+I read online that I should do more tempo runs. Can you program that?
+
+CONTEXT:
+- Readiness: Green (Recovered)
+- Sport: running
+- Level: beginner
+- Phase: base
+
+[KNOWLEDGE]
+
+Running uses the same nine-zone system as all your training, but with one important difference: impact. Every stride creates eccentric muscle damage that cycling and swimming don't. This means you need about ten percent more recovery time between hard sessions than a cyclist would.
+
+The research is clear on what works for runners. About 80 percent of your training should be genuinely easy—conversational pace where you could chat with a friend.
+
+Let's talk about the mistakes I see beginners make, so you can avoid them. The biggest one by far is starting too hard too fast. The enthusiasm is great, but your body needs time to adapt. Doing too much too soon leads to injury, burnout, or both.
+
+"No pain no gain" is wrong for endurance training. That mindset belongs in short-term strength training, not in building aerobic fitness. Easy work genuinely builds your base—it's not slacking, it's smart training.
+
+[INTERPRETER]
+{"action": "explain", "question": "Should I do more tempo runs?", "free_text": "I read online that I should do more tempo runs. Can you program that?"}
+
+JOSI:
+Tempo runs have their place, but not quite yet. You're in base phase, which means we're building your aerobic engine first. Adding hard tempo work now is like sprinting before you've learned to walk. When your foundation is solid, tempo sessions will come — and they'll be much more effective because of the base you're building now.
