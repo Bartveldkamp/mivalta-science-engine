@@ -64,7 +64,7 @@ Usage:
     python finetune_qwen3.py train --mode unified --model-size 4b
 
     # Merge LoRA weights into base model
-    python finetune_qwen3.py merge --lora_path ./models/josi-v6-qwen3-8b-unified-*/lora_weights
+    python finetune_qwen3.py merge --lora_path ./models/josi-v7-qwen3-8b-unified-*/lora_weights
 
     # Sanity check both modes
     python finetune_qwen3.py sanity --model_path ./models/.../merged --mode interpreter
@@ -546,7 +546,7 @@ def train(
     if output_dir is None:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         size_tag = model_size or MODEL_SIZE
-        output_dir = f"./models/josi-v6-qwen3-{size_tag}-{mode}-{timestamp}"
+        output_dir = f"./models/josi-v7-qwen3-{size_tag}-{mode}-{timestamp}"
 
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
@@ -556,7 +556,7 @@ def train(
 
     # Save training config
     run_config = {
-        "version": "v6",
+        "version": "v7",
         "model_id": cfg["model_id"],
         "model_family": f"Qwen3-{cfg['params']}",
         "model_size": model_size or MODEL_SIZE,
@@ -596,8 +596,8 @@ def train(
             import wandb
             size_tag = model_size or MODEL_SIZE
             wandb.init(
-                project="mivalta-josi-v6",
-                name=f"josi-v6-qwen3-{size_tag}-{mode}-{datetime.now().strftime('%m%d_%H%M')}",
+                project="mivalta-josi-v7",
+                name=f"josi-v7-qwen3-{size_tag}-{mode}-{datetime.now().strftime('%m%d_%H%M')}",
                 config=run_config,
             )
             report_to = "wandb"

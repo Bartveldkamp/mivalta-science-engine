@@ -1,0 +1,289 @@
+# domain: engine_decisions
+
+USER:
+I wanted to do Z5 intervals but the plan says Z4. Why?
+
+CONTEXT:
+- Readiness: Yellow (Accumulated)
+- Readiness confidence: 87%
+- Data tier: Good
+- Max zone allowed: Z4
+- Zone cap reason: accumulated fatigue — Z5+ blocked
+- Session: Z4 "3x6min Z4 / 3min Z1"
+- Zone load factor: 2.0
+- Sport: running
+- Level: advanced
+- Phase: build
+- Meso position: overload
+- Meso day: 10
+- Weekly load: 82% of target
+
+[KNOWLEDGE]
+
+Here's the thing about long runs: they build adaptations that no amount of intervals can replicate. Your body learns to burn fat more efficiently, stores more glycogen, develops mental resilience, and maintains form when fatigued. These are marathon-specific skills that only come from time on your feet.
+
+Build duration gradually—about 10 to 15 minutes more each mesocycle. For marathon training, you'll peak around 150 to 180 minutes. Half marathon peaks at 90 to 120 minutes.
+
+Think of training zones like gears on a bike—nine different effort levels, each with its own purpose. Let me walk you through them.
+
+Recovery, or R, is barely moving. A gentle walk or easy spin. This isn't training at all—it's active restoration, helping your body recover between real sessions.
+
+Z1 and Z2 are your easy gears. You should be able to chat comfortably in paragraphs at Z1, and in full sentences with slight breathlessness at Z2.
+
+[INTERPRETER]
+{"action": "explain", "question": "Why Z4 instead of Z5?", "free_text": "I wanted to do Z5 intervals but the plan says Z4. Why?"}
+
+JOSI:
+Your readiness shows accumulated fatigue — with 87% confidence. That means Z5 and above are capped right now to protect you from overtraining. Z4 still gives you a strong stimulus at a 2.0 load factor, but without the risk of digging into a hole you can't recover from. You're already at 82% of your weekly load in an overload block. Z4 today is the smart play — you'll get your Z5 sessions back when your body has caught up.
+
+---
+
+USER:
+Why is everything capped at Z2 today? I'm not injured.
+
+CONTEXT:
+- Readiness: Red (Overreached)
+- Readiness confidence: 94%
+- Data tier: Standard
+- Max zone allowed: Z2
+- Zone cap reason: overreached — recovery mode, all intensity blocked
+- Session: Z2 45min "Continuous Z2 45min"
+- Zone load factor: 1.0
+- Sport: cycling
+- Level: intermediate
+- Phase: build
+- Meso position: overload
+- Meso day: 11
+- Weekly load: 93% of target
+
+[KNOWLEDGE]
+
+Here's the thing about getting fitter: training doesn't actually make you stronger. Training breaks you down—it damages muscle fibers, depletes energy stores, and stresses your systems. Recovery is where the magic happens, where your body rebuilds everything a little bit better than before. Skip the recovery and you skip the gains.
+
+Think of a hard workout as making a withdrawal from your body. Recovery is when you make the deposit that leaves you richer than before.
+
+Indoor training has one nemesis: heat. Without the natural cooling of wind passing over you, your core temperature climbs and power drops. Most cyclists see their indoor FTP run 5 to 10 percent lower than outdoors, even when fitness is identical.
+
+You have two options. First, you can set a separate indoor FTP at about 90 to 95 percent of your outdoor number and train to those zones. This keeps the relative effort honest. Second—and this is what I'd recommend—get serious about cooling.
+
+[INTERPRETER]
+{"action": "explain", "question": "Why capped at Z2?", "free_text": "Why is everything capped at Z2 today? I'm not injured."}
+
+JOSI:
+You don't need to be injured for your body to need a break. Your readiness is red with 94% confidence — that's a strong signal you've accumulated too much fatigue. You're at 93% of your weekly target already, in an overload block. Your body is saying: enough. Z2 keeps you moving while everything above it is blocked until you recover. This isn't punishment — it's protection. A day or two at this pace and you'll be back to pushing hard.
+
+---
+
+USER:
+Waarom mag ik vandaag geen intervallen doen?
+
+CONTEXT:
+- Readiness: Orange (Fatigued)
+- Readiness confidence: 79%
+- Data tier: Basic
+- Max zone allowed: Z3
+- Zone cap reason: fatigue — high intensity suppressed
+- Session: Z2 40min "Continuous Z2 40min"
+- Zone load factor: 1.0
+- Sport: running
+- Level: intermediate
+- Phase: build
+- Meso position: ramp_in
+- Meso day: 3
+- Weekly load: 45% of target
+
+[KNOWLEDGE]
+
+Here's the thing about getting fitter: training doesn't actually make you stronger. Training breaks you down—it damages muscle fibers, depletes energy stores, and stresses your systems. Recovery is where the magic happens, where your body rebuilds everything a little bit better than before. Skip the recovery and you skip the gains.
+
+Think of a hard workout as making a withdrawal from your body. Recovery is when you make the deposit that leaves you richer than before.
+
+Here's the thing about long runs: they build adaptations that no amount of intervals can replicate. Your body learns to burn fat more efficiently, stores more glycogen, develops mental resilience, and maintains form when fatigued. These are marathon-specific skills that only come from time on your feet.
+
+Build duration gradually—about 10 to 15 minutes more each mesocycle. For marathon training, you'll peak around 150 to 180 minutes. Half marathon peaks at 90 to 120 minutes.
+
+[INTERPRETER]
+{"action": "explain", "question": "Why no intervals today?", "free_text": "Waarom mag ik vandaag geen intervallen doen?"}
+
+JOSI:
+Je lichaam laat zien dat je vermoeid bent — je maximale zone is nu Z3, dus intensieve intervallen zijn geblokkeerd. Dat is geen straf, maar bescherming. Je bent pas op dag 3 van je huidige blok, dus er is nog genoeg tijd voor harde sessies als je hersteld bent. Vandaag houden we het rustig zodat je later deze week echt kwaliteit kunt leveren.
+
+---
+
+USER:
+How reliable is my readiness score? I only have a basic watch.
+
+CONTEXT:
+- Readiness: Yellow (Accumulated)
+- Readiness confidence: 62%
+- Data tier: Minimal
+- Max zone allowed: Z4
+- Zone cap reason: accumulated fatigue — limited data confidence
+- Sport: running
+- Level: beginner
+- Phase: base
+
+[KNOWLEDGE]
+
+Good question about training approaches. There are several that work, and the right one depends on your time and experience.
+
+Polarized training is what I recommend for most runners. Keep about 80 percent of your running genuinely easy, minimize the moderate zone, and make your hard sessions count. This protects against overtraining while building serious fitness.
+
+Here's something that surprises many athletes: even your easy zones have limits. More isn't always better—there's an optimal dose for everything.
+
+Recovery zone has a range of 60 to 240 minutes per meso. Any less and you're not getting enough active restoration; any more and you're probably avoiding real training.
+
+Z1 easy work ranges from 180 to 1800 minutes per meso.
+
+[INTERPRETER]
+{"action": "answer_question", "question": "How reliable is readiness?", "free_text": "How reliable is my readiness score? I only have a basic watch."}
+
+JOSI:
+With minimal data, your readiness confidence is at 62% — it's a reasonable estimate but not as precise as it could be. The more data you provide — sleep, heart rate, how sessions feel — the more accurate it gets. Right now we're being slightly cautious with your training because of the lower confidence. As more data comes in over the next weeks, the system learns your patterns better.
+
+---
+
+USER:
+My readiness jumped from green to yellow overnight. What happened?
+
+CONTEXT:
+- Readiness: Yellow (Accumulated)
+- Readiness confidence: 83%
+- Data tier: Good
+- Max zone allowed: Z4
+- Zone cap reason: accumulated fatigue — sleep quality drop detected
+- Session: Z3 "2x12min Z3 / 4min Z1"
+- Zone load factor: 1.5
+- Sport: cycling
+- Level: advanced
+- Phase: build
+- Meso position: overload
+- Meso day: 9
+- Weekly load: 76% of target
+
+[KNOWLEDGE]
+
+Here's the thing about getting fitter: training doesn't actually make you stronger. Training breaks you down—it damages muscle fibers, depletes energy stores, and stresses your systems. Recovery is where the magic happens, where your body rebuilds everything a little bit better than before. Skip the recovery and you skip the gains.
+
+Think of a hard workout as making a withdrawal from your body. Recovery is when you make the deposit that leaves you richer than before.
+
+Indoor training has one nemesis: heat. Without the natural cooling of wind passing over you, your core temperature climbs and power drops. Most cyclists see their indoor FTP run 5 to 10 percent lower than outdoors, even when fitness is identical.
+
+You have two options. First, you can set a separate indoor FTP at about 90 to 95 percent of your outdoor number and train to those zones. This keeps the relative effort honest. Second—and this is what I'd recommend—get serious about cooling.
+
+[INTERPRETER]
+{"action": "explain", "question": "Why did readiness drop overnight?", "free_text": "My readiness jumped from green to yellow overnight. What happened?"}
+
+JOSI:
+Readiness looks at the full picture — not just one night. You're in day 9 of an overload block at 76% weekly load, so fatigue has been building. One poor night of sleep or extra life stress can tip the balance. The system detected the shift with 83% confidence. Your max zone dropped to Z4, but you're still cleared for Z3 work today. Focus on recovery tonight and you'll likely bounce back.
+
+---
+
+USER:
+What does 'overload week' mean for my training this week?
+
+CONTEXT:
+- Readiness: Green (Productive)
+- Readiness confidence: 90%
+- Data tier: Standard
+- Max zone allowed: Z6
+- Session: Z4 "4x5min Z4 / 3min Z1"
+- Zone load factor: 2.0
+- Sport: running
+- Level: intermediate
+- Phase: build
+- Meso position: overload
+- Meso day: 8
+- Weekly load: 55% of target
+
+[KNOWLEDGE]
+
+Training isn't random—it's organized into phases, each building on the last toward your goal. Let me explain how this works.
+
+Base phase builds your aerobic foundation. Most of your training stays easy—over 78 percent in the lower zones. This might feel slow, but it's where endurance is actually built. The adaptations happening in your mitochondria, capillaries, and connective tissue take time and easy effort.
+
+Build phase adds race-specific work. More threshold training, more VO2max intervals.
+
+Here's the thing about long runs: they build adaptations that no amount of intervals can replicate. Your body learns to burn fat more efficiently, stores more glycogen, develops mental resilience, and maintains form when fatigued. These are marathon-specific skills that only come from time on your feet.
+
+Build duration gradually—about 10 to 15 minutes more each mesocycle. For marathon training, you'll peak around 150 to 180 minutes. Half marathon peaks at 90 to 120 minutes.
+
+[INTERPRETER]
+{"action": "explain", "question": "What does overload week mean?", "free_text": "What does 'overload week' mean for my training this week?"}
+
+JOSI:
+Overload week is the peak of your current training block — this is when we deliberately push harder. Your readiness is green and you're cleared up to Z6, so your body is ready for it. You're at 55% of the weekly target with the harder sessions still to come. Expect to feel tired by the end of the week — that's the point. Deload follows right after, giving your body time to absorb all this work and come back stronger.
+
+---
+
+USER:
+Why am I doing such light training in peak phase? Shouldn't peak be the hardest?
+
+CONTEXT:
+- Readiness: Green (Recovered)
+- Readiness confidence: 91%
+- Data tier: Good
+- Max zone allowed: Z6
+- Session: Z2 50min "Continuous Z2 50min"
+- Zone load factor: 1.0
+- Sport: cycling
+- Level: advanced
+- Phase: peak
+- Meso position: deload
+- Meso day: 2
+- Weekly load: 20% of target
+
+[KNOWLEDGE]
+
+Training isn't random—it's organized into phases, each building on the last toward your goal. Let me explain how this works.
+
+Base phase builds your aerobic foundation. Most of your training stays easy—over 78 percent in the lower zones. This might feel slow, but it's where endurance is actually built. The adaptations happening in your mitochondria, capillaries, and connective tissue take time and easy effort.
+
+Build phase adds race-specific work. More threshold training, more VO2max intervals.
+
+Indoor training has one nemesis: heat. Without the natural cooling of wind passing over you, your core temperature climbs and power drops. Most cyclists see their indoor FTP run 5 to 10 percent lower than outdoors, even when fitness is identical.
+
+You have two options. First, you can set a separate indoor FTP at about 90 to 95 percent of your outdoor number and train to those zones. This keeps the relative effort honest. Second—and this is what I'd recommend—get serious about cooling.
+
+[INTERPRETER]
+{"action": "explain", "question": "Why light training in peak phase?", "free_text": "Why am I doing such light training in peak phase? Shouldn't peak be the hardest?"}
+
+JOSI:
+Peak phase isn't about volume — it's about sharpening. You're in a deload block right now, only at 20% of weekly target. This is deliberate: we drop the volume to let your body fully absorb the hard training from the build phase. You'll still hit some sharp, short efforts later this week to stay sharp. But the heavy lifting is done. Your fitness is in the bank — now we're letting you access it.
+
+---
+
+USER:
+My Z4 session shows a load factor of 2.0. What does that mean?
+
+CONTEXT:
+- Readiness: Green (Productive)
+- Readiness confidence: 88%
+- Data tier: Standard
+- Max zone allowed: Z6
+- Session: Z4 "3x6min Z4 / 3min Z1"
+- Zone load factor: 2.0
+- Sport: running
+- Level: intermediate
+- Phase: build
+- Meso position: overload
+- Meso day: 7
+- Weekly load: 60% of target
+
+[KNOWLEDGE]
+
+Here's the thing about long runs: they build adaptations that no amount of intervals can replicate. Your body learns to burn fat more efficiently, stores more glycogen, develops mental resilience, and maintains form when fatigued. These are marathon-specific skills that only come from time on your feet.
+
+Build duration gradually—about 10 to 15 minutes more each mesocycle. For marathon training, you'll peak around 150 to 180 minutes. Half marathon peaks at 90 to 120 minutes.
+
+Think of training zones like gears on a bike—nine different effort levels, each with its own purpose. Let me walk you through them.
+
+Recovery, or R, is barely moving. A gentle walk or easy spin. This isn't training at all—it's active restoration, helping your body recover between real sessions.
+
+Z1 and Z2 are your easy gears. You should be able to chat comfortably in paragraphs at Z1, and in full sentences with slight breathlessness at Z2.
+
+[INTERPRETER]
+{"action": "explain", "question": "What does load factor 2.0 mean?", "free_text": "My Z4 session shows a load factor of 2.0. What does that mean?"}
+
+JOSI:
+Load factor tells you how hard a session counts relative to easy running. Z2 is the baseline at 1.0. Your Z4 session at 2.0 means it counts as twice the training stress of the same time in Z2. So 30 minutes of Z4 work loads your body like 60 minutes of easy running. That's why you don't do Z4 every day — and why recovery after today matters.

@@ -5,10 +5,18 @@ Why is today just an easy run? I feel amazing!
 
 CONTEXT:
 - Readiness: Yellow (Accumulated)
+- Readiness confidence: 82%
+- Data tier: Standard
+- Max zone allowed: Z4
+- Zone cap reason: accumulated fatigue — intensity suppressed
 - Session: Z2 50min "Continuous Z2 50min"
+- Zone load factor: 1.0
 - Sport: running
 - Level: intermediate
 - Phase: build
+- Meso position: overload
+- Meso day: 5
+- Weekly load: 78% of target
 
 [KNOWLEDGE]
 
@@ -26,7 +34,7 @@ Z1 and Z2 are your easy gears. You should be able to chat comfortably in paragra
 {"action": "explain", "question": "Why is today an easy session?", "free_text": "Why is today just an easy run? I feel amazing!"}
 
 JOSI:
-I love that you're feeling strong! But your body is carrying some fatigue from this week's harder sessions — even when your legs feel fresh, your deeper systems are still catching up. Today's easy run keeps blood flowing to help absorb that work. You'll feel the difference when we push harder later this week.
+I love that you're feeling strong! But your body is carrying some fatigue from this week's harder sessions — your readiness data confirms it with 82% confidence, even when your legs feel fresh. Today's easy run keeps blood flowing to help absorb that work. You're at 78% of your weekly load target, so there's still room for harder efforts later this week.
 
 ---
 
@@ -35,10 +43,17 @@ Why do I have intervals today? I'm still sore from yesterday.
 
 CONTEXT:
 - Readiness: Green (Productive)
+- Readiness confidence: 91%
+- Data tier: Good
+- Max zone allowed: Z6
 - Session: Z4 "4x4min Z4 / 3min Z1" (build phase)
+- Zone load factor: 2.0
 - Sport: running
 - Level: intermediate
 - Phase: build
+- Meso position: overload
+- Meso day: 8
+- Weekly load: 65% of target
 
 [KNOWLEDGE]
 
@@ -56,7 +71,7 @@ Build duration gradually—about 10 to 15 minutes more each mesocycle. For marat
 {"action": "explain", "question": "Why intervals when still sore?", "free_text": "Why do I have intervals today? I'm still sore from yesterday."}
 
 JOSI:
-I hear you — soreness can feel like a red flag. But your readiness signals are green, which means your body has recovered enough for quality work. Some muscle soreness doesn't mean your energy systems aren't ready. These Z4 intervals build your threshold — the pace you can hold for longer efforts. Warm up well, and if something feels genuinely wrong during the intervals, ease off.
+I hear you — soreness can feel like a red flag. But your readiness is solidly green, which means your body has recovered enough for quality work. Some muscle soreness doesn't mean your energy systems aren't ready. These Z4 intervals build your threshold — the pace you can hold for longer efforts. You're in the overload block of your build phase, so this is exactly when we push. Warm up well, and if something feels genuinely wrong during the intervals, ease off.
 
 ---
 
